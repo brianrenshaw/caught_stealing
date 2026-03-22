@@ -1,0 +1,257 @@
+{% extends "base.html" %}
+
+{% block title %}Projections — Fantasy Baseball{% endblock %}
+{% block nav_projections %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold">Projections</h2>
+    <div class="flex items-center gap-4">
+        {% if available_seasons %}
+        <select onchange="window.location.href='/projections?player_type={{ selected_type }}&season=' + this.value"
+                class="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none">
+            {% for yr in available_seasons %}
+            <option value="{{ yr }}" {% if yr == selected_season %}selected{% endif %}>{{ yr }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+        <div class="flex gap-2">
+            <a href="/projections?player_type=hitter&season={{ selected_season }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                      {% if selected_type == 'hitter' %}bg-blue-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                Hitters
+            </a>
+            <a href="/projections?player_type=pitcher&season={{ selected_season }}"
+               class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
+                      {% if selected_type == 'pitcher' %}bg-blue-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                Pitchers
+            </a>
+        </div>
+    </div>
+</div>
+
+{% if selected_type == 'hitter' or selected_type == 'all' %}
+<!-- Position filter -->
+<div class="flex gap-2 mb-4 flex-wrap">
+    <a href="/projections?player_type=hitter&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">All</a>
+    {% for pos in ['C', '1B', '2B', '3B', 'SS', 'OF', 'DH'] %}
+    <a href="/projections?player_type=hitter&position={{ pos }}&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == pos %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">{{ pos }}</a>
+    {% endfor %}
+</div>
+
+<!-- Hitter Projections Table -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if hitter_projs %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3">#</th>
+                    <th class="text-left py-2 px-3">Player</th>
+                    <th class="text-left py-2 px-1">Pos</th>
+                    <th class="text-right py-2 px-3">HR</th>
+                    <th class="text-right py-2 px-3">R</th>
+                    <th class="text-right py-2 px-3">RBI</th>
+                    <th class="text-right py-2 px-3">SB</th>
+                    <th class="text-right py-2 px-3">AVG</th>
+                    <th class="text-right py-2 px-3">OPS</th>
+                    <th class="text-center py-2 px-3">Signal</th>
+                    <th class="text-right py-2 px-3">xwOBA &Delta;</th>
+                    <th class="text-right py-2 px-3">Conf</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proj in hitter_projs %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(proj.player_id, proj.player_name, proj.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ proj.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_hr) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_r) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_rbi) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_sb) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.3f"|format(proj.projected_avg) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.3f"|format(proj.projected_ops) }}</td>
+                    <td class="py-2 px-3 text-center">
+                        {% if proj.buy_low_signal %}
+                        <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY</span>
+                        {% elif proj.sell_high_signal %}
+                        <span class="text-red-400 text-xs font-medium bg-red-900/30 px-1.5 py-0.5 rounded">SELL</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-right {% if proj.xwoba_delta > 0 %}text-green-400{% elif proj.xwoba_delta < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                        {{ "%+.3f"|format(proj.xwoba_delta) }}
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                        <div class="w-12 bg-gray-700 rounded-full h-1.5">
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ (proj.confidence_score * 100)|int }}%"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <p class="text-gray-400">No hitter projections available for {{ selected_season }}.</p>
+        <p class="text-gray-500 text-sm mt-2">
+            {% if available_seasons %}
+                Try selecting a different season, or run the stats sync to populate data.
+            {% else %}
+                Run the stats sync first to populate data.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if selected_type == 'pitcher' or selected_type == 'all' %}
+<!-- Pitcher position filter -->
+<div class="flex gap-2 mb-4 flex-wrap {% if selected_type == 'all' %}mt-8{% endif %}">
+    <a href="/projections?player_type=pitcher&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">All</a>
+    <a href="/projections?player_type=pitcher&position=SP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'SP' %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">SP</a>
+    <a href="/projections?player_type=pitcher&position=RP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'RP' %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">RP</a>
+</div>
+
+<!-- Pitcher Projections Table -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if pitcher_projs %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3">#</th>
+                    <th class="text-left py-2 px-3">Player</th>
+                    <th class="text-left py-2 px-1">Pos</th>
+                    <th class="text-right py-2 px-3">W</th>
+                    <th class="text-right py-2 px-3">SV</th>
+                    <th class="text-right py-2 px-3">K</th>
+                    <th class="text-right py-2 px-3">ERA</th>
+                    <th class="text-right py-2 px-3">WHIP</th>
+                    <th class="text-center py-2 px-3">Signal</th>
+                    <th class="text-right py-2 px-3">Conf</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for proj in pitcher_projs %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(proj.player_id, proj.player_name, proj.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ proj.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_w) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_sv) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_k) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(proj.projected_era) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(proj.projected_whip) }}</td>
+                    <td class="py-2 px-3 text-center">
+                        {% if proj.buy_low_signal %}
+                        <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY</span>
+                        {% elif proj.sell_high_signal %}
+                        <span class="text-red-400 text-xs font-medium bg-red-900/30 px-1.5 py-0.5 rounded">SELL</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                        <div class="w-12 bg-gray-700 rounded-full h-1.5">
+                            <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ (proj.confidence_score * 100)|int }}%"></div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <p class="text-gray-400">No pitcher projections available for {{ selected_season }}.</p>
+        <p class="text-gray-500 text-sm mt-2">
+            {% if available_seasons %}
+                Try selecting a different season, or run the stats sync to populate data.
+            {% else %}
+                Run the stats sync first to populate data.
+            {% endif %}
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{# ── Buy-Low / Sell-High Signals ── #}
+{% if buy_low or sell_high %}
+<div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {% if buy_low %}
+    <div class="bg-gray-800 rounded-lg border border-emerald-700/30 overflow-hidden">
+        <div class="px-4 py-3 bg-emerald-900/20 border-b border-emerald-700/30">
+            <h3 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Buy Low Candidates</h3>
+            <p class="text-xs text-gray-500 mt-1">Expected performance exceeds actual — likely to improve</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="text-left py-2 px-3">Player</th>
+                        <th class="text-right py-2 px-3">wOBA</th>
+                        <th class="text-right py-2 px-3">xwOBA</th>
+                        <th class="text-right py-2 px-3">Gap</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in buy_low %}
+                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        <td class="py-2 px-3">
+                            <a href="/player/{{ c.player_id }}" class="text-blue-400 hover:text-blue-300">{{ c.name }}</a>
+                            <span class="text-gray-500 text-xs ml-1">{{ c.team }}</span>
+                        </td>
+                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.actual_woba) }}</td>
+                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.xwoba) }}</td>
+                        <td class="text-right py-2 px-3 text-emerald-400 font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if sell_high %}
+    <div class="bg-gray-800 rounded-lg border border-red-700/30 overflow-hidden">
+        <div class="px-4 py-3 bg-red-900/20 border-b border-red-700/30">
+            <h3 class="text-sm font-semibold text-red-400 uppercase tracking-wider">Sell High Candidates</h3>
+            <p class="text-xs text-gray-500 mt-1">Actual performance exceeds expected — likely to regress</p>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="text-left py-2 px-3">Player</th>
+                        <th class="text-right py-2 px-3">wOBA</th>
+                        <th class="text-right py-2 px-3">xwOBA</th>
+                        <th class="text-right py-2 px-3">Gap</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in sell_high %}
+                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        <td class="py-2 px-3">
+                            <a href="/player/{{ c.player_id }}" class="text-blue-400 hover:text-blue-300">{{ c.name }}</a>
+                            <span class="text-gray-500 text-xs ml-1">{{ c.team }}</span>
+                        </td>
+                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.actual_woba) }}</td>
+                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.xwoba) }}</td>
+                        <td class="text-right py-2 px-3 text-red-400 font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

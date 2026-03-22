@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — Fantasy Baseball{% endblock %}
+{% block nav_dashboard %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-4">
+        <h2 class="text-2xl font-bold">Dashboard</h2>
+        {% if available_seasons %}
+        <select onchange="window.location.href='/?season=' + this.value"
+                class="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none">
+            {% for yr in available_seasons %}
+            <option value="{{ yr }}" {% if yr == selected_season %}selected{% endif %}>{{ yr }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-3">
+        {% if not setup_needed %}
+        <button hx-post="/api/sync"
+                hx-target="#sync-result"
+                hx-indicator="#sync-spinner"
+                hx-disabled-elt="this"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+            Sync Yahoo
+        </button>
+        {% endif %}
+        <div class="relative" id="sync-stats-group">
+            <button hx-post="/api/sync/stats"
+                    hx-target="#sync-result"
+                    hx-indicator="#sync-spinner"
+                    hx-disabled-elt="this"
+                    hx-swap="innerHTML"
+                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+                Sync Stats
+            </button>
+            <button onclick="document.getElementById('season-picker').classList.toggle('hidden')"
+                    type="button"
+                    class="bg-green-700 hover:bg-green-800 text-white px-2 py-2 rounded-lg text-sm font-medium transition-colors ml-0.5"
+                    title="Sync multiple seasons">
+                &#9662;
+            </button>
+            <!-- Multi-season picker dropdown -->
+            <div id="season-picker" class="hidden absolute right-0 top-full mt-1 bg-gray-800 border border-gray-600 rounded-lg shadow-xl z-30 p-3 w-56">
+                <p class="text-xs text-gray-400 mb-2 font-medium">Select seasons to sync:</p>
+                <form hx-post="/api/sync/stats/multi"
+                      hx-target="#sync-result"
+                      hx-indicator="#sync-spinner"
+                      hx-swap="innerHTML"
+                      hx-disabled-elt="find button[type=submit]">
+                    <div class="space-y-1 max-h-48 overflow-y-auto">
+                        {% for yr in range(2025, 2014, -1) %}
+                        <label class="flex items-center gap-2 text-sm text-gray-300 hover:text-white cursor-pointer py-0.5">
+                            <input type="checkbox" name="seasons" value="{{ yr }}"
+                                   {% if yr == selected_season %}checked{% endif %}
+                                   class="rounded bg-gray-700 border-gray-600 text-green-500 focus:ring-green-500 focus:ring-offset-0">
+                            {{ yr }}
+                        </label>
+                        {% endfor %}
+                    </div>
+                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-gray-700">
+                        <button type="button" onclick="toggleAllSeasons(this)" class="text-xs text-gray-400 hover:text-white">Select all</button>
+                        <button type="submit"
+                                onclick="document.getElementById('season-picker').classList.add('hidden')"
+                                class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                            Sync Selected
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <span id="sync-spinner" class="htmx-indicator text-gray-400 text-sm">Syncing...</span>
+    </div>
+</div>
+
+<div id="sync-result"></div>
+
+<!-- Stats summary bar -->
+{% if stats_summary.batters > 0 %}
+<div class="flex gap-4 mb-6 text-sm">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 flex items-center gap-2">
+        <span class="text-gray-400">Season:</span>
+        <span class="text-white font-semibold">{{ selected_season }}</span>
+    </div>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 flex items-center gap-2">
+        <span class="text-gray-400">Batters:</span>
+        <span class="text-blue-400 font-semibold">{{ stats_summary.batters }}</span>
+    </div>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 flex items-center gap-2">
+        <span class="text-gray-400">Pitchers:</span>
+        <span class="text-green-400 font-semibold">{{ stats_summary.pitchers }}</span>
+    </div>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 flex items-center gap-2">
+        <span class="text-gray-400">Statcast:</span>
+        <span class="text-purple-400 font-semibold">{{ stats_summary.statcast }}</span>
+    </div>
+    {% if last_sync %}
+    <div class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 flex items-center gap-2">
+        <span class="text-gray-400">Last sync:</span>
+        <span class="text-gray-300">{{ last_sync }}</span>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if setup_needed and not available_seasons %}
+<!-- Setup Guide -->
+<div class="bg-gray-800 rounded-lg border border-yellow-700 p-6">
+    <h3 class="text-lg font-semibold mb-3 text-yellow-300">Getting Started</h3>
+    <p class="text-gray-300 text-sm mb-4">Click <strong class="text-green-400">Sync Stats</strong> above to pull FanGraphs and Statcast data (no Yahoo setup needed).</p>
+    <p class="text-gray-300 text-sm mb-4">To connect your Yahoo Fantasy league, follow these steps:</p>
+    <ol class="list-decimal list-inside space-y-2 text-gray-400 text-sm">
+        <li>Register at <a href="https://developer.yahoo.com/apps/create/" class="text-blue-400 hover:text-blue-300" target="_blank">developer.yahoo.com/apps/create/</a></li>
+        <li>Set app type to <strong class="text-gray-300">Installed Application</strong></li>
+        <li>Check <strong class="text-gray-300">Fantasy Sports</strong> under API Permissions</li>
+        <li>Copy Client ID and Client Secret to your <code class="text-gray-300 bg-gray-700 px-1 rounded">.env</code> file</li>
+        <li>Add your <code class="text-gray-300 bg-gray-700 px-1 rounded">YAHOO_LEAGUE_ID</code> (from your league URL)</li>
+        <li>Restart the server</li>
+    </ol>
+</div>
+{% endif %}
+
+{% if not setup_needed %}
+<!-- League Cards Row -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+    <!-- League Standings -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <h3 class="text-lg font-semibold mb-3 text-gray-200">League Standings</h3>
+        {% if standings %}
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-2 w-8">#</th>
+                    <th class="text-left py-2">Team</th>
+                    <th class="text-right py-2">W-L-T</th>
+                    <th class="text-right py-2">PF</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for team in standings %}
+                <tr class="border-b border-gray-700/50 {% if team.is_my_team %}bg-blue-900/20{% endif %}">
+                    <td class="py-2 text-gray-500">{{ team.rank or loop.index }}</td>
+                    <td class="py-2 {% if team.is_my_team %}text-blue-300 font-semibold{% else %}text-gray-300{% endif %}">
+                        {{ team.team_name }}
+                        {% if team.is_my_team %}<span class="text-xs text-blue-400 ml-1">(You)</span>{% endif %}
+                    </td>
+                    <td class="py-2 text-right text-gray-400">{{ team.wins }}-{{ team.losses }}-{{ team.ties }}</td>
+                    <td class="py-2 text-right text-gray-400">{{ "%.1f"|format(team.points_for) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="text-gray-400 text-sm">No data yet — click <strong>Sync Yahoo</strong> to pull league data.</p>
+        {% endif %}
+    </div>
+
+    <!-- My Team Summary -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="text-lg font-semibold text-gray-200">My Team</h3>
+            {% if my_roster %}<a href="/roster" class="text-blue-400 text-xs hover:text-blue-300">Full roster</a>{% endif %}
+        </div>
+        {% if my_roster %}
+        <div class="space-y-1">
+            {% for player in my_roster[:12] %}
+            <div class="flex items-center justify-between py-1 text-sm">
+                <div>
+                    {{ player_link(player.player_id, player.name, player.team, "text-gray-300") }}
+                </div>
+                <span class="text-gray-400 text-xs bg-gray-700 px-1.5 py-0.5 rounded">{{ player.roster_position }}</span>
+            </div>
+            {% endfor %}
+            {% if my_roster|length > 12 %}
+            <p class="text-gray-500 text-xs mt-2">+ {{ my_roster|length - 12 }} more</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-gray-400 text-sm">Your roster will appear here after syncing.</p>
+        {% endif %}
+    </div>
+
+    <!-- Signals Column -->
+    <div class="space-y-6">
+        <!-- Buy Low -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-semibold text-gray-200">Buy Low</h3>
+                <a href="/projections?season={{ selected_season }}" class="text-blue-400 text-xs hover:text-blue-300">View all</a>
+            </div>
+            {% if buy_low %}
+            <div class="space-y-1">
+                {% for player in buy_low %}
+                <div class="flex items-center justify-between py-1 text-sm">
+                    <div>
+                        {{ player_link(player.player_id, player.name, classes="text-gray-300") }}
+                        <span class="text-gray-500 text-xs ml-1">{{ player.position }}</span>
+                    </div>
+                    <span class="text-green-400 text-xs font-mono">{{ "%+.3f"|format(player.xwoba_delta) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-sm">Sync stats to see buy-low targets.</p>
+            {% endif %}
+        </div>
+        <!-- Sell High -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-base font-semibold text-gray-200">Sell High</h3>
+                <a href="/projections?season={{ selected_season }}" class="text-blue-400 text-xs hover:text-blue-300">View all</a>
+            </div>
+            {% if sell_high %}
+            <div class="space-y-1">
+                {% for player in sell_high %}
+                <div class="flex items-center justify-between py-1 text-sm">
+                    <div>
+                        {{ player_link(player.player_id, player.name, classes="text-gray-300") }}
+                        <span class="text-gray-500 text-xs ml-1">{{ player.position }}</span>
+                    </div>
+                    <span class="text-red-400 text-xs font-mono">{{ "%+.3f"|format(player.xwoba_delta) }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-sm">Sync stats to see sell-high alerts.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Category Leaders -->
+{% if hr_leaders %}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        <h4 class="text-sm font-semibold text-gray-400 mb-2">HR Leaders</h4>
+        {% for p in hr_leaders[:5] %}
+        <div class="flex justify-between text-sm py-0.5">
+            <span class="truncate mr-2">{{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}</span>
+            <span class="text-white font-mono font-semibold">{{ p.value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        <h4 class="text-sm font-semibold text-gray-400 mb-2">SB Leaders</h4>
+        {% for p in sb_leaders[:5] %}
+        <div class="flex justify-between text-sm py-0.5">
+            <span class="truncate mr-2">{{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}</span>
+            <span class="text-white font-mono font-semibold">{{ p.value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        <h4 class="text-sm font-semibold text-gray-400 mb-2">AVG Leaders</h4>
+        {% for p in avg_leaders[:5] %}
+        <div class="flex justify-between text-sm py-0.5">
+            <span class="truncate mr-2">{{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}</span>
+            <span class="text-white font-mono font-semibold">{{ "%.3f"|format(p.value) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        <h4 class="text-sm font-semibold text-gray-400 mb-2">K Leaders</h4>
+        {% for p in k_leaders[:5] %}
+        <div class="flex justify-between text-sm py-0.5">
+            <span class="truncate mr-2">{{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}</span>
+            <span class="text-white font-mono font-semibold">{{ p.value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Top Hitters Table -->
+{% if top_hitters %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
+    <div class="flex items-center justify-between p-4 border-b border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-200">Top Hitters</h3>
+        <div class="flex gap-2">
+            <input type="text" id="hitter-search" placeholder="Search hitters..."
+                   oninput="filterTable('hitter-table', this.value)"
+                   class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48">
+            <a href="/projections?player_type=hitter&season={{ selected_season }}" class="text-blue-400 text-sm hover:text-blue-300 flex items-center">Projections</a>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table id="hitter-table" class="w-full text-sm sortable-table">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3 w-8">#</th>
+                    <th class="text-left py-2 px-3 sortable" data-sort="string" onclick="sortTable('hitter-table', 1, 'string')">Player</th>
+                    <th class="text-left py-2 px-1 sortable" data-sort="string" onclick="sortTable('hitter-table', 2, 'string')">Pos</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 3, 'number')">PA</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 4, 'number')">HR</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 5, 'number')">R</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 6, 'number')">RBI</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 7, 'number')">SB</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 8, 'number')">AVG</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 9, 'number')">OBP</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 10, 'number')">SLG</th>
+                    <th class="text-right py-2 px-3 sortable sorted-desc" data-sort="number" onclick="sortTable('hitter-table', 11, 'number')">OPS</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 12, 'number')">wOBA</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 13, 'number')">wRC+</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in top_hitters %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(h.player_id, h.name, h.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ h.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-400">{{ h.pa }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ h.hr }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ h.r }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ h.rbi }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ h.sb }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.3f"|format(h.avg) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.3f"|format(h.obp) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.3f"|format(h.slg) }}</td>
+                    <td class="py-2 px-3 text-right text-white font-mono font-semibold">{{ "%.3f"|format(h.ops) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.3f"|format(h.woba) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.0f"|format(h.wrc_plus) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Top Pitchers Table -->
+{% if top_pitchers %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
+    <div class="flex items-center justify-between p-4 border-b border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-200">Top Pitchers</h3>
+        <div class="flex gap-2">
+            <input type="text" id="pitcher-search" placeholder="Search pitchers..."
+                   oninput="filterTable('pitcher-table', this.value)"
+                   class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500 w-48">
+            <a href="/projections?player_type=pitcher&season={{ selected_season }}" class="text-blue-400 text-sm hover:text-blue-300 flex items-center">Projections</a>
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table id="pitcher-table" class="w-full text-sm sortable-table">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3 w-8">#</th>
+                    <th class="text-left py-2 px-3 sortable" data-sort="string" onclick="sortTable('pitcher-table', 1, 'string')">Player</th>
+                    <th class="text-left py-2 px-1 sortable" data-sort="string" onclick="sortTable('pitcher-table', 2, 'string')">Pos</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 3, 'number')">IP</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 4, 'number')">W</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 5, 'number')">L</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 6, 'number')">SV</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 7, 'number')">K</th>
+                    <th class="text-right py-2 px-3 sortable sorted-asc" data-sort="number" onclick="sortTable('pitcher-table', 8, 'number')">ERA</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 9, 'number')">WHIP</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 10, 'number')">K/9</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 11, 'number')">BB/9</th>
+                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 12, 'number')">FIP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in top_pitchers %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(p.player_id, p.name, p.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ p.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-400 font-mono">{{ p.ip }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.w }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.l }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.sv }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.so }}</td>
+                    <td class="py-2 px-3 text-right text-white font-mono font-semibold">{{ "%.2f"|format(p.era) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.2f"|format(p.whip) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.k_per_9 }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ p.bb_per_9 }}</td>
+                    <td class="py-2 px-3 text-right text-gray-300 font-mono">{{ "%.2f"|format(p.fip) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if not top_hitters and not standings %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+    <p class="text-gray-400 text-lg mb-2">No stats data loaded yet.</p>
+    <p class="text-gray-500 text-sm">Click <strong class="text-green-400">Sync Stats</strong> above to pull FanGraphs and Statcast data for the latest season.</p>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+    <h3 class="text-lg font-semibold mb-3 text-gray-200">Quick Actions</h3>
+    <div class="flex flex-wrap gap-4">
+        <a href="/roster" class="text-blue-400 hover:text-blue-300 text-sm">View full roster</a>
+        <a href="/trades" class="text-blue-400 hover:text-blue-300 text-sm">Analyze a trade</a>
+        <a href="/waivers" class="text-blue-400 hover:text-blue-300 text-sm">Check waiver wire</a>
+        <a href="/projections?season={{ selected_season }}" class="text-blue-400 hover:text-blue-300 text-sm">Browse projections</a>
+        <a href="/matchups" class="text-blue-400 hover:text-blue-300 text-sm">Today's matchups</a>
+    </div>
+</div>
+
+<!-- Sortable Table JavaScript -->
+<script>
+function toggleAllSeasons(btn) {
+    const checkboxes = document.querySelectorAll('#season-picker input[type=checkbox]');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    btn.textContent = allChecked ? 'Select all' : 'Deselect all';
+}
+
+// Close season picker when clicking outside
+document.addEventListener('click', function(e) {
+    const picker = document.getElementById('season-picker');
+    const group = document.getElementById('sync-stats-group');
+    if (picker && group && !group.contains(e.target)) {
+        picker.classList.add('hidden');
+    }
+});
+
+function sortTable(tableId, colIdx, type) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    const th = table.querySelectorAll('thead th')[colIdx];
+
+    // Determine sort direction
+    const wasAsc = th.classList.contains('sorted-asc');
+    const wasDesc = th.classList.contains('sorted-desc');
+
+    // Clear all sort indicators in this table
+    table.querySelectorAll('thead th').forEach(h => {
+        h.classList.remove('sorted-asc', 'sorted-desc');
+    });
+
+    // Toggle direction: if was ascending, go descending, and vice versa
+    // Default first click: numbers descending, strings ascending
+    let ascending;
+    if (wasAsc) {
+        ascending = false;
+        th.classList.add('sorted-desc');
+    } else if (wasDesc) {
+        ascending = true;
+        th.classList.add('sorted-asc');
+    } else {
+        ascending = type === 'string';
+        th.classList.add(ascending ? 'sorted-asc' : 'sorted-desc');
+    }
+
+    rows.sort((a, b) => {
+        let aVal = a.cells[colIdx].textContent.trim();
+        let bVal = b.cells[colIdx].textContent.trim();
+
+        if (type === 'number') {
+            aVal = parseFloat(aVal) || 0;
+            bVal = parseFloat(bVal) || 0;
+        } else {
+            aVal = aVal.toLowerCase();
+            bVal = bVal.toLowerCase();
+        }
+
+        if (aVal < bVal) return ascending ? -1 : 1;
+        if (aVal > bVal) return ascending ? 1 : -1;
+        return 0;
+    });
+
+    // Re-number the rank column and re-append rows
+    rows.forEach((row, i) => {
+        row.cells[0].textContent = i + 1;
+        tbody.appendChild(row);
+    });
+}
+
+function filterTable(tableId, query) {
+    const table = document.getElementById(tableId);
+    const rows = table.querySelectorAll('tbody tr');
+    const q = query.toLowerCase();
+
+    let visibleIdx = 1;
+    rows.forEach(row => {
+        // Search in player name cell (column 1)
+        const name = row.cells[1].textContent.toLowerCase();
+        const pos = row.cells[2].textContent.toLowerCase();
+        const match = name.includes(q) || pos.includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) {
+            row.cells[0].textContent = visibleIdx++;
+        }
+    });
+}
+</script>
+
+<style>
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+.sortable:hover {
+    color: #e5e7eb;
+}
+.sortable::after {
+    content: ' \2195';
+    font-size: 0.7em;
+    opacity: 0.4;
+}
+.sortable.sorted-asc::after {
+    content: ' \2191';
+    opacity: 1;
+    color: #60a5fa;
+}
+.sortable.sorted-desc::after {
+    content: ' \2193';
+    opacity: 1;
+    color: #60a5fa;
+}
+</style>
+{% endblock %}

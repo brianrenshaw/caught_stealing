@@ -1,0 +1,4 @@
+<div id="{{ chart_id }}" class="w-full" style="height: 400px;"></div>
+<script>
+    Plotly.newPlot('{{ chart_id }}', {{ chart_data | safe }}, {{ chart_layout | safe }}, {responsive: true});
+</script>

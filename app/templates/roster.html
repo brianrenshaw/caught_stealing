@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Roster — Fantasy Baseball{% endblock %}
+{% block nav_roster %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">My Roster</h2>
+
+{% if not has_data %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+    <p class="text-gray-400 text-lg">No roster data yet</p>
+    <p class="text-gray-500 text-sm mt-2">
+        Go to the <a href="/" class="text-blue-400 hover:text-blue-300">Dashboard</a> and click <strong>Sync Now</strong> to pull your roster.
+    </p>
+</div>
+{% else %}
+
+<!-- Batters -->
+{% if batters %}
+<div class="mb-8">
+    <h3 class="text-lg font-semibold text-gray-200 mb-3">Batters</h3>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-3 px-4">Pos</th>
+                    <th class="text-left py-3 px-4">Player</th>
+                    <th class="text-left py-3 px-4">Team</th>
+                    <th class="text-left py-3 px-4">Eligible</th>
+                    {% set batting_stats = [] %}
+                    {% for player in batters %}
+                        {% for stat_name in player.stats.keys() %}
+                            {% if stat_name not in batting_stats %}
+                                {% if batting_stats.append(stat_name) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {% for stat_name in batting_stats[:12] %}
+                    <th class="text-right py-3 px-3">{{ stat_name }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in batters %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-4 text-gray-400 font-mono text-xs">{{ player.roster_position }}</td>
+                    <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
+                    <td class="py-2 px-4 text-gray-400">{{ player.team }}</td>
+                    <td class="py-2 px-4 text-gray-500 text-xs">{{ player.position }}</td>
+                    {% for stat_name in batting_stats[:12] %}
+                    <td class="py-2 px-3 text-right text-gray-300">
+                        {% if stat_name in player.stats %}
+                            {% set val = player.stats[stat_name] %}
+                            {% if val == val|int %}{{ val|int }}{% else %}{{ "%.3f"|format(val) if val < 1 and val > 0 else "%.2f"|format(val) }}{% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Pitchers -->
+{% if pitchers %}
+<div>
+    <h3 class="text-lg font-semibold text-gray-200 mb-3">Pitchers</h3>
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-3 px-4">Pos</th>
+                    <th class="text-left py-3 px-4">Player</th>
+                    <th class="text-left py-3 px-4">Team</th>
+                    <th class="text-left py-3 px-4">Eligible</th>
+                    {% set pitching_stats = [] %}
+                    {% for player in pitchers %}
+                        {% for stat_name in player.stats.keys() %}
+                            {% if stat_name not in pitching_stats %}
+                                {% if pitching_stats.append(stat_name) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                    {% for stat_name in pitching_stats[:12] %}
+                    <th class="text-right py-3 px-3">{{ stat_name }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in pitchers %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-4 text-gray-400 font-mono text-xs">{{ player.roster_position }}</td>
+                    <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
+                    <td class="py-2 px-4 text-gray-400">{{ player.team }}</td>
+                    <td class="py-2 px-4 text-gray-500 text-xs">{{ player.position }}</td>
+                    {% for stat_name in pitching_stats[:12] %}
+                    <td class="py-2 px-3 text-right text-gray-300">
+                        {% if stat_name in player.stats %}
+                            {% set val = player.stats[stat_name] %}
+                            {% if val == val|int %}{{ val|int }}{% else %}{{ "%.2f"|format(val) }}{% endif %}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

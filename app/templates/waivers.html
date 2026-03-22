@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Waiver Wire — Fantasy Baseball{% endblock %}
+{% block nav_waivers %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Waiver Wire Recommendations</h2>
+
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    {% if recommendations %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3">#</th>
+                    <th class="text-left py-2 px-3">Player</th>
+                    <th class="text-left py-2 px-1">Pos</th>
+                    <th class="text-right py-2 px-3">Score</th>
+                    <th class="text-right py-2 px-3">Proj</th>
+                    <th class="text-right py-2 px-3">Trend</th>
+                    <th class="text-center py-2 px-3">Status</th>
+                    <th class="text-left py-2 px-3">Reasoning</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(rec.player_id, rec.name, rec.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ rec.position }}</td>
+                    <td class="py-2 px-3 text-right font-medium text-blue-400">{{ "%.1f"|format(rec.waiver_score) }}</td>
+                    <td class="py-2 px-3 text-right text-gray-400">{{ "%.1f"|format(rec.projection_score) }}</td>
+                    <td class="py-2 px-3 text-right">
+                        {% if rec.trend == 'hot' %}
+                        <span class="text-green-400 text-xs">HOT</span>
+                        {% elif rec.trend == 'cold' %}
+                        <span class="text-red-400 text-xs">COLD</span>
+                        {% else %}
+                        <span class="text-gray-500 text-xs">--</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-center">
+                        {% if rec.buy_low %}
+                        <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY LOW</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate">{{ rec.reasoning }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <p class="text-gray-400">No waiver recommendations available.</p>
+        <p class="text-gray-500 text-sm mt-2">Run the stats sync first to populate data.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

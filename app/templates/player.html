@@ -1,0 +1,470 @@
+{% extends "base.html" %}
+{% block title %}{{ player.name if player else "Player Not Found" }} — Fantasy Baseball{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="text-center py-12">
+    <p class="text-gray-400 text-lg">{{ error }}</p>
+    <a href="/" class="text-blue-400 hover:text-blue-300 mt-4 inline-block">Back to Dashboard</a>
+</div>
+{% else %}
+
+{# ── Header ── #}
+<div class="mb-6">
+    <div class="flex items-start justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-white">{{ player.name }}</h1>
+            <p class="text-gray-400 mt-1">
+                {{ player.team or "FA" }} &middot; {{ player.position or "—" }}
+            </p>
+        </div>
+        <div class="flex items-center gap-3">
+            {% if roster_info %}
+                {% if roster_info.is_my_team %}
+                <span class="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-sm font-medium">
+                    My Team ({{ roster_info.roster_position }})
+                </span>
+                {% else %}
+                <span class="bg-yellow-600/20 text-yellow-400 px-3 py-1 rounded-full text-sm font-medium">
+                    {{ roster_info.team_name }}
+                </span>
+                {% endif %}
+            {% else %}
+            <span class="bg-gray-600/20 text-gray-400 px-3 py-1 rounded-full text-sm font-medium">
+                Free Agent
+            </span>
+            {% endif %}
+            {% if trade_value %}
+            <span class="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium">
+                Trade Value: {{ "%.1f"|format(trade_value.surplus_value) }}
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    {# Buy-low / sell-high signal #}
+    {% if gaps and gaps.signal != "neutral" %}
+    <div class="mt-3 px-4 py-2 rounded-lg text-sm font-medium
+        {% if gaps.signal == 'buy_low' %}bg-emerald-900/30 text-emerald-400 border border-emerald-700/50
+        {% else %}bg-red-900/30 text-red-400 border border-red-700/50{% endif %}">
+        {% if gaps.signal == "buy_low" %}
+            BUY LOW — Performance expected to improve (gap: +{{ "%.3f"|format(gaps.composite_score) }})
+        {% else %}
+            SELL HIGH — Performance expected to regress (gap: {{ "%.3f"|format(gaps.composite_score) }})
+        {% endif %}
+        <span class="ml-4 text-xs opacity-75">
+            {% if gaps.xwoba_vs_woba is not none %}xwOBA gap: {{ "%+.3f"|format(gaps.xwoba_vs_woba) }}{% endif %}
+            {% if gaps.xba_vs_avg is not none %} | xBA gap: {{ "%+.3f"|format(gaps.xba_vs_avg) }}{% endif %}
+            {% if gaps.fip_vs_era is not none %} | FIP-ERA: {{ "%+.2f"|format(gaps.fip_vs_era) }}{% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>
+
+{# ── Tab Navigation ── #}
+<div class="border-b border-gray-700 mb-6">
+    <nav class="flex gap-6 -mb-px" id="profile-tabs">
+        <button onclick="showTab('standard')" class="tab-btn active-tab pb-3 text-sm font-medium border-b-2 border-blue-500 text-blue-400" data-tab="standard">
+            Standard Stats
+        </button>
+        <button onclick="showTab('advanced')" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200" data-tab="advanced">
+            Advanced
+        </button>
+        <button onclick="showTab('statcast')" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200" data-tab="statcast">
+            Statcast
+        </button>
+        <button onclick="showTab('projections')" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200" data-tab="projections">
+            Projections
+        </button>
+        <button onclick="showTab('comps')" class="tab-btn pb-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200" data-tab="comps">
+            Comparables
+        </button>
+    </nav>
+</div>
+
+{# ── Standard Stats Tab ── #}
+<div id="tab-standard" class="tab-panel">
+{% if is_hitter %}
+<h3 class="text-lg font-semibold text-white mb-3">Batting Stats</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">Period</th>
+            <th class="text-right py-2 px-3">PA</th>
+            <th class="text-right py-2 px-3">HR</th>
+            <th class="text-right py-2 px-3">R</th>
+            <th class="text-right py-2 px-3">RBI</th>
+            <th class="text-right py-2 px-3">SB</th>
+            <th class="text-right py-2 px-3">AVG</th>
+            <th class="text-right py-2 px-3">OBP</th>
+            <th class="text-right py-2 px-3">SLG</th>
+            <th class="text-right py-2 px-3">OPS</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for period_key, label in [("full_season", "Full Season"), ("last_30", "Last 30 Days"), ("last_14", "Last 14 Days"), ("last_7", "Last 7 Days")] %}
+        {% set b = batting.get(period_key) %}
+        {% if b %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+            <td class="py-2 px-3 text-gray-300 font-medium">{{ label }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ b.pa|int if b.pa else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ b.hr|int if b.hr else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ b.r|int if b.r else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ b.rbi|int if b.rbi else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ b.sb|int if b.sb else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.avg) if b.avg else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.obp) if b.obp else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.slg) if b.slg else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.ops) if b.ops else "—" }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if is_pitcher %}
+<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Pitching Stats</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">Period</th>
+            <th class="text-right py-2 px-3">IP</th>
+            <th class="text-right py-2 px-3">W</th>
+            <th class="text-right py-2 px-3">SV</th>
+            <th class="text-right py-2 px-3">SO</th>
+            <th class="text-right py-2 px-3">ERA</th>
+            <th class="text-right py-2 px-3">WHIP</th>
+            <th class="text-right py-2 px-3">K/9</th>
+            <th class="text-right py-2 px-3">BB/9</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for period_key, label in [("full_season", "Full Season"), ("last_30", "Last 30 Days"), ("last_14", "Last 14 Days"), ("last_7", "Last 7 Days")] %}
+        {% set p = pitching.get(period_key) %}
+        {% if p %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+            <td class="py-2 px-3 text-gray-300 font-medium">{{ label }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(p.ip) if p.ip else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ p.w|int if p.w else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ p.sv|int if p.sv else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ p.so|int if p.so else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(p.era) if p.era else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(p.whip) if p.whip else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(p.k_per_9) if p.k_per_9 else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(p.bb_per_9) if p.bb_per_9 else "—" }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+</div>
+
+{# ── Advanced Stats Tab ── #}
+<div id="tab-advanced" class="tab-panel hidden">
+{% if is_hitter %}
+<h3 class="text-lg font-semibold text-white mb-3">Advanced Batting</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">Period</th>
+            <th class="text-right py-2 px-3">wOBA</th>
+            <th class="text-right py-2 px-3">wRC+</th>
+            <th class="text-right py-2 px-3">ISO</th>
+            <th class="text-right py-2 px-3">BABIP</th>
+            <th class="text-right py-2 px-3">K%</th>
+            <th class="text-right py-2 px-3">BB%</th>
+            <th class="text-right py-2 px-3">WAR</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for period_key, label in [("full_season", "Full Season"), ("last_30", "Last 30 Days"), ("last_14", "Last 14 Days"), ("last_7", "Last 7 Days")] %}
+        {% set b = batting.get(period_key) %}
+        {% if b %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+            <td class="py-2 px-3 text-gray-300 font-medium">{{ label }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.woba) if b.woba else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200 {% if b.wrc_plus and b.wrc_plus >= 120 %}text-green-400{% elif b.wrc_plus and b.wrc_plus < 80 %}text-red-400{% endif %}">
+                {{ b.wrc_plus|int if b.wrc_plus else "—" }}
+            </td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.iso) if b.iso else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(b.babip) if b.babip else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(b.k_pct * 100) if b.k_pct else "—" }}{% if b.k_pct %}%{% endif %}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(b.bb_pct * 100) if b.bb_pct else "—" }}{% if b.bb_pct %}%{% endif %}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(b.war) if b.war else "—" }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+
+{% if is_pitcher %}
+<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Advanced Pitching</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">Period</th>
+            <th class="text-right py-2 px-3">FIP</th>
+            <th class="text-right py-2 px-3">xFIP</th>
+            <th class="text-right py-2 px-3">SIERA</th>
+            <th class="text-right py-2 px-3">K-BB%</th>
+            <th class="text-right py-2 px-3">WAR</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for period_key, label in [("full_season", "Full Season"), ("last_30", "Last 30 Days"), ("last_14", "Last 14 Days"), ("last_7", "Last 7 Days")] %}
+        {% set p = pitching.get(period_key) %}
+        {% if p %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+            <td class="py-2 px-3 text-gray-300 font-medium">{{ label }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(p.fip) if p.fip else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(p.xfip) if p.xfip else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(p.siera) if p.siera else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(p.k_bb_pct * 100) if p.k_bb_pct else "—" }}{% if p.k_bb_pct %}%{% endif %}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(p.war) if p.war else "—" }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% endif %}
+</div>
+
+{# ── Statcast Tab ── #}
+<div id="tab-statcast" class="tab-panel hidden">
+{% set sc = statcast_bat.get("full_season") or statcast_pitch.get("full_season") %}
+{% if sc %}
+<h3 class="text-lg font-semibold text-white mb-4">Statcast Metrics</h3>
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+    {% for label, val, fmt, good_high in [
+        ("Avg Exit Velo", sc.avg_exit_velo, "%.1f", true),
+        ("Max Exit Velo", sc.max_exit_velo, "%.1f", true),
+        ("Barrel %", sc.barrel_pct, "%.1f", true),
+        ("Hard Hit %", sc.hard_hit_pct, "%.1f", true),
+        ("xBA", sc.xba, "%.3f", true),
+        ("xSLG", sc.xslg, "%.3f", true),
+        ("xwOBA", sc.xwoba, "%.3f", true),
+        ("Sweet Spot %", sc.sweet_spot_pct, "%.1f", true),
+        ("Sprint Speed", sc.sprint_speed, "%.1f", true),
+        ("Whiff %", sc.whiff_pct, "%.1f", false),
+        ("Chase %", sc.chase_pct, "%.1f", false),
+    ] %}
+    {% if val is not none %}
+    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div class="text-gray-400 text-xs uppercase tracking-wider mb-1">{{ label }}</div>
+        <div class="text-2xl font-bold text-white">{{ fmt|format(val) }}{% if "%" in label and val < 1 %}{% endif %}</div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+
+{# Statcast across periods #}
+<h4 class="text-md font-semibold text-white mt-6 mb-3">Statcast Trends</h4>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">Period</th>
+            <th class="text-right py-2 px-3">Avg EV</th>
+            <th class="text-right py-2 px-3">Barrel %</th>
+            <th class="text-right py-2 px-3">Hard Hit %</th>
+            <th class="text-right py-2 px-3">xBA</th>
+            <th class="text-right py-2 px-3">xSLG</th>
+            <th class="text-right py-2 px-3">xwOBA</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% set sc_source = statcast_bat if is_hitter else statcast_pitch %}
+        {% for period_key, label in [("full_season", "Full Season"), ("last_30", "Last 30 Days"), ("last_14", "Last 14 Days")] %}
+        {% set s = sc_source.get(period_key) %}
+        {% if s %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50">
+            <td class="py-2 px-3 text-gray-300 font-medium">{{ label }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(s.avg_exit_velo) if s.avg_exit_velo else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(s.barrel_pct) if s.barrel_pct else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.1f"|format(s.hard_hit_pct) if s.hard_hit_pct else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(s.xba) if s.xba else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(s.xslg) if s.xslg else "—" }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(s.xwoba) if s.xwoba else "—" }}</td>
+        </tr>
+        {% endif %}
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="text-gray-400">No Statcast data available for this player.</p>
+{% endif %}
+</div>
+
+{# ── Projections Tab ── #}
+<div id="tab-projections" class="tab-panel hidden">
+{% if projections %}
+<h3 class="text-lg font-semibold text-white mb-3">Rest-of-Season Projections</h3>
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+    <thead>
+        <tr class="text-gray-400 border-b border-gray-700">
+            <th class="text-left py-2 px-3">System</th>
+            {% if is_hitter %}
+            <th class="text-right py-2 px-3">HR</th>
+            <th class="text-right py-2 px-3">R</th>
+            <th class="text-right py-2 px-3">RBI</th>
+            <th class="text-right py-2 px-3">SB</th>
+            <th class="text-right py-2 px-3">AVG</th>
+            <th class="text-right py-2 px-3">OBP</th>
+            <th class="text-right py-2 px-3">OPS</th>
+            {% endif %}
+            {% if is_pitcher %}
+            <th class="text-right py-2 px-3">W</th>
+            <th class="text-right py-2 px-3">SV</th>
+            <th class="text-right py-2 px-3">K</th>
+            <th class="text-right py-2 px-3">ERA</th>
+            <th class="text-right py-2 px-3">WHIP</th>
+            {% endif %}
+        </tr>
+    </thead>
+    <tbody>
+        {% for system, stats in projections.items() %}
+        <tr class="border-b border-gray-800 hover:bg-gray-800/50 {% if system == 'blended' %}bg-blue-900/20{% endif %}">
+            <td class="py-2 px-3 text-gray-300 font-medium capitalize">
+                {{ system }}{% if system == 'blended' %} <span class="text-blue-400 text-xs">(weighted)</span>{% endif %}
+            </td>
+            {% if is_hitter %}
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("HR", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("R", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("RBI", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("SB", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(stats.get("AVG", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(stats.get("OBP", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.3f"|format(stats.get("OPS", 0)) }}</td>
+            {% endif %}
+            {% if is_pitcher %}
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("W", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("SV", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.0f"|format(stats.get("K", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(stats.get("ERA", 0)) }}</td>
+            <td class="text-right py-2 px-3 text-gray-200">{{ "%.2f"|format(stats.get("WHIP", 0)) }}</td>
+            {% endif %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% else %}
+<p class="text-gray-400">No projections available for this player.</p>
+{% endif %}
+</div>
+
+{# ── Comparable Players Tab ── #}
+<div id="tab-comps" class="tab-panel hidden">
+{% if comps %}
+<h3 class="text-lg font-semibold text-white mb-3">Most Similar Players</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for comp in comps %}
+    <a href="/player/{{ comp.player_id }}"
+       class="bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-500 transition-colors block">
+        <div class="font-medium text-white">{{ comp.name }}</div>
+        <div class="text-gray-400 text-sm">{{ comp.team or "FA" }} &middot; {{ comp.position or "—" }}</div>
+        <div class="mt-2 text-xs text-gray-500">
+            {% if comp.wrc_plus is not none %}
+            wRC+: <span class="text-gray-300">{{ comp.wrc_plus|int }}</span> &middot;
+            {% endif %}
+            {% if comp.woba is not none %}
+            wOBA: <span class="text-gray-300">{{ "%.3f"|format(comp.woba) }}</span> &middot;
+            {% endif %}
+            {% if comp.era is not none %}
+            ERA: <span class="text-gray-300">{{ "%.2f"|format(comp.era) }}</span> &middot;
+            {% endif %}
+            {% if comp.fip is not none %}
+            FIP: <span class="text-gray-300">{{ "%.2f"|format(comp.fip) }}</span> &middot;
+            {% endif %}
+            Similarity: <span class="text-gray-300">{{ "%.1f"|format(comp.distance) }}</span>
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-400">Not enough data to find comparable players.</p>
+{% endif %}
+</div>
+
+{# ── Rolling Trend Chart ── #}
+{% if is_hitter %}
+<div class="mt-8">
+    <h3 class="text-lg font-semibold text-white mb-3">Performance Trend</h3>
+    <div id="rolling-chart" class="bg-gray-800 rounded-lg border border-gray-700 p-4" style="height: 350px;"></div>
+</div>
+<script>
+(function() {
+    const periods = ['Full Season', 'Last 30', 'Last 14', 'Last 7'];
+    const stats = {{ {
+        "wRC+": [
+            batting.get("full_season").wrc_plus if batting.get("full_season") and batting.get("full_season").wrc_plus else None,
+            batting.get("last_30").wrc_plus if batting.get("last_30") and batting.get("last_30").wrc_plus else None,
+            batting.get("last_14").wrc_plus if batting.get("last_14") and batting.get("last_14").wrc_plus else None,
+            batting.get("last_7").wrc_plus if batting.get("last_7") and batting.get("last_7").wrc_plus else None,
+        ],
+        "wOBA": [
+            batting.get("full_season").woba if batting.get("full_season") and batting.get("full_season").woba else None,
+            batting.get("last_30").woba if batting.get("last_30") and batting.get("last_30").woba else None,
+            batting.get("last_14").woba if batting.get("last_14") and batting.get("last_14").woba else None,
+            batting.get("last_7").woba if batting.get("last_7") and batting.get("last_7").woba else None,
+        ],
+        "AVG": [
+            batting.get("full_season").avg if batting.get("full_season") and batting.get("full_season").avg else None,
+            batting.get("last_30").avg if batting.get("last_30") and batting.get("last_30").avg else None,
+            batting.get("last_14").avg if batting.get("last_14") and batting.get("last_14").avg else None,
+            batting.get("last_7").avg if batting.get("last_7") and batting.get("last_7").avg else None,
+        ],
+    }|tojson }};
+
+    const traces = [];
+    for (const [name, values] of Object.entries(stats)) {
+        if (name === 'wRC+') {
+            traces.push({x: periods, y: values, name: name, yaxis: 'y', mode: 'lines+markers'});
+        } else {
+            traces.push({x: periods, y: values, name: name, yaxis: 'y2', mode: 'lines+markers'});
+        }
+    }
+
+    Plotly.newPlot('rolling-chart', traces, {
+        paper_bgcolor: 'transparent',
+        plot_bgcolor: '#1f2937',
+        font: {color: '#d1d5db'},
+        margin: {t: 20, r: 60, b: 40, l: 60},
+        yaxis: {title: 'wRC+', gridcolor: '#374151', side: 'left'},
+        yaxis2: {title: 'Rate Stats', overlaying: 'y', side: 'right', gridcolor: '#374151'},
+        legend: {orientation: 'h', y: -0.15},
+        hovermode: 'x unified',
+    }, {responsive: true});
+})();
+</script>
+{% endif %}
+
+<script>
+function showTab(tabName) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active-tab', 'border-blue-500', 'text-blue-400');
+        b.classList.add('border-transparent', 'text-gray-400');
+    });
+    document.getElementById('tab-' + tabName).classList.remove('hidden');
+    const btn = document.querySelector('[data-tab="' + tabName + '"]');
+    btn.classList.add('active-tab', 'border-blue-500', 'text-blue-400');
+    btn.classList.remove('border-transparent', 'text-gray-400');
+}
+</script>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,20 @@
+{% if players %}
+<ul class="absolute z-50 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl mt-1 max-h-64 overflow-y-auto">
+    {% for player in players %}
+    <li>
+        <a href="/player/{{ player.id }}"
+           class="flex items-center justify-between px-3 py-2 hover:bg-gray-600 transition-colors text-sm"
+           onclick="document.getElementById('search-dropdown').innerHTML = ''">
+            <span class="text-gray-100 font-medium">{{ player.name }}</span>
+            <span class="text-gray-400 text-xs">
+                {{ player.team or "—" }} &middot; {{ player.position or "—" }}
+            </span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% elif query %}
+<div class="absolute z-50 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl mt-1 px-3 py-2 text-sm text-gray-400">
+    No players found for "{{ query }}"
+</div>
+{% endif %}

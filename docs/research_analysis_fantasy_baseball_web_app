@@ -1,0 +1,109 @@
+# Building a personal fantasy baseball analysis app
+
+**You can build a powerful, full-featured fantasy baseball analysis web app almost entirely with free tools and APIs.** The ecosystem is surprisingly rich: Yahoo's Fantasy API provides complete league data at no cost, pybaseball delivers FanGraphs/Statcast/Baseball Reference data in one-liner Python functions, and multiple open-source projects handle roster optimization via linear programming. The recommended stack — FastAPI + HTMX + SQLite + pybaseball + yfpy — requires zero paid services for core functionality, and Claude Code can scaffold the entire project structure in a single session. Here's the complete blueprint.
+
+---
+
+## Yahoo Fantasy API is free, powerful, and poorly documented
+
+Yahoo provides **free, comprehensive API access** to all fantasy baseball league data. Registration at `developer.yahoo.com/apps/create/` takes minutes — create an app, check the "Fantasy Sports" permission, and you receive a Client ID and Client Secret at no cost. The API uses **OAuth 2.0** (ignore the official docs that still reference OAuth 1.0a — those are outdated) with access tokens that expire hourly and must be refreshed automatically.
+
+The API surface is extensive. The base URL `https://fantasysports.yahooapis.com/fantasy/v2/` exposes resources for games, leagues, teams, players, and transactions. Key endpoints include league standings and settings, full team rosters (by week or date), player stats with ownership percentages, head-to-head matchup scores, draft results, and all transactions (trades, adds/drops, waiver claims). A powerful sub-resource chaining feature lets you fetch multiple data types in a single call — for example, `/league/{key};out=settings,standings,scoreboard` returns three resources at once, which is critical because **Yahoo doesn't publish official rate limits**. Community developers report getting disconnected or receiving `999` status codes when making rapid consecutive requests, so adding `time.sleep(0.5)` between calls and caching aggressively is essential.
+
+The best Python wrapper is **yfpy** (247 stars, actively maintained, GPL-3.0). It handles OAuth 2.0 token refresh, parses Yahoo's notoriously messy JSON responses into clean Python objects, and covers nearly every endpoint. Install with `pip install yfpy`. Two solid alternatives exist: **yahoo_fantasy_api** by spilchen (~170 stars, MIT license, cleaner interface for simple use cases) and **yahoofantasy** by mattdodge (81 stars, includes a CLI that exports data directly to CSV). For a new project, yfpy is the clear choice — it's the most comprehensive, best documented (full docs at yfpy.uberfastman.com), and supports programmatic persistent authentication ideal for automated systems.
+
+Notable limitations: there's no sandbox environment (test with a real league), write operations require XML (not JSON), and Yahoo can discontinue the API without notice per their terms of service.
+
+---
+
+## The baseball data ecosystem gives you everything for free
+
+The data landscape for baseball analytics is remarkably accessible. Here's what matters for a fantasy app:
+
+**pybaseball is the single most important dependency.** This Python library (1,600 GitHub stars, `pip install pybaseball`) provides one-liner access to FanGraphs advanced stats, Baseball Savant Statcast data, Baseball Reference stats, and the Lahman historical database — all returning pandas DataFrames. Functions like `batting_stats(2025)` pull **300+ columns** of FanGraphs data, `statcast_batter('2025-04-01', '2025-09-30', player_id)` returns pitch-level tracking data, and `playerid_lookup('Ohtani', 'Shohei')` cross-references IDs across all major platforms. It includes built-in caching to minimize repeated network requests.
+
+**The MLB Stats API** (`statsapi.mlb.com/api/v1/`) is completely free, requires no authentication, and returns JSON for schedules, rosters, standings, player bios, and game-level data. The community wrapper `MLB-StatsAPI` (754 stars) makes integration trivial. This is your source for real-time roster moves, injury designations, and lineup data — things projection systems don't cover.
+
+**FanGraphs has no public API** but is the gold standard for projection data. All major projection systems — Steamer, ZiPS, ATC, THE BAT, Depth Charts — are available as free CSV exports from their projections page. A **$80/year membership** removes ads and supports the site, but all data is technically accessible without paying. pybaseball's `batting_stats()` and `pitching_stats()` functions scrape FanGraphs data directly.
+
+**Baseball Reference explicitly prohibits scraping** in their terms of service and enforces IP blocking. They recommend using the Lahman Database and Retrosheet for bulk data access instead. For fantasy purposes, FanGraphs projections and Statcast data are more actionable anyway.
+
+**Statcast/Baseball Savant** data (pitch velocity, exit velocity, launch angle, sprint speed, expected stats like xBA/xwOBA) is free and accessible via pybaseball or direct CSV downloads from `baseballsavant.mlb.com`. Queries are capped at 25,000 rows per request, but pybaseball handles date chunking automatically.
+
+**The Lahman Database** (maintained by SABR, Creative Commons license) provides complete aggregate statistics from 1871–2025 across 27 relational tables. It's available as CSV, SQL, or SQLite and is accessible via pybaseball with `from pybaseball import lahman`.
+
+For projection systems, FanGraphs hosts six free systems (Steamer, ZiPS, ATC, THE BAT, THE BAT X, Depth Charts) — all exportable as CSV. **PECOTA** from Baseball Prospectus costs $75–100/year and is the only major system behind a paywall. For most fantasy analysis, blending the free systems produces excellent results.
+
+---
+
+## Open-source projects to build on, not reinvent
+
+Three GitHub repositories form the foundation you should build on top of:
+
+| Project | Stars | Purpose | Key strength |
+|---------|-------|---------|-------------|
+| **jldbc/pybaseball** | 1,600 | Baseball data retrieval | One-liner access to FanGraphs, Statcast, BBRef |
+| **uberfastman/yfpy** | 247 | Yahoo Fantasy API wrapper | Most comprehensive Yahoo integration |
+| **DimaKudosh/pydfs-lineup-optimizer** | 441 | DFS lineup optimization | PuLP-based ILP solver with MLB support |
+
+Beyond these three, the landscape thins considerably. **No well-maintained open-source trade analyzer exists** for season-long Yahoo fantasy baseball — this is the biggest gap you'd need to fill with custom code. The **baseballforecaster** project (baileymorton989) uses Monte Carlo simulations for player projections and Monte Carlo Search Trees for draft simulation, offering interesting methodology to study. The **Fantasy-Baseball-App** by parkergeis demonstrates a working Streamlit dashboard for ESPN leagues with weekly scoreboards and player percentile visualizations.
+
+An emerging category worth watching: **MCP (Model Context Protocol) servers for baseball data**. Projects like `etweisberg/mlb-mcp` and `alex-rimerman/statcast-mcp` enable AI assistants to query Statcast and FanGraphs data via natural language — a pattern that could integrate directly with Claude for on-demand analysis.
+
+The **Smart Fantasy Baseball Player ID Map** is an essential utility — it bridges player IDs across Yahoo, ESPN, FanGraphs, MLBAM, Baseball Reference, Fantrax, and DraftKings. Without this crosswalk, merging league data from Yahoo with projection data from FanGraphs is a painful manual process.
+
+---
+
+## FastAPI + HTMX is the optimal stack for this project
+
+**Backend: FastAPI.** Its native async support is critical for parallel API calls to Yahoo Fantasy, FanGraphs, and Baseball Savant simultaneously. Pydantic validation handles structured player stats cleanly, automatic OpenAPI docs provide a testable API, and performance exceeds **10,000 requests/second**. Claude Code works particularly well with FastAPI — it's one of the commonly demonstrated frameworks in Claude Code documentation.
+
+**Frontend: HTMX + Jinja2 templates + Tailwind CSS.** A full React SPA is overkill for a personal analytics tool. HTMX adds dynamic behavior directly in HTML attributes — no JavaScript framework, no npm build pipeline, no state management library. Companies migrating from React to HTMX report **67% less code** and **50–60% faster first loads**. Claude Code generates HTMX templates effectively, and Plotly.js handles all interactive charts (scatter plots for player comparisons, radar charts for category analysis, heatmaps for schedule difficulty).
+
+**Database: SQLite via SQLAlchemy.** SQLite's own documentation lists "sports statistics analysis" as an ideal use case. For a single-user app with ~1,000 players × ~50 stats, it's faster than PostgreSQL for reads, requires zero configuration, and stores everything in one file. SQLAlchemy provides an easy migration path to PostgreSQL later if needed. A practical schema needs five core tables:
+
+- `players` — id, name, team, position, yahoo_id, fangraphs_id, mlbam_id
+- `stats` — player_id, season, stat_type, value, date_updated
+- `projections` — player_id, system (steamer/zips/atc), stat_type, projected_value
+- `rosters` — league_id, team_id, player_id, roster_position
+- `trade_values` — player_id, computed_value, positional_adjustment, date_computed
+
+**Caching: Redis or diskcache.** Cache Yahoo API responses for 15 minutes, player stats for 24 hours, and projections for 7 days. For local development, Python's `diskcache` library avoids the Redis dependency entirely.
+
+**Background jobs: APScheduler.** Celery is overkill (requires a message broker and worker processes). APScheduler runs in-process, supports cron triggers, and can persist job state to SQLite. Schedule a daily stats refresh at 5 AM ET, weekly projection updates, and Yahoo league syncs every 6 hours.
+
+**Optimization: PuLP.** The roster optimization problem is a textbook Integer Linear Programming case — binary decision variables (player in lineup or not), objective function (maximize projected points), constraints (position requirements, roster limits). PuLP is free, pure Python, and a 2024 paper (arXiv:2411.11012) specifically demonstrates this approach for fantasy baseball.
+
+---
+
+## Architecture that handles five core features cleanly
+
+Structure the app as a **service layer pattern with an ETL pipeline**. Each analytical feature maps to an independent service module:
+
+**Roster Optimization Service** uses PuLP to solve a daily lineup-setting problem. Binary variables represent each player-slot assignment, the objective maximizes projected fantasy points, and constraints enforce position eligibility and roster limits. For weekly leagues, extend this to multi-day optimization that accounts for pitcher start schedules and off-days.
+
+**Trade Analysis Service** implements Value-Over-Replacement-Player (VORP) calculations. Pull rest-of-season projections from Steamer/ZiPS/ATC, calculate the replacement level for each position (the best freely available player), compute each rostered player's surplus value above replacement, and convert to a common currency. Compare the total surplus value on each side of a proposed trade. The z-score method (standardize all category stats, sum per player) works well for H2H categories leagues.
+
+**Waiver Wire Recommender** scores all free agents with a weighted composite: recent 14-day performance trend (30%), rest-of-season projection value (30%), positional need based on your roster gaps (20%), ownership percentage trend (10%), and schedule favorability (10%). Filter by your team's weak categories and sort by composite score.
+
+**Projection Blender** combines multiple free projection systems. ATC (Average Total Cost) already does this, but you can build a custom blend with configurable weights — perhaps trusting ZiPS more for pitchers and Steamer more for hitters, with manual overrides for players you have strong opinions about.
+
+**Stats Dashboard** renders interactive Plotly charts: category standings vs. league, player comparison scatter plots (e.g., xwOBA vs. actual wOBA to find buy-low candidates), rolling performance trends, and schedule heatmaps.
+
+The **data pipeline** should run as a three-stage ETL process. Extract pulls from Yahoo Fantasy API (league context), pybaseball (stats and projections), and MLB Stats API (rosters, injuries, schedules). Transform normalizes player IDs across sources using the Smart Fantasy Baseball ID map, calculates derived metrics, and blends projections. Load writes everything to SQLite with timestamps for freshness tracking. APScheduler triggers each stage on appropriate intervals.
+
+For combining multiple data sources, the player ID crosswalk is the single hardest problem. Yahoo uses its own player IDs, FanGraphs uses different IDs, and MLBAM/Statcast uses yet another set. Build or download a mapping table first, and key all internal storage to a canonical ID (MLBAM IDs are the most universal).
+
+---
+
+## Practical development roadmap with Claude Code
+
+Claude Code excels at this type of project. Create a `CLAUDE.md` file in your project root with standing instructions: use `uv` for package management, FastAPI with Jinja2 and HTMX, SQLAlchemy with SQLite, Plotly for visualizations, and Ruff for linting. Then work iteratively through these phases:
+
+- **Week 1**: Streamlit prototype. Use pybaseball to pull stats and projections, display in a basic dashboard. Validate your core analysis logic works before building the full app.
+- **Weeks 2–3**: Migrate to FastAPI + HTMX. Add SQLite persistence, Yahoo Fantasy API integration via yfpy, and the player ID crosswalk table.
+- **Week 4**: Build roster optimizer (PuLP) and trade value calculator (VORP/z-scores). These are the highest-value features.
+- **Week 5**: Add waiver wire recommendations and projection blending with configurable weights.
+- **Week 6**: Wire up APScheduler for automated daily updates, polish the UI with Tailwind/DaisyUI, and optionally deploy to Railway ($5/month).
+
+The total cost for the entire stack is **$0 for core functionality**. Optional paid additions: FanGraphs membership ($80/year) for an ad-free CSV export experience, Baseball Prospectus ($75–100/year) for PECOTA projections, and Railway ($5–10/month) if you want cloud hosting. None are required — every essential data source and tool is free.

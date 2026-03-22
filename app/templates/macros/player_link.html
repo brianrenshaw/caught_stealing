@@ -1,0 +1,11 @@
+{% macro player_link(player_id, name, team=None, classes="text-gray-200") %}
+{% if player_id %}
+<a hx-get="/api/player/{{ player_id }}"
+   hx-target="#player-modal-content"
+   hx-swap="innerHTML"
+   class="{{ classes }} hover:text-blue-400 cursor-pointer transition-colors player-link">{{ name }}</a>
+{% else %}
+<span class="{{ classes }}">{{ name }}</span>
+{% endif %}
+{% if team %}<span class="text-gray-500 text-xs ml-1">{{ team }}</span>{% endif %}
+{% endmacro %}

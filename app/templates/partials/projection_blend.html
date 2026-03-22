@@ -1,0 +1,31 @@
+{% if blended %}
+<div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+    <h4 class="text-sm font-semibold text-gray-400 mb-2">
+        Custom Blend for {{ player.name if player else "Player" }}
+    </h4>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {% for stat, val in blended.items() %}
+        <div class="text-center">
+            <div class="text-xs text-gray-500 uppercase">{{ stat }}</div>
+            <div class="text-lg font-bold text-white">
+                {% if stat in ("AVG", "OBP", "SLG", "OPS", "wOBA", "WHIP") %}
+                {{ "%.3f"|format(val) }}
+                {% elif stat in ("ERA", "FIP") %}
+                {{ "%.2f"|format(val) }}
+                {% else %}
+                {{ "%.0f"|format(val) }}
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="mt-2 text-xs text-gray-500">
+        Weights: Steamer {{ "%.0f"|format(weights.steamer * 100) }}% |
+        ZiPS {{ "%.0f"|format(weights.zips * 100) }}% |
+        ATC {{ "%.0f"|format(weights.atc * 100) }}% |
+        THE BAT {{ "%.0f"|format(weights.thebat * 100) }}%
+    </div>
+</div>
+{% else %}
+<p class="text-gray-400 text-sm">No projection data available for blending.</p>
+{% endif %}

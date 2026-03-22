@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Analyzer — Fantasy Baseball{% endblock %}
+{% block nav_trades %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-6">Trade Analyzer</h2>
+
+<!-- Trade Evaluation Form -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
+    <h3 class="text-lg font-semibold mb-4 text-gray-200">Evaluate a Trade</h3>
+    <form hx-post="/api/trades/analyze" hx-target="#trade-result" class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Side A — Player IDs (comma-separated)</label>
+                <input type="text" name="side_a" placeholder="e.g. 12, 45"
+                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm text-gray-400 mb-1">Side B — Player IDs (comma-separated)</label>
+                <input type="text" name="side_b" placeholder="e.g. 23, 67"
+                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500">
+            </div>
+        </div>
+        <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+            Analyze Trade
+        </button>
+    </form>
+    <div id="trade-result" class="mt-4"></div>
+</div>
+
+<!-- Trade Value Rankings -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <div class="p-4 border-b border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-200">Trade Value Rankings</h3>
+        <p class="text-gray-500 text-xs mt-1">Surplus value = z-score total minus position replacement level</p>
+    </div>
+    {% if trade_values %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700">
+                    <th class="text-left py-2 px-3">#</th>
+                    <th class="text-left py-2 px-3">Player</th>
+                    <th class="text-left py-2 px-1">Pos</th>
+                    <th class="text-right py-2 px-3">Pos Rank</th>
+                    <th class="text-right py-2 px-3">Z-Score</th>
+                    <th class="text-right py-2 px-3">Surplus</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for player in trade_values %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3">
+                        {{ player_link(player.player_id, player.name, player.team) }}
+                    </td>
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ player.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-400">{{ player.positional_rank }}</td>
+                    <td class="py-2 px-3 text-right {% if player.z_score_total > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {{ "%.2f"|format(player.z_score_total) }}
+                    </td>
+                    <td class="py-2 px-3 text-right {% if player.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
+                        {{ "%.2f"|format(player.surplus_value) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="p-8 text-center">
+        <p class="text-gray-400">No trade values available.</p>
+        <p class="text-gray-500 text-sm mt-2">Run the stats sync first to populate projections.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

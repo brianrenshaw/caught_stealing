@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Matchups — Fantasy Baseball{% endblock %}
+{% block nav_matchups %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/player_link.html" import player_link %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-2">Daily Matchups</h2>
+<p class="text-gray-400 text-sm mb-6">{{ game_date }}</p>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Streaming Pitchers -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden lg:col-span-2">
+        <div class="p-4 border-b border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-200">Streaming Pitchers</h3>
+            <p class="text-gray-500 text-xs mt-1">Ranked by matchup quality (pitcher skill + opponent + park)</p>
+        </div>
+        {% if streaming_picks %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="text-gray-400 border-b border-gray-700">
+                        <th class="text-left py-2 px-3">#</th>
+                        <th class="text-left py-2 px-3">Pitcher</th>
+                        <th class="text-left py-2 px-3">vs</th>
+                        <th class="text-left py-2 px-3">Park</th>
+                        <th class="text-right py-2 px-3">Score</th>
+                        <th class="text-right py-2 px-3">Proj K</th>
+                        <th class="text-right py-2 px-3">ERA</th>
+                        <th class="text-left py-2 px-3">Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pick in streaming_picks %}
+                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                        <td class="py-2 px-3">
+                            {{ player_link(pick.player_id, pick.name, pick.team) }}
+                        </td>
+                        <td class="py-2 px-3 text-gray-400">{{ pick.opponent }}</td>
+                        <td class="py-2 px-3 text-gray-500 text-xs">{{ pick.park }}</td>
+                        <td class="py-2 px-3 text-right">
+                            <span class="font-medium {% if pick.streaming_score >= 70 %}text-green-400{% elif pick.streaming_score >= 50 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                                {{ "%.0f"|format(pick.streaming_score) }}
+                            </span>
+                        </td>
+                        <td class="py-2 px-3 text-right text-gray-300">{{ "%.1f"|format(pick.projected_k) }}</td>
+                        <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(pick.projected_era_for_start) }}</td>
+                        <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate">{{ pick.reasoning }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            <p class="text-gray-400">No games scheduled today.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Hitter Stacks -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-200">Hitter Stacks</h3>
+            <p class="text-gray-500 text-xs mt-1">Best offenses to target today</p>
+        </div>
+        {% if stacks %}
+        <div class="divide-y divide-gray-700/50">
+            {% for stack in stacks %}
+            <div class="p-4 hover:bg-gray-700/30">
+                <div class="flex justify-between items-start mb-1">
+                    <span class="text-gray-200 font-medium">{{ stack.team }}</span>
+                    <span class="font-medium {% if stack.stack_score >= 60 %}text-green-400{% elif stack.stack_score >= 40 %}text-yellow-400{% else %}text-gray-400{% endif %}">
+                        {{ "%.0f"|format(stack.stack_score) }}
+                    </span>
+                </div>
+                <p class="text-gray-400 text-xs">vs {{ stack.opponent_pitcher }} @ {{ stack.park }}</p>
+                <p class="text-gray-500 text-xs mt-1">{{ stack.reasoning }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            <p class="text-gray-400">No stack recommendations today.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Two-Start Pitchers -->
+    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+        <div class="p-4 border-b border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-200">Two-Start Pitchers</h3>
+            <p class="text-gray-500 text-xs mt-1">Pitchers with two starts this week</p>
+        </div>
+        {% if two_start %}
+        <div class="divide-y divide-gray-700/50">
+            {% for pitcher in two_start %}
+            <div class="p-4 hover:bg-gray-700/30">
+                <div class="flex justify-between items-start mb-1">
+                    <div>
+                        {{ player_link(pitcher.player_id, pitcher.name, pitcher.team, "text-gray-200 font-medium") }}
+                    </div>
+                    <span class="font-medium {% if pitcher.combined_score >= 60 %}text-green-400{% elif pitcher.combined_score >= 40 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                        {{ "%.0f"|format(pitcher.combined_score) }}
+                    </span>
+                </div>
+                <p class="text-gray-400 text-xs">vs {{ pitcher.start_1_opponent }} / vs {{ pitcher.start_2_opponent }}</p>
+                <p class="text-gray-500 text-xs mt-1">{{ pitcher.reasoning }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="p-8 text-center">
+            <p class="text-gray-400">No two-start pitchers identified yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

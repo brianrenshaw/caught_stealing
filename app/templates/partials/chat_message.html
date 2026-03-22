@@ -1,0 +1,20 @@
+<!-- User message -->
+<div class="flex justify-end mb-3">
+    <div class="bg-blue-600 rounded-lg px-3 py-2 max-w-[80%]">
+        <p class="text-sm text-white">{{ user_message }}</p>
+    </div>
+</div>
+<!-- Assistant response -->
+<div class="flex justify-start mb-3">
+    <div class="bg-gray-700 rounded-lg px-3 py-2 max-w-[85%]">
+        <p class="text-sm text-gray-100 whitespace-pre-wrap">{{ response }}</p>
+        {% if tools_used %}
+        <p class="text-xs text-gray-500 mt-2 border-t border-gray-600 pt-1">
+            Used: {{ tools_used | join(', ') }}
+        </p>
+        {% endif %}
+    </div>
+</div>
+<!-- Update session ID hidden input -->
+<input type="hidden" name="session_id" value="{{ session_id }}"
+       hx-swap-oob="true" id="chat-session-id">

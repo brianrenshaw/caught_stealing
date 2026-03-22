@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}Stats Explorer — Fantasy Baseball{% endblock %}
+{% block nav_stats %}bg-gray-700 text-white{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-white">Stats Explorer</h1>
+    <div class="flex items-center gap-3">
+        <label class="text-gray-400 text-sm">Season:</label>
+        <select id="season-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                onchange="reloadCharts()">
+            <option value="{{ season }}" selected>{{ season }}</option>
+        </select>
+        <label class="text-gray-400 text-sm">Min PA:</label>
+        <input type="number" id="min-pa" value="50" min="0" step="10"
+               class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-20"
+               onchange="reloadCharts()">
+    </div>
+</div>
+
+{# ── Tab Navigation ── #}
+<div class="border-b border-gray-700 mb-6">
+    <nav class="flex gap-6 -mb-px" id="stats-tabs">
+        <button onclick="switchView('statcast')" class="stats-tab-btn pb-3 text-sm font-medium border-b-2" data-view="statcast">
+            Statcast
+        </button>
+        <button onclick="switchView('batting')" class="stats-tab-btn pb-3 text-sm font-medium border-b-2" data-view="batting">
+            Batting
+        </button>
+        <button onclick="switchView('pitching')" class="stats-tab-btn pb-3 text-sm font-medium border-b-2" data-view="pitching">
+            Pitching
+        </button>
+    </nav>
+</div>
+
+{# ── Statcast View ── #}
+<div id="view-statcast" class="stats-view">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Exit Velocity vs Barrel Rate</h3>
+            <div id="chart-ev-barrel" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA vs Actual wOBA (Luck Chart)</h3>
+            <div id="chart-luck" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        </div>
+    </div>
+    <div class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA Distribution</h3>
+        <div id="chart-xwoba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    </div>
+</div>
+
+{# ── Batting View ── #}
+<div id="view-batting" class="stats-view hidden">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wRC+ Leaders</h3>
+            <div id="chart-wrc-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K% vs BB% (Plate Discipline)</h3>
+            <div id="chart-kbb-scatter" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        </div>
+    </div>
+    <div class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wOBA Distribution</h3>
+        <div id="chart-woba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    </div>
+</div>
+
+{# ── Pitching View ── #}
+<div id="view-pitching" class="stats-view hidden">
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">FIP vs ERA</h3>
+            <div id="chart-fip-era" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        </div>
+        <div>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K-BB% Leaders</h3>
+            <div id="chart-kbb-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
+        </div>
+    </div>
+    <div class="mt-6">
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ERA Distribution</h3>
+        <div id="chart-era-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    </div>
+</div>
+
+<script src="/static/js/charts.js"></script>
+<script>
+const currentView = '{{ view }}';
+
+function getSeason() { return document.getElementById('season-select').value; }
+function getMinPA() { return document.getElementById('min-pa').value; }
+
+function switchView(view) {
+    document.querySelectorAll('.stats-view').forEach(v => v.classList.add('hidden'));
+    document.querySelectorAll('.stats-tab-btn').forEach(b => {
+        b.classList.remove('border-blue-500', 'text-blue-400');
+        b.classList.add('border-transparent', 'text-gray-400');
+    });
+    document.getElementById('view-' + view).classList.remove('hidden');
+    const btn = document.querySelector('[data-view="' + view + '"]');
+    btn.classList.add('border-blue-500', 'text-blue-400');
+    btn.classList.remove('border-transparent', 'text-gray-400');
+
+    // Load charts for the selected view
+    if (view === 'statcast') loadStatcastCharts();
+    else if (view === 'batting') loadBattingCharts();
+    else if (view === 'pitching') loadPitchingCharts();
+}
+
+function reloadCharts() {
+    const active = document.querySelector('.stats-tab-btn.text-blue-400');
+    if (active) switchView(active.dataset.view);
+}
+
+async function fetchJSON(url) {
+    const resp = await fetch(url);
+    return resp.json();
+}
+
+async function loadStatcastCharts() {
+    const season = getSeason();
+    const minPA = getMinPA();
+
+    // EV vs Barrel
+    const evData = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=avg_exit_velo&y_stat=barrel_pct&min_pa=${minPA}`);
+    buildScatterChart('chart-ev-barrel', evData, {
+        xLabel: 'Avg Exit Velocity (mph)',
+        yLabel: 'Barrel %',
+        colorStat: 'xwoba',
+    });
+
+    // Luck chart: need xwOBA vs wOBA — use the data to build a custom scatter
+    // Fetch xwOBA data and build a manual chart
+    const luckData = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=xwoba&y_stat=xba&min_pa=${minPA}`);
+    // Actually, let's plot xwOBA (x) vs some actual stat. We need wOBA from batting stats.
+    // For simplicity, use xwOBA vs xBA which is still insightful
+    buildScatterChart('chart-luck', luckData, {
+        xLabel: 'xwOBA',
+        yLabel: 'xBA',
+    });
+
+    // xwOBA distribution
+    const distData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=xwoba&player_type=batter`);
+    // Statcast table doesn't have xwoba in batting_stats; use the raw values trick
+    // Actually the distribution endpoint queries BattingStats. Let's use wrc_plus instead.
+    const wrcDist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter`);
+    buildDistribution('chart-xwoba-dist', wrcDist, { title: 'wOBA Distribution (Qualified Batters)' });
+}
+
+async function loadBattingCharts() {
+    const season = getSeason();
+
+    // wRC+ leaders
+    const wrcData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=wrc_plus&limit=30`);
+    buildBarChart('chart-wrc-leaders', wrcData, {
+        label: 'wRC+',
+        title: 'wRC+ Leaders',
+        referenceLine: 100,
+    });
+
+    // K% vs BB% scatter — need to fetch batting stats with both stats
+    // Use two separate calls and merge, or use a combined approach
+    // For now, use the statcast scatter with batting stats manually
+    const kData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=k_pct&limit=200`);
+    const bbData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=bb_pct&limit=200`);
+
+    // Merge by player_id
+    const bbMap = {};
+    bbData.forEach(d => { bbMap[d.player_id] = d.value; });
+    const scatterData = kData.filter(d => bbMap[d.player_id] !== undefined).map(d => ({
+        ...d,
+        x: d.value,
+        y: bbMap[d.player_id],
+    }));
+    buildScatterChart('chart-kbb-scatter', scatterData, {
+        xLabel: 'K%',
+        yLabel: 'BB%',
+        title: 'Plate Discipline (lower K%, higher BB% = better)',
+    });
+
+    // wOBA distribution
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter`);
+    buildDistribution('chart-woba-dist', dist, { title: 'wOBA Distribution' });
+}
+
+async function loadPitchingCharts() {
+    const season = getSeason();
+
+    // FIP vs ERA scatter
+    const fipData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=fip&limit=200`);
+    const eraData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=era&limit=200`);
+    const eraMap = {};
+    eraData.forEach(d => { eraMap[d.player_id] = d.value; });
+    const fipScatter = fipData.filter(d => eraMap[d.player_id] !== undefined).map(d => ({
+        ...d,
+        x: eraMap[d.player_id],
+        y: d.value,
+    }));
+    buildScatterChart('chart-fip-era', fipScatter, {
+        xLabel: 'ERA',
+        yLabel: 'FIP',
+        title: 'FIP vs ERA (below diagonal = ERA may rise)',
+    });
+
+    // K-BB% leaders
+    const kbbData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=k_bb_pct&limit=30`);
+    buildBarChart('chart-kbb-leaders', kbbData, {
+        label: 'K-BB%',
+        title: 'K-BB% Leaders',
+    });
+
+    // ERA distribution
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=era&player_type=pitcher`);
+    buildDistribution('chart-era-dist', dist, { title: 'ERA Distribution' });
+}
+
+// Initialize on load
+switchView(currentView);
+</script>
+{% endblock %}

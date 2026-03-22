@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Fantasy Baseball{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
+    <link rel="stylesheet" href="/static/css/custom.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+</head>
+<body class="h-full bg-gray-900 text-gray-100">
+    <div class="flex h-full">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <h1 class="text-xl font-bold text-white">Fantasy Baseball</h1>
+                <div class="mt-3 relative">
+                    <input type="search" name="q" placeholder="Search players..."
+                           autocomplete="off"
+                           hx-get="/api/players/search"
+                           hx-trigger="keyup changed delay:300ms"
+                           hx-target="#search-dropdown"
+                           hx-params="q"
+                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5
+                                  text-sm text-gray-200 placeholder-gray-500
+                                  focus:outline-none focus:border-blue-500">
+                    <div id="search-dropdown" class="relative"></div>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-1">
+                <a href="/" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_dashboard %}{% endblock %}">
+                    <span class="mr-3">📊</span> Dashboard
+                </a>
+                <a href="/roster" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_roster %}{% endblock %}">
+                    <span class="mr-3">👥</span> Roster
+                </a>
+                <a href="/trades" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_trades %}{% endblock %}">
+                    <span class="mr-3">🔄</span> Trades
+                </a>
+                <a href="/waivers" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_waivers %}{% endblock %}">
+                    <span class="mr-3">📋</span> Waivers
+                </a>
+                <a href="/stats" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_stats %}{% endblock %}">
+                    <span class="mr-3">📉</span> Stats Explorer
+                </a>
+                <a href="/projections" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_projections %}{% endblock %}">
+                    <span class="mr-3">📈</span> Projections
+                </a>
+                <a href="/matchups" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_matchups %}{% endblock %}">
+                    <span class="mr-3">🎯</span> Matchups
+                </a>
+            </nav>
+            <div class="p-4 border-t border-gray-700 text-xs text-gray-500">
+                <p>League: {{ league_name or "Not connected" }}</p>
+                <p>Last sync: {{ last_sync or "Never" }}</p>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="flex-1 overflow-y-auto">
+            <div class="p-6">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Chat toggle button -->
+    <button onclick="toggleChat()"
+            class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-700
+                   rounded-full shadow-lg flex items-center justify-center
+                   text-white text-xl transition-colors z-40"
+            title="Ask the Fantasy Assistant">
+        <span id="chat-btn-icon">💬</span>
+    </button>
+
+    <!-- Chat panel -->
+    <div id="chat-panel"
+         class="fixed top-0 right-0 h-full w-96 bg-gray-800 border-l border-gray-700
+                transform translate-x-full transition-transform duration-300
+                z-50 flex flex-col shadow-2xl">
+        <!-- Header -->
+        <div class="p-4 border-b border-gray-700 flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-white">Fantasy Assistant</h3>
+            <button onclick="toggleChat()" class="text-gray-400 hover:text-white text-lg">&#x2715;</button>
+        </div>
+
+        <!-- Messages -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto p-4">
+            <!-- Suggestions (shown when empty) -->
+            <div id="chat-suggestions" class="space-y-2">
+                <p class="text-gray-400 text-sm mb-3">Ask me anything about your fantasy team:</p>
+                <button onclick="sendSuggestion('Who should I pick up this week?')"
+                        class="block w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg px-3 py-2 transition-colors">
+                    Who should I pick up this week?
+                </button>
+                <button onclick="sendSuggestion('Best streaming pitcher today?')"
+                        class="block w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg px-3 py-2 transition-colors">
+                    Best streaming pitcher today?
+                </button>
+                <button onclick="sendSuggestion('Who are the top buy-low targets?')"
+                        class="block w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg px-3 py-2 transition-colors">
+                    Who are the top buy-low targets?
+                </button>
+                <button onclick="sendSuggestion('Compare two players for me')"
+                        class="block w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg px-3 py-2 transition-colors">
+                    Compare two players for me
+                </button>
+                <button onclick="sendSuggestion('Evaluate a trade for me')"
+                        class="block w-full text-left bg-gray-700 hover:bg-gray-600 text-gray-300 text-sm rounded-lg px-3 py-2 transition-colors">
+                    Evaluate a trade for me
+                </button>
+            </div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div id="chat-typing" class="hidden px-4 pb-2">
+            <div class="flex items-center gap-1 text-gray-400 text-sm">
+                <span class="animate-pulse">Thinking</span>
+                <span class="animate-bounce" style="animation-delay: 0.1s">.</span>
+                <span class="animate-bounce" style="animation-delay: 0.2s">.</span>
+                <span class="animate-bounce" style="animation-delay: 0.3s">.</span>
+            </div>
+        </div>
+
+        <!-- Input -->
+        <form id="chat-form"
+              hx-post="/api/assistant/ask"
+              hx-target="#chat-messages"
+              hx-swap="beforeend"
+              class="p-4 border-t border-gray-700">
+            <input type="hidden" name="session_id" id="chat-session-id" value="">
+            <div class="flex gap-2">
+                <input type="text" name="message" id="chat-input"
+                       placeholder="Ask about your fantasy team..."
+                       autocomplete="off"
+                       class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
+                              text-sm text-gray-200 placeholder-gray-500
+                              focus:outline-none focus:border-blue-500">
+                <button type="submit"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg
+                               text-sm font-medium transition-colors">
+                    Send
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        // Generate session ID on load
+        if (!document.getElementById('chat-session-id').value) {
+            document.getElementById('chat-session-id').value = crypto.randomUUID();
+        }
+
+        function toggleChat() {
+            const panel = document.getElementById('chat-panel');
+            panel.classList.toggle('translate-x-full');
+        }
+
+        function sendSuggestion(text) {
+            document.getElementById('chat-input').value = text;
+            document.getElementById('chat-suggestions').remove();
+            htmx.trigger('#chat-form', 'submit');
+        }
+
+        // Show/hide typing indicator and scroll on HTMX events
+        document.body.addEventListener('htmx:beforeRequest', function(e) {
+            if (e.detail.elt.id === 'chat-form') {
+                document.getElementById('chat-typing').classList.remove('hidden');
+                document.getElementById('chat-suggestions')?.remove();
+            }
+        });
+        document.body.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.elt.id === 'chat-form') {
+                document.getElementById('chat-typing').classList.add('hidden');
+                document.getElementById('chat-input').value = '';
+                const msgs = document.getElementById('chat-messages');
+                msgs.scrollTop = msgs.scrollHeight;
+            }
+        });
+    </script>
+
+    <!-- Player Detail Modal -->
+    <div id="player-modal-backdrop"
+         class="fixed inset-0 bg-black/60 z-50 hidden items-center justify-center"
+         onclick="if(event.target===this) closePlayerModal()">
+        <div id="player-modal-content"
+             class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto mx-4">
+        </div>
+    </div>
+
+    <script>
+        function openPlayerModal() {
+            const backdrop = document.getElementById('player-modal-backdrop');
+            backdrop.classList.remove('hidden');
+            backdrop.classList.add('flex');
+        }
+        function closePlayerModal() {
+            const backdrop = document.getElementById('player-modal-backdrop');
+            backdrop.classList.add('hidden');
+            backdrop.classList.remove('flex');
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closePlayerModal();
+        });
+        document.body.addEventListener('htmx:afterSwap', function(e) {
+            if (e.detail.target.id === 'player-modal-content') {
+                openPlayerModal();
+            }
+        });
+    </script>
+</body>
+</html>

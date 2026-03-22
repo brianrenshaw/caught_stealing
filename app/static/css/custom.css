@@ -1,0 +1,11 @@
+/* Custom styles for Fantasy Baseball app */
+
+/* Clickable player name links */
+.player-link {
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+    transition: border-color 0.15s, color 0.15s;
+}
+.player-link:hover {
+    border-bottom-color: #60a5fa;
+}

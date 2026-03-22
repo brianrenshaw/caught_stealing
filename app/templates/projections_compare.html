@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% block title %}Compare Projections — Fantasy Baseball{% endblock %}
+{% block nav_projections %}bg-gray-700 text-white{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h2 class="text-2xl font-bold text-white">Projection Comparison</h2>
+        <p class="text-gray-400 text-sm mt-1">Compare up to 4 players side by side</p>
+    </div>
+    <a href="/projections" class="text-blue-400 hover:text-blue-300 text-sm">Back to Projections</a>
+</div>
+
+{# ── Player Search to Add ── #}
+<div class="mb-6 bg-gray-800 rounded-lg border border-gray-700 p-4">
+    <label class="text-sm text-gray-400 block mb-2">Search players to compare:</label>
+    <div class="flex gap-3">
+        <div class="relative flex-1">
+            <input type="search" id="compare-search" placeholder="Type a player name..."
+                   autocomplete="off"
+                   hx-get="/api/players/search"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#compare-dropdown"
+                   hx-params="q"
+                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
+                          text-sm text-gray-200 placeholder-gray-500
+                          focus:outline-none focus:border-blue-500">
+            <div id="compare-dropdown" class="relative"></div>
+        </div>
+    </div>
+    <div id="selected-players" class="flex gap-2 mt-3 flex-wrap">
+        {% for comp in comparisons %}
+        <span class="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+              data-player-id="{{ comp.player.id }}">
+            {{ comp.player.name }}
+            <button onclick="removePlayer({{ comp.player.id }})" class="text-blue-300 hover:text-white">&times;</button>
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+{% if comparisons %}
+{# ── Side-by-side Table ── #}
+<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                    <th class="text-left py-2 px-3">Stat</th>
+                    {% for comp in comparisons %}
+                    <th class="text-right py-2 px-3">
+                        <a href="/player/{{ comp.player.id }}" class="text-blue-400 hover:text-blue-300">
+                            {{ comp.player.name }}
+                        </a>
+                        <div class="text-xs text-gray-500 font-normal">{{ comp.player.team }} &middot; {{ comp.player.position }}</div>
+                    </th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {# Collect all stats across all systems for all players #}
+                {% set all_stats = [] %}
+                {% for comp in comparisons %}
+                    {% for system, stats in comp.projections.items() %}
+                        {% for stat_name in stats.keys() %}
+                            {% if stat_name not in all_stats and stat_name not in ("confidence", "xwoba_delta") %}
+                                {% if all_stats.append(stat_name) %}{% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
+
+                {% for stat_name in all_stats %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <td class="py-2 px-3 text-gray-300 font-medium">{{ stat_name }}</td>
+                    {% for comp in comparisons %}
+                    {% set blended = comp.projections.get("blended", {}) %}
+                    <td class="text-right py-2 px-3 text-gray-200">
+                        {% set val = blended.get(stat_name) %}
+                        {% if val is not none %}
+                            {% if stat_name in ("AVG", "OBP", "SLG", "OPS", "wOBA", "WHIP") %}
+                            {{ "%.3f"|format(val) }}
+                            {% elif stat_name in ("ERA", "FIP") %}
+                            {{ "%.2f"|format(val) }}
+                            {% else %}
+                            {{ "%.0f"|format(val) }}
+                            {% endif %}
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# ── Radar Chart ── #}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Visual Comparison</h3>
+    <div id="radar-chart" style="height: 450px;"></div>
+</div>
+
+<script src="/static/js/charts.js"></script>
+<script>
+(function() {
+    // Build radar chart data from projections
+    const players = [
+        {% for comp in comparisons %}
+        {
+            name: "{{ comp.player.name }}",
+            stats: {
+                {% set blended = comp.projections.get("blended", {}) %}
+                {% for stat_name, val in blended.items() %}
+                {% if stat_name not in ("confidence", "xwoba_delta") %}
+                "{{ stat_name }}": {{ val }},
+                {% endif %}
+                {% endfor %}
+            }
+        },
+        {% endfor %}
+    ];
+
+    // Determine categories (hitter vs pitcher)
+    const hitterCats = ["HR", "R", "RBI", "SB", "AVG", "OPS"];
+    const pitcherCats = ["W", "SV", "K", "ERA", "WHIP"];
+
+    // Use hitter cats if the first player has HR projected, else pitcher
+    const firstStats = players[0]?.stats || {};
+    const categories = firstStats.HR !== undefined ? hitterCats : pitcherCats;
+
+    // Normalize to percentiles across the compared players
+    const maxVals = {};
+    categories.forEach(cat => {
+        const vals = players.map(p => p.stats[cat] || 0);
+        maxVals[cat] = Math.max(...vals) || 1;
+    });
+
+    const normalizedPlayers = players.map(p => ({
+        name: p.name,
+        stats: Object.fromEntries(
+            categories.map(cat => {
+                let val = (p.stats[cat] || 0) / maxVals[cat] * 100;
+                // For ERA/WHIP, invert (lower is better)
+                if (cat === "ERA" || cat === "WHIP") {
+                    val = maxVals[cat] === 0 ? 50 : (1 - (p.stats[cat] || 0) / (maxVals[cat] * 1.5)) * 100;
+                }
+                return [cat, Math.max(val, 0)];
+            })
+        )
+    }));
+
+    if (normalizedPlayers.length > 0) {
+        buildRadarChart('radar-chart', normalizedPlayers, {
+            categories: categories,
+            title: 'Player Projection Profiles',
+        });
+    }
+})();
+</script>
+{% else %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
+    <p class="text-gray-400">Search and select players above to compare their projections.</p>
+</div>
+{% endif %}
+
+<script>
+function removePlayer(playerId) {
+    const params = new URLSearchParams(window.location.search);
+    let players = (params.get('players') || '').split(',').filter(p => p && p !== String(playerId));
+    if (players.length) {
+        window.location.href = `/projections/compare?players=${players.join(',')}`;
+    } else {
+        window.location.href = '/projections/compare';
+    }
+}
+
+// Override search result click behavior to add to comparison instead of navigating
+document.addEventListener('click', function(e) {
+    const link = e.target.closest('#compare-dropdown a');
+    if (link) {
+        e.preventDefault();
+        const href = link.getAttribute('href');
+        const match = href.match(/\/player\/(\d+)/);
+        if (match) {
+            const newId = match[1];
+            const params = new URLSearchParams(window.location.search);
+            let players = (params.get('players') || '').split(',').filter(p => p);
+            if (!players.includes(newId) && players.length < 4) {
+                players.push(newId);
+                window.location.href = `/projections/compare?players=${players.join(',')}`;
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

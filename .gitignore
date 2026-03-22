@@ -1,8 +1,30 @@
 .DS_Store
-node_modules/
-.claude/
-venv/
 __pycache__/
 *.pyc
+.claude/
 .env
-dist/
+venv/
+.venv/
+
+# Database
+*.db
+
+# Cache
+.cache/
+diskcache/
+
+# Yahoo OAuth tokens
+token.json
+private.json
+
+# uv
+.python-version
+.uv/
+uv.lock
+
+# Ruff
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,64 @@
+{% if error %}
+<div class="bg-red-900/30 border border-red-700 rounded-lg p-4 text-red-300 text-sm">
+    {{ error }}
+</div>
+{% elif trade %}
+<div class="bg-gray-700/50 rounded-lg p-4 space-y-4">
+    <div class="grid grid-cols-2 gap-4">
+        <!-- Side A -->
+        <div>
+            <h4 class="text-sm font-medium text-gray-300 mb-2">Side A Gives Up</h4>
+            {% for p in trade.side_a_players %}
+            <div class="flex justify-between text-sm py-1">
+                <span class="text-gray-200">{{ p.name }}</span>
+                <span class="text-gray-400">{{ "%.2f"|format(p.surplus_value) }}</span>
+            </div>
+            {% endfor %}
+            <div class="border-t border-gray-600 mt-2 pt-2 flex justify-between text-sm font-medium">
+                <span class="text-gray-300">Total Value</span>
+                <span class="text-gray-200">{{ "%.2f"|format(trade.side_a_total_value) }}</span>
+            </div>
+        </div>
+        <!-- Side B -->
+        <div>
+            <h4 class="text-sm font-medium text-gray-300 mb-2">Side B Gives Up</h4>
+            {% for p in trade.side_b_players %}
+            <div class="flex justify-between text-sm py-1">
+                <span class="text-gray-200">{{ p.name }}</span>
+                <span class="text-gray-400">{{ "%.2f"|format(p.surplus_value) }}</span>
+            </div>
+            {% endfor %}
+            <div class="border-t border-gray-600 mt-2 pt-2 flex justify-between text-sm font-medium">
+                <span class="text-gray-300">Total Value</span>
+                <span class="text-gray-200">{{ "%.2f"|format(trade.side_b_total_value) }}</span>
+            </div>
+        </div>
+    </div>
+    <!-- Verdict -->
+    <div class="text-center py-2">
+        <span class="text-sm text-gray-400">Value Difference: </span>
+        <span class="text-lg font-bold
+            {% if trade.fairness == 'fair' %}text-green-400
+            {% elif 'slightly' in trade.fairness %}text-yellow-400
+            {% else %}text-red-400{% endif %}">
+            {{ "%.2f"|format(trade.value_difference) }}
+        </span>
+        <p class="text-sm mt-1
+            {% if trade.fairness == 'fair' %}text-green-400
+            {% elif 'slightly' in trade.fairness %}text-yellow-400
+            {% else %}text-red-400{% endif %}">
+            {% if trade.fairness == 'fair' %}Fair trade
+            {% elif trade.fairness == 'slightly_favors_a' %}Slightly favors Side A
+            {% elif trade.fairness == 'slightly_favors_b' %}Slightly favors Side B
+            {% elif trade.fairness == 'heavily_favors_a' %}Heavily favors Side A
+            {% elif trade.fairness == 'heavily_favors_b' %}Heavily favors Side B
+            {% endif %}
+        </p>
+    </div>
+</div>
+{% else %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+    <h4 class="font-semibold text-white mb-2">Trade Analysis</h4>
+    <p class="text-gray-400 text-sm">Enter player IDs above to analyze a trade.</p>
+</div>
+{% endif %}
