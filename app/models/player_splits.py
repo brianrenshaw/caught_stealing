@@ -19,8 +19,10 @@ class PlayerSplits(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)
-    season: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("players.id"), nullable=False, index=True
+    )
+    season: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     split_type: Mapped[str] = mapped_column(
         String, nullable=False
     )  # vs_lhp, vs_rhp, home, away

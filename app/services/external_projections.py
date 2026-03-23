@@ -89,21 +89,21 @@ def _extract_projections(df: pd.DataFrame, col_map: dict[str, str]) -> list[dict
     if df.empty:
         return []
 
+    # Filter col_map to only columns present in df
+    available_cols = {src: dst for src, dst in col_map.items() if src in df.columns}
     results = []
-    for _, row in df.iterrows():
+    for row in df.itertuples(index=False):
         fg_id = None
         name = None
         stats = {}
-        for src_col, dst_name in col_map.items():
-            if src_col not in df.columns:
-                continue
-            val = row[src_col]
+        for src_col, dst_name in available_cols.items():
+            val = getattr(row, src_col, None)
             if src_col == "IDfg":
                 fg_id = str(int(val)) if pd.notna(val) else None
             elif src_col == "Name":
                 name = str(val) if pd.notna(val) else None
             elif src_col == "Team":
-                continue  # skip team, it's metadata
+                continue
             else:
                 if pd.notna(val):
                     stats[dst_name] = float(val)

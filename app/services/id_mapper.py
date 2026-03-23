@@ -87,9 +87,9 @@ class PlayerIDMapper:
     def get_fangraphs_to_player_id_map(self, df: pd.DataFrame) -> dict[str, str]:
         """Build a FanGraphs ID → MLBAM ID lookup dict from the loaded SFBB map."""
         result: dict[str, str] = {}
-        for _, row in df.iterrows():
-            fg = _safe_str(row.get("IDFANGRAPHS"))
-            mlb = _safe_str(row.get("MLBID"))
+        for row in df.itertuples(index=False):
+            fg = _safe_str(getattr(row, "IDFANGRAPHS", None))
+            mlb = _safe_str(getattr(row, "MLBID", None))
             if fg and mlb:
                 result[fg] = mlb
         return result
@@ -119,14 +119,14 @@ class PlayerIDMapper:
         seen_bbref: set[str] = set()
         seen_fangraphs: set[str] = set()
 
-        for _, row in df.iterrows():
-            yahoo_id = _safe_str(row.get("YAHOOID"))
-            fg_id = _safe_str(row.get("IDFANGRAPHS"))
-            mlbam_id = _safe_str(row.get("MLBID"))
-            bbref_id = _safe_str(row.get("BREFID"))
-            name = _safe_str(row.get("PLAYERNAME"))
-            team = _safe_str(row.get("TEAM"))
-            pos = _safe_str(row.get("POS"))
+        for row in df.itertuples(index=False):
+            yahoo_id = _safe_str(getattr(row, "YAHOOID", None))
+            fg_id = _safe_str(getattr(row, "IDFANGRAPHS", None))
+            mlbam_id = _safe_str(getattr(row, "MLBID", None))
+            bbref_id = _safe_str(getattr(row, "BREFID", None))
+            name = _safe_str(getattr(row, "PLAYERNAME", None))
+            team = _safe_str(getattr(row, "TEAM", None))
+            pos = _safe_str(getattr(row, "POS", None))
 
             if not name:
                 continue

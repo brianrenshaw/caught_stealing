@@ -10,8 +10,10 @@ class Projection(Base):
     __tablename__ = "projections"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)
-    season: Mapped[int] = mapped_column(Integer, nullable=False)
+    player_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("players.id"), nullable=False, index=True
+    )
+    season: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
     system: Mapped[str] = mapped_column(String, nullable=False)
     stat_name: Mapped[str] = mapped_column(String, nullable=False)
     projected_value: Mapped[float] = mapped_column(Float, nullable=False)

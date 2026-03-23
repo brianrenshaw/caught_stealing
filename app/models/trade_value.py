@@ -10,7 +10,9 @@ class TradeValue(Base):
     __tablename__ = "trade_values"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("players.id"), nullable=False, index=True
+    )
     surplus_value: Mapped[float] = mapped_column(Float, nullable=False)
     positional_rank: Mapped[int] = mapped_column(Integer, nullable=False)
     z_score_total: Mapped[float] = mapped_column(Float, nullable=False)

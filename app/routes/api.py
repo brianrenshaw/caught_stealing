@@ -89,7 +89,9 @@ async def sync_status():
 
 @router.get("/players/search")
 async def search_players(
-    request: Request, q: str = Query("", min_length=1), limit: int = Query(15)
+    request: Request,
+    q: str = Query("", min_length=1, max_length=100),
+    limit: int = Query(15, le=100),
 ):
     """Search players by name for autocomplete dropdown."""
     async with async_session() as session:

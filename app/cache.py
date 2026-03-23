@@ -23,6 +23,9 @@ TTL_STATS = 24 * 60 * 60  # 24 hours
 TTL_PROJECTIONS = 7 * 24 * 60 * 60  # 7 days
 
 
+_CACHE_MISS = object()  # Sentinel to distinguish "not cached" from "cached None"
+
+
 def cached(prefix: str, ttl: int = TTL_STATS):
     """Decorator for caching async function results.
 
@@ -37,8 +40,8 @@ def cached(prefix: str, ttl: int = TTL_STATS):
         async def wrapper(*args, **kwargs):
             # Build cache key from function name + args
             key = f"{prefix}:{func.__name__}:{args}:{sorted(kwargs.items())}"
-            result = cache.get(key)
-            if result is not None:
+            result = cache.get(key, default=_CACHE_MISS)
+            if result is not _CACHE_MISS:
                 logger.debug(f"Cache hit: {key}")
                 return result
 

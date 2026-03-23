@@ -1,10 +1,13 @@
-from datetime import date
-
 from fastapi import APIRouter, Form, Request
 from fastapi.templating import Jinja2Templates
 
+from app.config import default_season
 from app.database import async_session
-from app.services.trade_service import calculate_trade_values, evaluate_trade
+from app.services.trade_service import (
+    calculate_trade_values,
+    evaluate_trade,
+    store_trade_values,
+)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
@@ -12,10 +15,15 @@ templates = Jinja2Templates(directory="app/templates")
 
 @router.get("/trades")
 async def trades(request: Request):
-    season = date.today().year
+    season = default_season()
 
     async with async_session() as session:
         hitter_values, pitcher_values = await calculate_trade_values(session, season)
+
+        # Persist so evaluate_trade can look them up
+        if hitter_values or pitcher_values:
+            await store_trade_values(session, hitter_values, pitcher_values)
+            await session.commit()
 
     # Combine and sort by surplus value for the value chart
     all_values = sorted(
@@ -38,7 +46,7 @@ async def analyze_trade(
     side_b: str = Form(...),
 ):
     """HTMX endpoint: evaluate a trade and return a partial result."""
-    season = date.today().year
+    season = default_season()
 
     # Parse comma-separated player IDs
     try:

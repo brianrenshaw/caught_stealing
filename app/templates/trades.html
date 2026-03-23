@@ -11,26 +11,89 @@
 <!-- Trade Evaluation Form -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
     <h3 class="text-lg font-semibold mb-4 text-gray-200">Evaluate a Trade</h3>
-    <form hx-post="/api/trades/analyze" hx-target="#trade-result" class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm text-gray-400 mb-1">Side A — Player IDs (comma-separated)</label>
-                <input type="text" name="side_a" placeholder="e.g. 12, 45"
-                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+        <!-- Side A -->
+        <div>
+            <label class="block text-sm font-medium text-blue-400 mb-2">Side A</label>
+            <div class="relative mb-2">
+                <input type="search" id="trade-search-a" placeholder="Search players..."
+                       autocomplete="off"
+                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
+                              text-sm text-gray-200 placeholder-gray-500
+                              focus:outline-none focus:border-blue-500"
+                       oninput="onTradeSearch(this.value, 'a')">
+                <div id="trade-dropdown-a" class="absolute z-50 w-full mt-1 hidden
+                        bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto"></div>
             </div>
-            <div>
-                <label class="block text-sm text-gray-400 mb-1">Side B — Player IDs (comma-separated)</label>
-                <input type="text" name="side_b" placeholder="e.g. 23, 67"
-                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 focus:outline-none focus:border-blue-500">
+            <div class="flex gap-1 mb-2 flex-wrap" id="trade-pos-filters-a">
+                <button onclick="setTradePositionFilter(null, 'a')" class="trade-pos-btn-a active px-2 py-0.5 text-xs rounded bg-blue-600 text-white" data-pos="all">ALL</button>
+                <button onclick="setTradePositionFilter('C', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="C">C</button>
+                <button onclick="setTradePositionFilter('1B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="1B">1B</button>
+                <button onclick="setTradePositionFilter('2B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="2B">2B</button>
+                <button onclick="setTradePositionFilter('3B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="3B">3B</button>
+                <button onclick="setTradePositionFilter('SS', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SS">SS</button>
+                <button onclick="setTradePositionFilter('OF', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="OF">OF</button>
+                <button onclick="setTradePositionFilter('SP', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SP">SP</button>
+                <button onclick="setTradePositionFilter('RP', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="RP">RP</button>
+            </div>
+            <div id="trade-players-a" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                <span class="trade-placeholder-a text-gray-500 text-sm py-1">Search and add players</span>
             </div>
         </div>
-        <button type="submit"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+
+        <!-- Side B -->
+        <div>
+            <label class="block text-sm font-medium text-green-400 mb-2">Side B</label>
+            <div class="relative mb-2">
+                <input type="search" id="trade-search-b" placeholder="Search players..."
+                       autocomplete="off"
+                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
+                              text-sm text-gray-200 placeholder-gray-500
+                              focus:outline-none focus:border-blue-500"
+                       oninput="onTradeSearch(this.value, 'b')">
+                <div id="trade-dropdown-b" class="absolute z-50 w-full mt-1 hidden
+                        bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto"></div>
+            </div>
+            <div class="flex gap-1 mb-2 flex-wrap" id="trade-pos-filters-b">
+                <button onclick="setTradePositionFilter(null, 'b')" class="trade-pos-btn-b active px-2 py-0.5 text-xs rounded bg-blue-600 text-white" data-pos="all">ALL</button>
+                <button onclick="setTradePositionFilter('C', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="C">C</button>
+                <button onclick="setTradePositionFilter('1B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="1B">1B</button>
+                <button onclick="setTradePositionFilter('2B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="2B">2B</button>
+                <button onclick="setTradePositionFilter('3B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="3B">3B</button>
+                <button onclick="setTradePositionFilter('SS', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SS">SS</button>
+                <button onclick="setTradePositionFilter('OF', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="OF">OF</button>
+                <button onclick="setTradePositionFilter('SP', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SP">SP</button>
+                <button onclick="setTradePositionFilter('RP', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="RP">RP</button>
+            </div>
+            <div id="trade-players-b" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                <span class="trade-placeholder-b text-gray-500 text-sm py-1">Search and add players</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+        <button onclick="submitTrade()"
+                id="trade-submit-btn"
+                disabled
+                class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed
+                       text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             Analyze Trade
         </button>
-    </form>
+        <button onclick="clearTradeSides()"
+                class="text-gray-400 hover:text-white text-sm px-3 py-2">
+            Clear All
+        </button>
+    </div>
+
     <div id="trade-result" class="mt-4"></div>
 </div>
+
+<!-- Hidden form for HTMX submission -->
+<form id="trade-form" hx-post="/api/trades/analyze" hx-target="#trade-result" class="hidden">
+    <input type="hidden" name="side_a" id="trade-input-a">
+    <input type="hidden" name="side_b" id="trade-input-b">
+</form>
 
 <!-- Trade Value Rankings -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
@@ -49,6 +112,7 @@
                     <th class="text-right py-2 px-3 whitespace-nowrap">Pos Rank {{ stat_info('Pos Rank') }}</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap">Z-Score {{ stat_info('Z-Score') }}</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap">Surplus {{ stat_info('Surplus') }}</th>
+                    <th class="text-center py-2 px-3">Add</th>
                 </tr>
             </thead>
             <tbody>
@@ -66,6 +130,18 @@
                     <td class="py-2 px-3 text-right {% if player.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
                         {{ "%.2f"|format(player.surplus_value) }}
                     </td>
+                    <td class="py-2 px-3 text-center">
+                        <div class="flex justify-center gap-1">
+                            <button data-player='{{ {"id": player.player_id, "name": player.name, "team": player.team or "", "position": player.position or ""} | tojson }}'
+                                    onclick="addFromRankings(this, 'a')"
+                                    class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded border border-blue-500/30 hover:border-blue-400"
+                                    title="Add to Side A">A</button>
+                            <button data-player='{{ {"id": player.player_id, "name": player.name, "team": player.team or "", "position": player.position or ""} | tojson }}'
+                                    onclick="addFromRankings(this, 'b')"
+                                    class="text-green-400 hover:text-green-300 text-xs px-1.5 py-0.5 rounded border border-green-500/30 hover:border-green-400"
+                                    title="Add to Side B">B</button>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -78,4 +154,200 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+// ── Trade Analyzer State ──
+const tradeState = {
+    sideA: [],
+    sideB: [],
+    posFilterA: null,
+    posFilterB: null,
+};
+
+let tradeSearchTimeout = null;
+
+function headshot(mlbamId) {
+    if (!mlbamId) return null;
+    return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${mlbamId}/headshot/67/current`;
+}
+
+// ── Search ──
+function onTradeSearch(query, side) {
+    clearTimeout(tradeSearchTimeout);
+    const dropdown = document.getElementById(`trade-dropdown-${side}`);
+    if (query.length < 2) {
+        dropdown.classList.add('hidden');
+        dropdown.innerHTML = '';
+        return;
+    }
+    const posFilter = side === 'a' ? tradeState.posFilterA : tradeState.posFilterB;
+    const posParam = posFilter ? `&position=${encodeURIComponent(posFilter)}` : '';
+
+    tradeSearchTimeout = setTimeout(async () => {
+        const resp = await fetch(`/api/compare/search?q=${encodeURIComponent(query)}&limit=10${posParam}`);
+        if (!resp.ok) return;
+        const players = await resp.json();
+        renderTradeDropdown(players, side);
+    }, 300);
+}
+
+function renderTradeDropdown(players, side) {
+    const dropdown = document.getElementById(`trade-dropdown-${side}`);
+    const currentIds = side === 'a'
+        ? tradeState.sideA.map(p => p.id)
+        : tradeState.sideB.map(p => p.id);
+
+    if (!players.length) {
+        dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">No players found</div>';
+        dropdown.classList.remove('hidden');
+        return;
+    }
+
+    dropdown.innerHTML = players.map(p => {
+        const alreadyAdded = currentIds.includes(p.id);
+        const imgSrc = p.headshot_url || '';
+        return `
+            <div class="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm
+                        ${alreadyAdded ? 'opacity-40 pointer-events-none' : ''}"
+                 data-player='${JSON.stringify(p).replace(/'/g, "&#39;")}'
+                 onclick="addPlayerFromDropdown(this, '${side}')">
+                ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'">` : '<div class="w-6 h-6 rounded-full bg-gray-600"></div>'}
+                <span class="text-gray-100">${p.name}</span>
+                <span class="text-gray-500 text-xs">${p.team || ''}</span>
+                <span class="text-gray-500 text-xs ml-auto">${p.position || ''}</span>
+                ${alreadyAdded ? '<span class="text-xs text-gray-500">Added</span>' : ''}
+            </div>
+        `;
+    }).join('');
+    dropdown.classList.remove('hidden');
+}
+
+function addPlayerFromDropdown(el, side) {
+    const player = JSON.parse(el.dataset.player);
+    addToSide(player, side);
+    const dropdown = document.getElementById(`trade-dropdown-${side}`);
+    const searchInput = document.getElementById(`trade-search-${side}`);
+    dropdown.classList.add('hidden');
+    dropdown.innerHTML = '';
+    searchInput.value = '';
+    searchInput.focus();
+}
+
+function addFromRankings(btn, side) {
+    const player = JSON.parse(btn.dataset.player);
+    addToSide(player, side);
+}
+
+// ── Side Management ──
+function addToSide(player, side) {
+    const list = side === 'a' ? tradeState.sideA : tradeState.sideB;
+    if (list.some(p => p.id === player.id)) return;
+    if (list.length >= 6) return;
+    list.push(player);
+    renderSideChips(side);
+    updateSubmitButton();
+}
+
+function removeFromSide(playerId, side) {
+    if (side === 'a') {
+        tradeState.sideA = tradeState.sideA.filter(p => p.id !== playerId);
+    } else {
+        tradeState.sideB = tradeState.sideB.filter(p => p.id !== playerId);
+    }
+    renderSideChips(side);
+    updateSubmitButton();
+}
+
+function renderSideChips(side) {
+    const container = document.getElementById(`trade-players-${side}`);
+    const list = side === 'a' ? tradeState.sideA : tradeState.sideB;
+    const placeholder = container.querySelector(`.trade-placeholder-${side}`);
+
+    // Remove existing chips
+    container.querySelectorAll('.trade-chip').forEach(c => c.remove());
+
+    if (list.length === 0) {
+        if (placeholder) placeholder.classList.remove('hidden');
+        return;
+    }
+    if (placeholder) placeholder.classList.add('hidden');
+
+    list.forEach(p => {
+        const chip = document.createElement('div');
+        chip.className = 'trade-chip flex items-center gap-1.5 px-2 py-1 rounded-full text-sm ' +
+            (side === 'a' ? 'bg-blue-900/40 border border-blue-700/50 text-blue-200' : 'bg-green-900/40 border border-green-700/50 text-green-200');
+        chip.innerHTML = `
+            <span class="truncate max-w-[120px]">${p.name}</span>
+            <span class="text-xs opacity-60">${p.position || ''}</span>
+            <button onclick="removeFromSide(${p.id}, '${side}')"
+                    class="ml-1 text-gray-400 hover:text-white text-xs leading-none"
+                    aria-label="Remove ${p.name}">&times;</button>
+        `;
+        container.appendChild(chip);
+    });
+}
+
+// ── Position Filters ──
+function setTradePositionFilter(pos, side) {
+    if (side === 'a') {
+        tradeState.posFilterA = pos;
+    } else {
+        tradeState.posFilterB = pos;
+    }
+
+    const buttons = document.querySelectorAll(`.trade-pos-btn-${side}`);
+    buttons.forEach(btn => {
+        const isActive = pos === null ? btn.dataset.pos === 'all' : btn.dataset.pos === pos;
+        if (isActive) {
+            btn.classList.add('bg-blue-600', 'text-white');
+            btn.classList.remove('bg-gray-700', 'text-gray-300');
+        } else {
+            btn.classList.remove('bg-blue-600', 'text-white');
+            btn.classList.add('bg-gray-700', 'text-gray-300');
+        }
+    });
+
+    // Re-trigger search if there's text in the search box
+    const searchInput = document.getElementById(`trade-search-${side}`);
+    if (searchInput.value.length >= 2) {
+        onTradeSearch(searchInput.value, side);
+    }
+}
+
+// ── Submit ──
+function updateSubmitButton() {
+    const btn = document.getElementById('trade-submit-btn');
+    btn.disabled = tradeState.sideA.length === 0 || tradeState.sideB.length === 0;
+}
+
+function submitTrade() {
+    if (tradeState.sideA.length === 0 || tradeState.sideB.length === 0) return;
+
+    document.getElementById('trade-input-a').value = tradeState.sideA.map(p => p.id).join(',');
+    document.getElementById('trade-input-b').value = tradeState.sideB.map(p => p.id).join(',');
+
+    // Trigger HTMX form submission
+    htmx.trigger(document.getElementById('trade-form'), 'submit');
+}
+
+function clearTradeSides() {
+    tradeState.sideA = [];
+    tradeState.sideB = [];
+    renderSideChips('a');
+    renderSideChips('b');
+    updateSubmitButton();
+    document.getElementById('trade-result').innerHTML = '';
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+    ['a', 'b'].forEach(side => {
+        const dropdown = document.getElementById(`trade-dropdown-${side}`);
+        const search = document.getElementById(`trade-search-${side}`);
+        if (!dropdown.contains(e.target) && e.target !== search) {
+            dropdown.classList.add('hidden');
+        }
+    });
+});
+</script>
 {% endblock %}

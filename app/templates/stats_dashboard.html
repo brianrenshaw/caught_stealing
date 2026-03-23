@@ -8,8 +8,10 @@
     <h1 class="text-2xl font-bold text-white">Stats Explorer {{ page_info('stats-explorer') }}</h1>
     <div class="flex items-center gap-3">
         <div class="relative">
+            <label for="highlight-search" class="sr-only">Highlight player on charts</label>
             <input type="search" id="highlight-search" placeholder="Highlight player..."
                    autocomplete="off"
+                   aria-label="Search for a player to highlight on charts"
                    class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-48
                           focus:outline-none focus:border-blue-500"
                    oninput="onPlayerSearch(this.value)">
@@ -118,7 +120,6 @@ function onPlayerSearch(query) {
     searchTimeout = setTimeout(async () => {
         const resp = await fetch(`/api/players/search?q=${encodeURIComponent(query)}&limit=8`);
         const html = await resp.text();
-        // Rewrite the search results to highlight on charts instead of navigating
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
         const links = doc.querySelectorAll('a');
@@ -129,11 +130,20 @@ function onPlayerSearch(query) {
                 const pid = parseInt(match[1]);
                 const name = a.querySelector('.text-gray-100')?.textContent || '';
                 a.removeAttribute('href');
-                a.setAttribute('onclick', `selectHighlightPlayer(${pid}, '${name.replace(/'/g, "\\'")}'); return false;`);
+                a.dataset.playerId = pid;
+                a.dataset.playerName = name;
                 a.style.cursor = 'pointer';
+                a.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    selectHighlightPlayer(
+                        parseInt(this.dataset.playerId),
+                        this.dataset.playerName
+                    );
+                });
             }
         });
-        dropdown.innerHTML = doc.body.innerHTML;
+        dropdown.innerHTML = '';
+        links.forEach(a => dropdown.appendChild(a));
     }, 300);
 }
 

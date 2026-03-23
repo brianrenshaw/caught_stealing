@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Fantasy Baseball{% endblock %}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <link rel="stylesheet" href="/static/css/custom.css">
@@ -226,28 +226,28 @@
     <script>
     (function() {
         try {
-            var dock = JSON.parse(localStorage.getItem('compare_dock') || '[]');
-            var badge = document.getElementById('compare-badge');
+            const dock = JSON.parse(localStorage.getItem('compare_dock') || '[]');
+            const badge = document.getElementById('compare-badge');
             if (badge && dock.length > 0) {
                 badge.textContent = dock.length;
                 badge.classList.remove('hidden');
             }
-        } catch(e) {}
+        } catch(e) { console.warn('Failed to load compare dock:', e); }
     })();
     function addToCompare(player) {
         try {
-            var dock = JSON.parse(localStorage.getItem('compare_dock') || '[]');
-            if (dock.length >= 8 || dock.some(function(p){ return p.id === player.id; })) return;
+            const dock = JSON.parse(localStorage.getItem('compare_dock') || '[]');
+            if (dock.length >= 8 || dock.some(p => p.id === player.id)) return;
             dock.push(player);
             localStorage.setItem('compare_dock', JSON.stringify(dock));
-            var badge = document.getElementById('compare-badge');
+            const badge = document.getElementById('compare-badge');
             if (badge) { badge.textContent = dock.length; badge.classList.remove('hidden'); }
-            var toast = document.createElement('div');
+            const toast = document.createElement('div');
             toast.className = 'fixed bottom-20 right-6 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50';
             toast.textContent = 'Added ' + player.name + ' to comparison';
             document.body.appendChild(toast);
-            setTimeout(function(){ toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(function(){ toast.remove(); }, 500); }, 2000);
-        } catch(e) {}
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 2000);
+        } catch(e) { console.warn('Failed to add to compare:', e); }
     }
     </script>
 </body>

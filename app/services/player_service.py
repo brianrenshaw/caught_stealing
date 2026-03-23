@@ -66,41 +66,42 @@ async def get_player_profile(
 
     profile = PlayerProfile(player=player)
 
-    # Batting stats by period
-    for period in PERIODS:
-        result = await session.execute(
-            select(BattingStats).where(
-                BattingStats.player_id == player_id,
-                BattingStats.season == season,
-                BattingStats.period == period,
-            )
+    # Batting stats — single query for all periods
+    bat_result = await session.execute(
+        select(BattingStats).where(
+            BattingStats.player_id == player_id,
+            BattingStats.season == season,
+            BattingStats.period.in_(PERIODS),
         )
-        profile.batting_stats[period] = result.scalar_one_or_none()
+    )
+    for bat in bat_result.scalars().all():
+        profile.batting_stats[bat.period] = bat
 
-    # Pitching stats by period
-    for period in PERIODS:
-        result = await session.execute(
-            select(PitchingStats).where(
-                PitchingStats.player_id == player_id,
-                PitchingStats.season == season,
-                PitchingStats.period == period,
-            )
+    # Pitching stats — single query for all periods
+    pitch_result = await session.execute(
+        select(PitchingStats).where(
+            PitchingStats.player_id == player_id,
+            PitchingStats.season == season,
+            PitchingStats.period.in_(PERIODS),
         )
-        profile.pitching_stats[period] = result.scalar_one_or_none()
+    )
+    for pitch in pitch_result.scalars().all():
+        profile.pitching_stats[pitch.period] = pitch
 
-    # Statcast by period (batter + pitcher)
-    for period in ("full_season", "last_30", "last_14"):
-        pairs = [("batter", profile.statcast_bat), ("pitcher", profile.statcast_pitch)]
-        for ptype, target in pairs:
-            result = await session.execute(
-                select(StatcastSummary).where(
-                    StatcastSummary.player_id == player_id,
-                    StatcastSummary.season == season,
-                    StatcastSummary.period == period,
-                    StatcastSummary.player_type == ptype,
-                )
-            )
-            target[period] = result.scalar_one_or_none()
+    # Statcast — single query for all periods and types
+    sc_periods = ("full_season", "last_30", "last_14")
+    sc_result = await session.execute(
+        select(StatcastSummary).where(
+            StatcastSummary.player_id == player_id,
+            StatcastSummary.season == season,
+            StatcastSummary.period.in_(sc_periods),
+        )
+    )
+    for sc in sc_result.scalars().all():
+        if sc.player_type == "batter":
+            profile.statcast_bat[sc.period] = sc
+        else:
+            profile.statcast_pitch[sc.period] = sc
 
     # Projections grouped by system
     proj_result = await session.execute(

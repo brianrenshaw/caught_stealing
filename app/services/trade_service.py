@@ -214,6 +214,14 @@ async def evaluate_trade(
     side_a_ids and side_b_ids are lists of player IDs being traded.
     Side A gives away side_a_ids and receives side_b_ids (and vice versa).
     """
+    # Ensure trade values exist — calculate and store if table is empty
+    tv_check = await session.execute(select(TradeValue).limit(1))
+    if tv_check.scalar_one_or_none() is None:
+        hitter_values, pitcher_values = await calculate_trade_values(session, season)
+        if hitter_values or pitcher_values:
+            await store_trade_values(session, hitter_values, pitcher_values)
+            await session.flush()
+
     # Get trade values for all involved players
     all_ids = side_a_ids + side_b_ids
 

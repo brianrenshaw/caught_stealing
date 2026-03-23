@@ -12,10 +12,11 @@ Provides roster optimization, trade analysis, waiver wire recommendations, playe
 - **Yahoo API**: yfpy library for Yahoo Fantasy Sports integration
 - **Baseball Data**: pybaseball for FanGraphs, Statcast, Baseball Reference data
 - **MLB Live Data**: MLB-StatsAPI for rosters, injuries, schedules
+- **AI Assistant**: Anthropic Claude API for in-app chat assistant
 - **Optimization**: PuLP for lineup optimization (Integer Linear Programming)
 - **Scheduling**: APScheduler for automated data refreshes
 - **Caching**: diskcache for local response caching
-- **Linting**: Ruff
+- **Linting**: Ruff (dev dependency)
 
 ## Project Structure
 ```
@@ -32,27 +33,49 @@ fantasy-baseball/
 │   ├── models/                   # SQLAlchemy ORM models
 │   │   ├── __init__.py
 │   │   ├── player.py             # Players table with cross-platform IDs
-│   │   ├── stats.py              # Historical + current stats
+│   │   ├── batting_stats.py      # Batting stats by period (full_season, last_30, etc.)
+│   │   ├── pitching_stats.py     # Pitching stats by period
+│   │   ├── statcast_summary.py   # Statcast metrics (EV, barrel%, xwOBA, etc.)
+│   │   ├── player_splits.py      # vs LHP/RHP, home/away splits
+│   │   ├── stats.py              # Legacy generic stats table
 │   │   ├── projection.py         # Projection systems (Steamer, ZiPS, ATC, etc.)
 │   │   ├── roster.py             # Yahoo league rosters
-│   │   └── trade_value.py        # Computed trade values
+│   │   ├── league_team.py        # League team standings
+│   │   ├── trade_value.py        # Computed trade values
+│   │   ├── conversation.py       # Chat assistant conversation history
+│   │   └── sync_log.py           # ETL sync history/status
 │   ├── services/                 # Business logic layer
 │   │   ├── __init__.py
 │   │   ├── yahoo_service.py      # Yahoo Fantasy API via yfpy
-│   │   ├── stats_service.py      # pybaseball data retrieval
+│   │   ├── stats_service.py      # pybaseball data retrieval (async via executor)
+│   │   ├── fangraphs_service.py  # FanGraphs stats with retry logic
+│   │   ├── statcast_service.py   # Statcast data fetching + processing
 │   │   ├── mlb_service.py        # MLB Stats API for live data
+│   │   ├── player_service.py     # Player profile aggregation
 │   │   ├── projection_service.py # Fetch + blend projections
+│   │   ├── external_projections.py # FanGraphs projection fetching
+│   │   ├── comparison_service.py # Player comparison logic + search
+│   │   ├── matchup_service.py    # Head-to-head matchup analysis
+│   │   ├── rankings_service.py   # Player ranking calculations
+│   │   ├── splits_service.py     # Player splits data
 │   │   ├── optimizer_service.py  # PuLP lineup optimizer
 │   │   ├── trade_service.py      # VORP-based trade analyzer
 │   │   ├── waiver_service.py     # Waiver wire scorer
+│   │   ├── assistant.py          # Claude AI chat assistant
+│   │   ├── assistant_tools.py    # Tool functions for the assistant
 │   │   └── id_mapper.py          # Cross-platform player ID mapping
 │   ├── routes/                   # FastAPI route handlers
 │   │   ├── __init__.py
 │   │   ├── dashboard.py          # Main dashboard views
 │   │   ├── roster.py             # Roster + lineup optimization
-│   │   ├── trades.py             # Trade analyzer
+│   │   ├── trades.py             # Trade analyzer (search + select UI)
 │   │   ├── waivers.py            # Waiver recommendations
 │   │   ├── projections.py        # Projection explorer
+│   │   ├── stats_dashboard.py    # Stats Explorer with Plotly charts
+│   │   ├── player.py             # Player profile pages
+│   │   ├── comparison.py         # Player comparison tool
+│   │   ├── matchups.py           # Head-to-head matchup views
+│   │   ├── assistant.py          # AI chat assistant routes
 │   │   └── api.py                # JSON API endpoints for HTMX
 │   ├── templates/                # Jinja2 HTML templates
 │   │   ├── base.html             # Layout with Tailwind + HTMX + Plotly CDN
@@ -61,11 +84,10 @@ fantasy-baseball/
 │   │   ├── trades.html
 │   │   ├── waivers.html
 │   │   ├── projections.html
+│   │   ├── stats_dashboard.html
+│   │   ├── compare.html
+│   │   ├── matchups.html
 │   │   └── partials/             # HTMX partial templates
-│   │       ├── player_card.html
-│   │       ├── trade_result.html
-│   │       ├── waiver_list.html
-│   │       └── chart_container.html
 │   ├── etl/                      # Data pipeline
 │   │   ├── __init__.py
 │   │   ├── pipeline.py           # Main ETL orchestrator
@@ -73,8 +95,12 @@ fantasy-baseball/
 │   │   ├── transformers.py       # Normalize IDs, calc derived stats
 │   │   └── loaders.py            # Write to SQLite
 │   └── static/                   # Static assets (minimal - CDN preferred)
-│       └── css/
-│           └── custom.css
+│       ├── css/
+│       │   └── custom.css
+│       └── js/
+│           ├── charts.js         # Plotly chart builders (scatter, bar, histogram, radar)
+│           ├── comparison.js     # Player comparison tool logic
+│           └── tooltips.js       # Info tooltip system
 └── tests/
     ├── __init__.py
     ├── test_optimizer.py
@@ -100,6 +126,8 @@ python-dotenv
 httpx
 pandas
 numpy
+python-multipart
+anthropic              # Claude AI assistant
 ```
 
 ## Database Schema (Core Tables)

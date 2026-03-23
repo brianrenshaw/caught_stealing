@@ -1,5 +1,6 @@
 """Main ETL orchestrator — run with: uv run python -m app.etl.pipeline"""
 
+import asyncio
 import logging
 import time
 from datetime import datetime
@@ -19,6 +20,22 @@ logger = logging.getLogger(__name__)
 
 # Minimum seconds between syncs
 SYNC_COOLDOWN = 300  # 5 minutes
+MAX_RETRIES = 3
+RETRY_DELAY = 2  # seconds
+
+
+async def _retry(coro_func, *args, label: str = "operation", **kwargs):
+    """Retry an async function with exponential backoff."""
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            return await coro_func(*args, **kwargs)
+        except Exception as e:
+            if attempt == MAX_RETRIES:
+                logger.error(f"{label} failed after {MAX_RETRIES} attempts: {e}")
+                raise
+            delay = RETRY_DELAY * attempt
+            logger.warning(f"{label} attempt {attempt} failed: {e}. Retrying in {delay}s...")
+            await asyncio.sleep(delay)
 
 
 async def check_cooldown() -> bool:
@@ -70,7 +87,7 @@ async def run_pipeline() -> dict:
             except Exception as e:
                 logger.warning(f"Stat categories extraction failed: {e}")
 
-            standings = await extractor.extract_standings()
+            standings = await _retry(extractor.extract_standings, label="extract standings")
 
             # Save standings immediately so they persist even if rosters fail
             standings_count = await loader.upsert_standings(standings, settings.yahoo_league_id)
@@ -79,7 +96,7 @@ async def run_pipeline() -> dict:
 
             roster_data = {}
             try:
-                roster_data = await extractor.extract_all_rosters()
+                roster_data = await _retry(extractor.extract_all_rosters, label="extract rosters")
             except Exception as e:
                 logger.warning(f"Roster extraction failed: {e}")
 

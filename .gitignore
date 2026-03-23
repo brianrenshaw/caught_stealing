@@ -28,3 +28,6 @@ uv.lock
 # IDE
 .vscode/
 .idea/
+
+# Documentation archives
+*.webarchive

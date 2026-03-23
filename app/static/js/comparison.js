@@ -18,6 +18,7 @@ const ComparisonState = {
     positionFilter: null,
     _cache: new Map(),             // player_id -> fetched card data
     _dragSource: null,             // {type: 'dock'|'slot', index: number, player: {...}}
+    _activeTabController: null,    // AbortController for cancelling in-flight tab fetches
 };
 
 const PLAYER_COLORS = ['#60a5fa', '#f59e0b', '#34d399', '#f472b6', '#a78bfa'];
@@ -119,7 +120,7 @@ function renderSearchDropdown(players) {
 
     const html = players.map(p => {
         const imgHtml = p.headshot_url
-            ? `<img src="${p.headshot_url}" alt="" class="w-8 h-8 rounded-full bg-gray-600 object-cover flex-shrink-0" onerror="this.style.display='none'">`
+            ? `<img src="${p.headshot_url}" alt="${p.name} headshot" class="w-8 h-8 rounded-full bg-gray-600 object-cover flex-shrink-0" onerror="this.style.display='none'">`
             : `<div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0"><span class="text-gray-400 text-xs">?</span></div>`;
         return `
             <li class="flex items-center gap-3 px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0"
@@ -359,7 +360,7 @@ function renderSlots() {
             });
 
             const imgHtml = player.headshot_url
-                ? `<img src="${player.headshot_url}" alt="" class="w-14 h-14 rounded-full bg-gray-600 object-cover border-2" style="border-color: ${PLAYER_COLORS[i]}" onerror="this.style.display='none'">`
+                ? `<img src="${player.headshot_url}" alt="${player.name} headshot" class="w-14 h-14 rounded-full bg-gray-600 object-cover border-2" style="border-color: ${PLAYER_COLORS[i]}" onerror="this.style.display='none'">`
                 : `<div class="w-14 h-14 rounded-full bg-gray-600 flex items-center justify-center border-2" style="border-color: ${PLAYER_COLORS[i]}"><span class="text-gray-400 text-lg">?</span></div>`;
 
             slot.innerHTML = `
@@ -424,31 +425,43 @@ function switchTab(tab) {
 }
 
 async function fetchAndRenderActiveTab() {
+    // Cancel any in-flight tab fetch
+    if (ComparisonState._activeTabController) {
+        ComparisonState._activeTabController.abort();
+    }
+    ComparisonState._activeTabController = new AbortController();
+    const signal = ComparisonState._activeTabController.signal;
+
     const filled = ComparisonState.slots.filter(Boolean);
     if (filled.length < 2) return;
 
-    // Ensure we have card data for all filled slots
-    await ensureCardData(filled);
+    try {
+        // Ensure we have card data for all filled slots
+        await ensureCardData(filled);
+        if (signal.aborted) return;
 
-    switch (ComparisonState.activeTab) {
-        case 'overview':
-            renderOverviewTab();
-            break;
-        case 'stats':
-            loadStatTable();
-            break;
-        case 'projections':
-            loadProjectionsPanel();
-            break;
-        case 'trends':
-            renderTrendChart();
-            break;
-        case 'splits':
-            loadSplitsPanel();
-            break;
-        case 'radar':
-            renderRadarChart();
-            break;
+        switch (ComparisonState.activeTab) {
+            case 'overview':
+                renderOverviewTab();
+                break;
+            case 'stats':
+                loadStatTable();
+                break;
+            case 'projections':
+                loadProjectionsPanel();
+                break;
+            case 'trends':
+                renderTrendChart();
+                break;
+            case 'splits':
+                loadSplitsPanel();
+                break;
+            case 'radar':
+                renderRadarChart();
+                break;
+        }
+    } catch (e) {
+        if (e.name !== 'AbortError') throw e;
     }
 }
 

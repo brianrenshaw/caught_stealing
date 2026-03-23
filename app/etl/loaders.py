@@ -94,25 +94,27 @@ class DatabaseLoader:
         return yahoo_to_db
 
     async def upsert_rosters(self, rosters: list[dict], league_id: str) -> int:
-        """Full delete-and-replace for roster data.
+        """Full delete-and-replace for roster data within a savepoint.
 
         Rosters change daily in baseball, so a full refresh is simpler
-        and avoids stale data.
+        and avoids stale data. Uses a nested transaction (savepoint) so
+        that a partial insert failure rolls back to the pre-delete state.
         """
-        await self.session.execute(delete(Roster).where(Roster.league_id == league_id))
+        async with self.session.begin_nested():
+            await self.session.execute(delete(Roster).where(Roster.league_id == league_id))
 
-        count = 0
-        for roster_data in rosters:
-            roster = Roster(
-                league_id=roster_data["league_id"],
-                team_id=roster_data["team_id"],
-                team_name=roster_data["team_name"],
-                player_id=roster_data["player_id"],
-                roster_position=roster_data["roster_position"],
-                is_my_team=roster_data["is_my_team"],
-            )
-            self.session.add(roster)
-            count += 1
+            count = 0
+            for roster_data in rosters:
+                roster = Roster(
+                    league_id=roster_data["league_id"],
+                    team_id=roster_data["team_id"],
+                    team_name=roster_data["team_name"],
+                    player_id=roster_data["player_id"],
+                    roster_position=roster_data["roster_position"],
+                    is_my_team=roster_data["is_my_team"],
+                )
+                self.session.add(roster)
+                count += 1
 
         logger.info(f"Loaded {count} roster entries (replaced all for league {league_id})")
         return count

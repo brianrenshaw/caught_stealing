@@ -103,6 +103,7 @@ function buildScatterChart(containerId, data, config = {}) {
     };
 
     const el = document.getElementById(containerId);
+    Plotly.purge(el);
     Plotly.newPlot(el, traces, layout, { responsive: true });
 
     // Click to navigate to player profile
@@ -157,6 +158,7 @@ function buildBarChart(containerId, data, config = {}) {
     };
 
     const el = document.getElementById(containerId);
+    Plotly.purge(el);
     Plotly.newPlot(el, [trace], layout, { responsive: true });
 
     el.on('plotly_click', function(eventData) {
@@ -210,7 +212,9 @@ function buildDistribution(containerId, data, config = {}) {
         bargap: 0.05,
     };
 
-    Plotly.newPlot(containerId, traces, layout, { responsive: true });
+    const distEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    Plotly.purge(distEl);
+    Plotly.newPlot(distEl, traces, layout, { responsive: true });
 }
 
 /**
@@ -244,7 +248,9 @@ function buildRollingChart(containerId, data, config = {}) {
         hovermode: 'x unified',
     };
 
-    Plotly.newPlot(containerId, traces, layout, { responsive: true });
+    const rollEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    Plotly.purge(rollEl);
+    Plotly.newPlot(rollEl, traces, layout, { responsive: true });
 }
 
 /**
@@ -276,5 +282,7 @@ function buildRadarChart(containerId, players, config = {}) {
         legend: { font: { color: '#d1d5db' } },
     };
 
-    Plotly.newPlot(containerId, traces, layout, { responsive: true });
+    const radarEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    Plotly.purge(radarEl);
+    Plotly.newPlot(radarEl, traces, layout, { responsive: true });
 }

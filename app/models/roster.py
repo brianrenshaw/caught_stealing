@@ -10,10 +10,12 @@ class Roster(Base):
     __tablename__ = "rosters"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    league_id: Mapped[str] = mapped_column(String, nullable=False)
+    league_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
     team_id: Mapped[str] = mapped_column(String, nullable=False)
     team_name: Mapped[str] = mapped_column(String, nullable=False)
-    player_id: Mapped[int] = mapped_column(Integer, ForeignKey("players.id"), nullable=False)
+    player_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("players.id"), nullable=False, index=True
+    )
     roster_position: Mapped[str] = mapped_column(String, nullable=False)
     is_my_team: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(

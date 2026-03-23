@@ -62,9 +62,9 @@
     <div class="flex items-center justify-between mb-2">
         <span class="text-sm text-gray-400">Comparison Slots</span>
         <div class="flex items-center gap-2">
-            <button onclick="removeSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Remove slot">−</button>
+            <button onclick="removeSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Remove slot" aria-label="Remove comparison slot">−</button>
             <span id="slot-count" class="text-sm text-gray-400">3</span>
-            <button onclick="addSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Add slot">+</button>
+            <button onclick="addSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Add slot" aria-label="Add comparison slot">+</button>
         </div>
     </div>
     <div id="comparison-slots" class="grid gap-4" style="grid-template-columns: repeat(3, 1fr);">

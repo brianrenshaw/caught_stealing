@@ -96,16 +96,20 @@ def _weighted_avg(values: list[tuple[float | None, float]]) -> float | None:
     return sum(v * w for v, w in valid) / total_weight
 
 
+# Confidence calculation weights
+PA_FULL_SEASON = 400  # PA threshold for full confidence from sample size
+PA_WEIGHT = 0.6  # Max contribution of PA to confidence score
+STATCAST_WEIGHT = 0.2  # Confidence boost when Statcast data is available
+SEASON_PROGRESS_WEIGHT = 0.2  # Max contribution of season progress
+
+
 def _calc_confidence(pa: float | None, has_statcast: bool, season_progress: float) -> float:
     """Calculate confidence score (0-1) based on sample size and data availability."""
     if pa is None or pa == 0:
         return 0.1
-    # PA contribution: ramps from 0.2 at 50 PA to 0.6 at 400+ PA
-    pa_factor = min(float(pa) / 400, 1.0) * 0.6
-    # Statcast availability adds confidence
-    sc_factor = 0.2 if has_statcast else 0.0
-    # Season progress adds confidence (more games = more reliable)
-    season_factor = season_progress * 0.2
+    pa_factor = min(float(pa) / PA_FULL_SEASON, 1.0) * PA_WEIGHT
+    sc_factor = STATCAST_WEIGHT if has_statcast else 0.0
+    season_factor = season_progress * SEASON_PROGRESS_WEIGHT
     return min(pa_factor + sc_factor + season_factor, 1.0)
 
 

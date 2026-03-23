@@ -29,7 +29,8 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="addToCompare({id: {{ player.id }}, name: '{{ player.name | replace("'", "\\'") }}', team: '{{ player.team or '' }}', position: '{{ player.position or '' }}', headshot_url: {% if player.mlbam_id %}'https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{{ player.mlbam_id }}/headshot/67/current'{% else %}null{% endif %}})"
+            <button data-compare-player='{{ {"id": player.id, "name": player.name, "team": player.team or "", "position": player.position or "", "headshot_url": "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/" ~ player.mlbam_id ~ "/headshot/67/current" if player.mlbam_id else none} | tojson }}'
+                    onclick="addToCompare(JSON.parse(this.dataset.comparePlayer))"
                     class="text-gray-400 hover:text-blue-400 text-xs px-2 py-1 rounded border border-gray-600 hover:border-blue-500 transition-colors"
                     title="Add to comparison">⚖️ Compare</button>
             <button onclick="closePlayerModal()"
