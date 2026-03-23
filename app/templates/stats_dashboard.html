@@ -7,10 +7,23 @@
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold text-white">Stats Explorer {{ page_info('stats-explorer') }}</h1>
     <div class="flex items-center gap-3">
+        <div class="relative">
+            <input type="search" id="highlight-search" placeholder="Highlight player..."
+                   autocomplete="off"
+                   class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-48
+                          focus:outline-none focus:border-blue-500"
+                   oninput="onPlayerSearch(this.value)">
+            <div id="highlight-dropdown" class="absolute z-50 w-full"></div>
+        </div>
+        <button id="clear-highlight-btn" class="hidden text-xs text-gray-400 hover:text-white px-1"
+                onclick="clearHighlight()">&times; Clear</button>
+        <div class="w-px h-5 bg-gray-600"></div>
         <label class="text-gray-400 text-sm">Season:</label>
         <select id="season-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
                 onchange="reloadCharts()">
-            <option value="{{ season }}" selected>{{ season }}</option>
+            {% for s in available_seasons %}
+            <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
         </select>
         <label class="text-gray-400 text-sm">Min PA:</label>
         <input type="number" id="min-pa" value="50" min="0" step="10"
@@ -91,9 +104,55 @@
 <script src="/static/js/charts.js"></script>
 <script>
 const currentView = '{{ view }}';
+let highlightPlayerId = null;
+let highlightPlayerName = null;
+let searchTimeout = null;
 
 function getSeason() { return document.getElementById('season-select').value; }
 function getMinPA() { return document.getElementById('min-pa').value; }
+
+function onPlayerSearch(query) {
+    clearTimeout(searchTimeout);
+    const dropdown = document.getElementById('highlight-dropdown');
+    if (query.length < 2) { dropdown.innerHTML = ''; return; }
+    searchTimeout = setTimeout(async () => {
+        const resp = await fetch(`/api/players/search?q=${encodeURIComponent(query)}&limit=8`);
+        const html = await resp.text();
+        // Rewrite the search results to highlight on charts instead of navigating
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const links = doc.querySelectorAll('a');
+        links.forEach(a => {
+            const href = a.getAttribute('href');
+            const match = href && href.match(/\/player\/(\d+)/);
+            if (match) {
+                const pid = parseInt(match[1]);
+                const name = a.querySelector('.text-gray-100')?.textContent || '';
+                a.removeAttribute('href');
+                a.setAttribute('onclick', `selectHighlightPlayer(${pid}, '${name.replace(/'/g, "\\'")}'); return false;`);
+                a.style.cursor = 'pointer';
+            }
+        });
+        dropdown.innerHTML = doc.body.innerHTML;
+    }, 300);
+}
+
+function selectHighlightPlayer(playerId, name) {
+    highlightPlayerId = playerId;
+    highlightPlayerName = name;
+    document.getElementById('highlight-dropdown').innerHTML = '';
+    document.getElementById('highlight-search').value = name;
+    document.getElementById('clear-highlight-btn').classList.remove('hidden');
+    reloadCharts();
+}
+
+function clearHighlight() {
+    highlightPlayerId = null;
+    highlightPlayerName = null;
+    document.getElementById('highlight-search').value = '';
+    document.getElementById('clear-highlight-btn').classList.add('hidden');
+    reloadCharts();
+}
 
 function switchView(view) {
     document.querySelectorAll('.stats-view').forEach(v => v.classList.add('hidden'));
@@ -125,6 +184,7 @@ async function fetchJSON(url) {
 async function loadStatcastCharts() {
     const season = getSeason();
     const minPA = getMinPA();
+    const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
 
     // EV vs Barrel
     const evData = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=avg_exit_velo&y_stat=barrel_pct&min_pa=${minPA}`);
@@ -132,28 +192,26 @@ async function loadStatcastCharts() {
         xLabel: 'Avg Exit Velocity (mph)',
         yLabel: 'Barrel %',
         colorStat: 'xwoba',
+        highlightPlayerId: highlightPlayerId,
     });
 
-    // Luck chart: need xwOBA vs wOBA — use the data to build a custom scatter
-    // Fetch xwOBA data and build a manual chart
-    const luckData = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=xwoba&y_stat=xba&min_pa=${minPA}`);
-    // Actually, let's plot xwOBA (x) vs some actual stat. We need wOBA from batting stats.
-    // For simplicity, use xwOBA vs xBA which is still insightful
+    // Luck chart: xwOBA (expected) vs actual wOBA
+    const luckData = await fetchJSON(`/api/charts/luck-scatter?season=${season}&min_pa=${minPA}`);
     buildScatterChart('chart-luck', luckData, {
-        xLabel: 'xwOBA',
-        yLabel: 'xBA',
+        xLabel: 'xwOBA (Expected)',
+        yLabel: 'wOBA (Actual)',
+        diagonalLine: true,
+        highlightPlayerId: highlightPlayerId,
     });
 
-    // xwOBA distribution
-    const distData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=xwoba&player_type=batter`);
-    // Statcast table doesn't have xwoba in batting_stats; use the raw values trick
-    // Actually the distribution endpoint queries BattingStats. Let's use wrc_plus instead.
-    const wrcDist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter`);
-    buildDistribution('chart-xwoba-dist', wrcDist, { title: 'wOBA Distribution (Qualified Batters)' });
+    // xwOBA distribution (from Statcast data)
+    const xwobaDist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=xwoba&player_type=batter${hlParam}`);
+    buildDistribution('chart-xwoba-dist', xwobaDist, { title: 'xwOBA Distribution (Qualified Batters)' });
 }
 
 async function loadBattingCharts() {
     const season = getSeason();
+    const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
 
     // wRC+ leaders
     const wrcData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=wrc_plus&limit=30`);
@@ -161,11 +219,10 @@ async function loadBattingCharts() {
         label: 'wRC+',
         title: 'wRC+ Leaders',
         referenceLine: 100,
+        highlightPlayerId: highlightPlayerId,
     });
 
-    // K% vs BB% scatter — need to fetch batting stats with both stats
-    // Use two separate calls and merge, or use a combined approach
-    // For now, use the statcast scatter with batting stats manually
+    // K% vs BB% scatter
     const kData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=k_pct&limit=200`);
     const bbData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=bb_pct&limit=200`);
 
@@ -181,15 +238,17 @@ async function loadBattingCharts() {
         xLabel: 'K%',
         yLabel: 'BB%',
         title: 'Plate Discipline (lower K%, higher BB% = better)',
+        highlightPlayerId: highlightPlayerId,
     });
 
     // wOBA distribution
-    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter`);
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter${hlParam}`);
     buildDistribution('chart-woba-dist', dist, { title: 'wOBA Distribution' });
 }
 
 async function loadPitchingCharts() {
     const season = getSeason();
+    const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
 
     // FIP vs ERA scatter
     const fipData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=fip&limit=200`);
@@ -205,6 +264,8 @@ async function loadPitchingCharts() {
         xLabel: 'ERA',
         yLabel: 'FIP',
         title: 'FIP vs ERA (below diagonal = ERA may rise)',
+        diagonalLine: true,
+        highlightPlayerId: highlightPlayerId,
     });
 
     // K-BB% leaders
@@ -212,10 +273,11 @@ async function loadPitchingCharts() {
     buildBarChart('chart-kbb-leaders', kbbData, {
         label: 'K-BB%',
         title: 'K-BB% Leaders',
+        highlightPlayerId: highlightPlayerId,
     });
 
     // ERA distribution
-    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=era&player_type=pitcher`);
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=era&player_type=pitcher${hlParam}`);
     buildDistribution('chart-era-dist', dist, { title: 'ERA Distribution' });
 }
 

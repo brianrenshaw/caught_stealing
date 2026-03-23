@@ -388,6 +388,62 @@ async def chart_pitching_leaders(
         return data[:limit]
 
 
+@router.get("/charts/luck-scatter")
+async def chart_luck_scatter(
+    season: int | None = Query(None),
+    min_pa: int = Query(50),
+):
+    """Return JSON for xwOBA vs actual wOBA luck chart (joins Statcast + Batting)."""
+    if not season:
+        season = default_season()
+
+    async with async_session() as session:
+        roster_map = await _get_roster_map(session)
+
+        query = (
+            select(StatcastSummary, BattingStats, Player)
+            .join(Player, StatcastSummary.player_id == Player.id)
+            .join(
+                BattingStats,
+                (BattingStats.player_id == StatcastSummary.player_id)
+                & (BattingStats.season == StatcastSummary.season)
+                & (BattingStats.period == StatcastSummary.period),
+            )
+            .where(
+                StatcastSummary.season == season,
+                StatcastSummary.period == "full_season",
+                StatcastSummary.player_type == "batter",
+            )
+        )
+        if min_pa > 0:
+            query = query.where(StatcastSummary.pa >= min_pa)
+
+        result = await session.execute(query)
+        seen: set[int] = set()
+        data = []
+        for sc, bat, player in result.all():
+            if player.id in seen:
+                continue
+            seen.add(player.id)
+            if sc.xwoba is None or bat.woba is None:
+                continue
+            roster_info = roster_map.get(player.id, {})
+            data.append(
+                {
+                    "player_id": player.id,
+                    "name": player.name,
+                    "team": player.team,
+                    "position": player.position,
+                    "x": round(sc.xwoba, 3),
+                    "y": round(bat.woba, 3),
+                    "pa": sc.pa,
+                    "is_my_team": roster_info.get("is_my_team", False),
+                    "is_rostered": player.id in roster_map,
+                }
+            )
+        return data
+
+
 @router.get("/charts/distribution")
 async def chart_distribution(
     season: int | None = Query(None),
@@ -399,8 +455,36 @@ async def chart_distribution(
     if not season:
         season = default_season()
 
+    statcast_stats = {
+        "xwoba", "xba", "xslg", "barrel_pct", "hard_hit_pct",
+        "avg_exit_velo", "whiff_pct", "chase_pct",
+    }
+
     async with async_session() as session:
-        if player_type == "batter":
+        if stat in statcast_stats:
+            query = (
+                select(StatcastSummary, Player)
+                .join(Player)
+                .where(
+                    StatcastSummary.season == season,
+                    StatcastSummary.period == "full_season",
+                    StatcastSummary.player_type == "batter",
+                    StatcastSummary.pa >= 50,
+                )
+            )
+            result = await session.execute(query)
+            values = []
+            highlight_value = None
+            highlight_name = None
+            for sc, player in result.all():
+                val = getattr(sc, stat, None)
+                if val is None:
+                    continue
+                values.append(val)
+                if highlight_player_id and player.id == highlight_player_id:
+                    highlight_value = val
+                    highlight_name = player.name
+        elif player_type == "batter":
             query = (
                 select(BattingStats, Player)
                 .join(Player)

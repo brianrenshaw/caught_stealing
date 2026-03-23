@@ -163,7 +163,7 @@ An interactive charting dashboard with three tabbed views, each featuring Plotly
 
 #### Statcast Tab
 - **Exit Velocity vs Barrel Rate** scatter plot — Each dot is a player, color-coded by xwOBA. Players in the upper-right corner hit the ball hard AND frequently barrel it up — these are the best hitters in baseball.
-- **xwOBA vs xBA** scatter ("the luck chart") — Compares expected batting average to expected weighted on-base average. Useful for identifying well-rounded hitters vs. one-dimensional ones.
+- **xwOBA vs Actual wOBA** scatter ("the luck chart") — Compares expected performance (xwOBA, based on batted ball quality) to actual results (wOBA). Players above the diagonal are underperforming their batted ball quality and likely to improve (buy low); players below are overperforming (sell high).
 - **xwOBA Distribution** histogram — Shows the spread of expected performance across all players. A player's position on this curve tells you how they compare to the field.
 
 #### Batting Tab
@@ -176,7 +176,7 @@ An interactive charting dashboard with three tabbed views, each featuring Plotly
 - **K-BB% Leaders** bar chart — The gap between strikeout rate and walk rate. Bigger gap = more dominant pitcher.
 - **ERA Distribution** histogram — Visualizes the range of ERA across all qualified pitchers.
 
-**Interactive features:** Season selector dropdown, minimum PA filter (default 50), hover tooltips showing player name and exact values, and tab switching. Chart data points for players on your roster appear as gold stars; other rostered players are blue circles; free agents are green X marks. Click any data point to navigate to that player's detail page.
+**Interactive features:** Season selector dropdown, minimum PA filter (default 50), hover tooltips showing player name and exact values, and tab switching. Use the **Highlight player** search box to find a specific player — selecting them marks their position on all charts in the current tab with a red diamond and label (scatter plots) or red bar highlight (bar charts), plus a vertical line on distribution histograms. Click "x Clear" to remove the highlight. Chart data points for players on your roster appear as gold stars; other rostered players are blue circles; free agents are green X marks. Click any data point to navigate to that player's detail page.
 
 **Why it matters for fantasy:** Charts reveal patterns that tables can't. The FIP vs ERA scatter instantly shows you which pitchers are due for regression. The K% vs BB% plot highlights hitters with elite plate discipline (a strong predictor of sustained success). The Statcast charts bypass traditional stats entirely, showing you which players are making the best contact regardless of their batting average.
 

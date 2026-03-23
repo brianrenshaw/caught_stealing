@@ -26,7 +26,7 @@ const MARKER_STYLES = {
  * @param {Object} config - {xLabel, yLabel, colorStat, title}
  */
 function buildScatterChart(containerId, data, config = {}) {
-    const { xLabel = 'X', yLabel = 'Y', title = '', colorStat = null } = config;
+    const { xLabel = 'X', yLabel = 'Y', title = '', colorStat = null, diagonalLine = false, highlightPlayerId = null } = config;
 
     // Split data into three groups for different marker styles
     const myTeam = data.filter(d => d.is_my_team);
@@ -61,12 +61,45 @@ function buildScatterChart(containerId, data, config = {}) {
     if (rostered.length) traces.push(makeTrace(rostered, 'Rostered', MARKER_STYLES.rostered));
     if (myTeam.length) traces.push(makeTrace(myTeam, 'My Team', MARKER_STYLES.my_team));
 
+    // Add highlight marker for selected player
+    const highlighted = highlightPlayerId ? data.find(d => d.player_id === highlightPlayerId) : null;
+    if (highlighted) {
+        traces.push({
+            x: [highlighted.x],
+            y: [highlighted.y],
+            text: [`${highlighted.name} (${highlighted.team || 'FA'})`],
+            customdata: [highlighted.player_id],
+            mode: 'markers+text',
+            type: 'scatter',
+            name: highlighted.name,
+            textposition: 'top center',
+            textfont: { color: '#f87171', size: 13, family: 'sans-serif' },
+            marker: { symbol: 'diamond', size: 18, color: '#f87171', line: { width: 2, color: '#ffffff' } },
+            hovertemplate: `<b>%{text}</b><br>${xLabel}: %{x}<br>${yLabel}: %{y}<extra></extra>`,
+        });
+    }
+
+    const shapes = [];
+    if (diagonalLine && data.length > 0) {
+        const allVals = data.map(d => d.x).concat(data.map(d => d.y));
+        const minVal = Math.min(...allVals);
+        const maxVal = Math.max(...allVals);
+        shapes.push({
+            type: 'line',
+            x0: minVal, y0: minVal,
+            x1: maxVal, y1: maxVal,
+            line: { color: '#6b7280', width: 2, dash: 'dash' },
+            layer: 'below',
+        });
+    }
+
     const layout = {
         ...CHART_THEME,
         title: { text: title, font: { size: 14, color: '#e5e7eb' } },
         xaxis: { title: xLabel, gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
         yaxis: { title: yLabel, gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
         legend: { orientation: 'h', y: -0.15, font: { size: 11 } },
+        shapes: shapes,
     };
 
     const el = document.getElementById(containerId);
@@ -86,9 +119,12 @@ function buildScatterChart(containerId, data, config = {}) {
  * @param {Object} config - {label, title, referenceLine}
  */
 function buildBarChart(containerId, data, config = {}) {
-    const { label = 'Value', title = '', referenceLine = null } = config;
+    const { label = 'Value', title = '', referenceLine = null, highlightPlayerId = null } = config;
 
-    const colors = data.map(d => d.is_my_team ? '#fbbf24' : (d.is_rostered ? '#60a5fa' : '#34d399'));
+    const colors = data.map(d => {
+        if (highlightPlayerId && d.player_id === highlightPlayerId) return '#f87171';
+        return d.is_my_team ? '#fbbf24' : (d.is_rostered ? '#60a5fa' : '#34d399');
+    });
 
     const trace = {
         y: data.map(d => d.name).reverse(),

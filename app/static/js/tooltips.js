@@ -64,7 +64,7 @@ const TOOLTIP_DATA = {
     // Stats Explorer
     "stats-explorer": {
       title: "Stats Explorer",
-      description: "Interactive charts that reveal patterns you can't see in tables. Toggle between Statcast, Batting, and Pitching views. Hover over any data point for details. Your roster players appear as gold stars, other rostered players as blue circles, and free agents as green X marks. Click any point to open that player's detail page."
+      description: "Interactive charts that reveal patterns you can't see in tables. Toggle between Statcast, Batting, and Pitching views. Use the 'Highlight player' search to find and mark a specific player across all charts. Hover over any data point for details. Your roster players appear as gold stars, other rostered players as blue circles, and free agents as green X marks. Click any point to open that player's detail page."
     },
     "ev-vs-barrel": {
       title: "Exit Velocity vs Barrel Rate",

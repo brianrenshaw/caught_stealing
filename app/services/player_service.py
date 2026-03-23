@@ -186,7 +186,7 @@ async def get_comparable_players(
             BattingStats.player_id == player_id,
             BattingStats.season == season,
             BattingStats.period == "full_season",
-        )
+        ).limit(1)
     )
     target_bat = bat_result.scalar_one_or_none()
 
@@ -195,7 +195,7 @@ async def get_comparable_players(
             PitchingStats.player_id == player_id,
             PitchingStats.season == season,
             PitchingStats.period == "full_season",
-        )
+        ).limit(1)
     )
     target_pitch = pitch_result.scalar_one_or_none()
 
@@ -204,7 +204,7 @@ async def get_comparable_players(
             StatcastSummary.player_id == player_id,
             StatcastSummary.season == season,
             StatcastSummary.period == "full_season",
-        )
+        ).limit(1)
     )
     target_sc = sc_result.scalar_one_or_none()
 
