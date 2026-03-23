@@ -1,6 +1,6 @@
-<div class="bg-gray-800/90 rounded-lg border border-purple-700/40 p-5" data-ai-panel>
+<div class="bg-gray-800/90 rounded-lg border border-teal-600/40 p-5" data-ai-panel>
     <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-purple-300 flex items-center gap-2">
+        <h3 class="text-sm font-semibold text-teal-400 flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
             </svg>
@@ -12,12 +12,21 @@
     {% if analysis %}
     <div data-ai-content>
         <script type="text/markdown" data-markdown-source>{{ analysis }}</script>
-        <div data-markdown-target class="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed
-                    [&_strong]:text-white [&_h1]:text-lg [&_h1]:text-purple-200 [&_h1]:mt-4 [&_h1]:mb-2
-                    [&_h2]:text-base [&_h2]:text-purple-300 [&_h2]:mt-4 [&_h2]:mb-2
-                    [&_h3]:text-sm [&_h3]:text-gray-200 [&_h3]:mt-3 [&_h3]:mb-1
-                    [&_ul]:my-2 [&_li]:my-0.5 [&_p]:my-2
-                    [&_hr]:border-gray-700 [&_hr]:my-4">
+        <div data-markdown-target class="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed
+                    [&_strong]:text-white [&_strong]:font-semibold
+                    [&_h1]:text-base [&_h1]:font-bold [&_h1]:text-teal-300 [&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:pb-1 [&_h1]:border-b [&_h1]:border-gray-700
+                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-gray-100 [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:pb-1 [&_h2]:border-b [&_h2]:border-gray-700/50
+                    [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-gray-200 [&_h3]:italic [&_h3]:mt-3 [&_h3]:mb-1
+                    [&_ul]:my-2 [&_ul]:space-y-1
+                    [&_ol]:my-2 [&_ol]:space-y-1
+                    [&_li]:my-0 [&_li]:text-gray-300
+                    [&_li_strong]:text-white
+                    [&_p]:my-2 [&_p]:text-gray-300
+                    [&_hr]:border-gray-700 [&_hr]:my-4
+                    [&_blockquote]:border-l-2 [&_blockquote]:border-teal-600 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-400
+                    [&_table]:w-full [&_table]:text-xs
+                    [&_th]:bg-gray-700 [&_th]:text-gray-200 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold
+                    [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-gray-700/50 [&_td]:text-gray-300">
         </div>
     </div>
     {% else %}
@@ -47,7 +56,7 @@
                     hx-target="#weekly-outlook-container"
                     hx-swap="innerHTML"
                     hx-indicator="#outlook-spinner"
-                    class="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+                    class="text-xs text-teal-400 hover:text-teal-300 transition-colors">
                 Regenerate
             </button>
         </div>

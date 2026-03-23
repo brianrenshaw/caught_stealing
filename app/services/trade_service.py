@@ -649,25 +649,37 @@ INJURY STATUS (Source: MLB Official Injury Report):
     user_message += f"""
 {scoring_line}
 
-Suggest trade opportunities:
-1. AGGRESSIVE MOVE — significant upgrade, may require overpaying
-2. CONSERVATIVE MOVE — fair-value trade that fills a need
-3. KEEP AN EYE ON — players to monitor
+Format your response with these sections:
+## Verdict
+One sentence: should I be trading right now or standing pat?
 
-For each suggestion, name specific players on both sides and explain WHY the
-other manager might accept. Discuss projection disagreements where relevant.
-If nothing improves my team, say STAND PAT."""
+## Aggressive Move
+- **Trade proposal:** [specific players on both sides]
+- **Why it works for me:** [bullet points]
+- **Why they'd accept:** [bullet points]
+- **Projection notes:** [discuss App vs Steamer disagreements]
+
+## Conservative Move
+- **Trade proposal:** [specific players]
+- **Why it works for me:** [bullet points]
+- **Why they'd accept:** [bullet points]
+
+## Keep an Eye On
+- **Player 1** — [1 sentence on what to watch for]
+- **Player 2** — [1 sentence]"""
 
     system_prompt = (
-        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league. "
-        "Analyze my roster and all opponents' rosters to suggest realistic trade targets. "
+        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league.\n"
+        "Analyze my roster and all opponents' rosters to suggest realistic trade targets.\n"
         "Focus on REST-OF-SEASON value — trades are long-term moves, not weekly plays.\n\n"
         "You have three projection sources:\n"
         "- App Projected: Our custom model blending actual stats + Statcast expected metrics\n"
         "- Steamer ROS: FanGraphs Steamer rest-of-season projection system\n"
         "- Actual Points: What the player has scored so far this season\n\n"
-        "When these projections disagree significantly, explain why and which to trust. "
-        "Use bold section headers. Be honest — if no trade clearly improves my team, say STAND PAT."
+        "When these projections disagree significantly, explain why and which to trust.\n\n"
+        "FORMAT: Use markdown headers (## for sections) and bullet points for all analysis.\n"
+        "Keep paragraphs short (2-3 sentences max). Lead with the recommendation, then reasoning.\n"
+        "Be honest — if no trade clearly improves my team, say STAND PAT."
     )
 
     try:
@@ -909,15 +921,30 @@ INJURY STATUS:
     user_message += f"""
 {scoring_line}
 
-Should I make this trade? Evaluate roster fit, projection differences,
-and whether the numbers tell the full story."""
+Format your response as:
+## Verdict
+**[ACCEPT/REJECT/CLOSE CALL]** — one sentence summary.
+
+## Key Factors
+- [bullet point for each major factor]
+
+## Projection Analysis
+- [compare App vs Steamer for key players]
+
+## Roster Fit
+- [how this trade affects my lineup]
+
+## Risk Assessment
+- [injury concerns, regression risks, etc.]"""
 
     system_prompt = (
-        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league. "
-        "Evaluate this specific trade from MY team's perspective. Focus on REST-OF-SEASON value. "
-        "Be concise — lead with your verdict, then explain WHY. Consider roster fit, positional "
-        "scarcity, Statcast trends, projection disagreements, and injury risk. "
-        "Use bold section headers."
+        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league.\n"
+        "Evaluate this specific trade from MY team's perspective. "
+        "Focus on REST-OF-SEASON value.\n\n"
+        "FORMAT: Use markdown headers (## for sections) and bullet points for all analysis.\n"
+        "Lead with your verdict in bold, then explain WHY using bullet points.\n"
+        "Keep paragraphs short. Consider roster fit, positional scarcity, Statcast trends,\n"
+        "projection disagreements, and injury risk."
     )
 
     try:
