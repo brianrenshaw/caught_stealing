@@ -1,0 +1,92 @@
+{# Side-by-side projection comparison cards #}
+{% if cards %}
+<div class="grid gap-4" style="grid-template-columns: repeat({{ cards|length }}, 1fr);">
+    {% for card in cards %}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+        {# Header #}
+        <div class="flex items-center gap-3 mb-4 pb-3 border-b border-gray-700">
+            {% if card.player.headshot_url %}
+            <img src="{{ card.player.headshot_url }}" alt="" class="w-10 h-10 rounded-full bg-gray-600 object-cover"
+                 onerror="this.style.display='none'">
+            {% endif %}
+            <div>
+                <div class="font-medium text-white">{{ card.player.name }}</div>
+                <div class="text-xs text-gray-400">{{ card.player.team or 'FA' }} &middot; {{ card.player.position or '?' }}</div>
+            </div>
+        </div>
+
+        {# Buy/Sell Signal #}
+        {% if card.gaps and card.gaps.signal != 'neutral' %}
+        <div class="mb-3">
+            {% if card.gaps.signal == 'buy_low' %}
+            <span class="inline-block px-2 py-0.5 text-xs font-bold rounded bg-green-900/50 text-green-400 border border-green-700">BUY LOW</span>
+            {% elif card.gaps.signal == 'sell_high' %}
+            <span class="inline-block px-2 py-0.5 text-xs font-bold rounded bg-red-900/50 text-red-400 border border-red-700">SELL HIGH</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {# xwOBA Delta #}
+        {% if card.gaps and card.gaps.xwoba_vs_woba is not none %}
+        <div class="mb-3 flex items-center gap-2">
+            <span class="text-xs text-gray-400">xwOBA Delta:</span>
+            {% set delta = card.gaps.xwoba_vs_woba %}
+            <span class="font-mono text-sm font-bold {{ 'text-green-400' if delta > 0 else 'text-red-400' if delta < 0 else 'text-gray-300' }}">
+                {{ "%+.3f"|format(delta) }}
+            </span>
+        </div>
+        {% endif %}
+
+        {# Projected Stats #}
+        {% set proj = card.projections.get('blended', card.projections.get('steamer', {})) %}
+        {% if proj %}
+        <h4 class="text-xs text-gray-400 uppercase tracking-wider mb-2">ROS Projection</h4>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+            {% for stat_name in ['HR', 'R', 'RBI', 'SB', 'AVG', 'OPS', 'W', 'SV', 'K', 'ERA', 'WHIP'] %}
+                {% if proj.get(stat_name) is not none %}
+                <div class="text-center">
+                    <div class="text-xs text-gray-500">{{ stat_name }}</div>
+                    <div class="text-sm font-mono text-gray-200">
+                        {% set v = proj[stat_name] %}
+                        {% if v >= 10 %}{{ "%.0f"|format(v) }}{% elif v >= 1 %}{{ "%.2f"|format(v) }}{% else %}{{ "%.3f"|format(v) }}{% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-gray-500 text-xs py-2">No projections available</div>
+        {% endif %}
+
+        {# Fantasy Value #}
+        {% if card.fantasy_value %}
+        <div class="border-t border-gray-700 pt-3 mt-3">
+            <h4 class="text-xs text-gray-400 uppercase tracking-wider mb-2">Fantasy Value</h4>
+            <div class="grid grid-cols-2 gap-2 text-xs">
+                {% if card.fantasy_value.surplus_value is not none %}
+                <div>
+                    <span class="text-gray-500">Surplus:</span>
+                    <span class="font-mono text-gray-200">{{ "%.1f"|format(card.fantasy_value.surplus_value) }}</span>
+                </div>
+                {% endif %}
+                {% if card.fantasy_value.positional_rank is not none %}
+                <div>
+                    <span class="text-gray-500">Pos Rank:</span>
+                    <span class="font-mono text-gray-200">#{{ card.fantasy_value.positional_rank }}</span>
+                </div>
+                {% endif %}
+                {% if card.fantasy_value.z_score_total is not none %}
+                <div>
+                    <span class="text-gray-500">Z-Score:</span>
+                    <span class="font-mono text-gray-200">{{ "%.1f"|format(card.fantasy_value.z_score_total) }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-gray-500 text-sm py-4 text-center">Select players to compare projections.</div>
+{% endif %}

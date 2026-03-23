@@ -170,6 +170,36 @@ const TOOLTIP_DATA = {
       title: "Player Quick Look",
       description: "Quick stats snapshot without leaving your current page. Use the season dropdown to check historical data. Click the player name link at the top to visit the full Player Detail page for deeper analysis."
     },
+
+    // Compare Page
+    "compare": {
+      title: "Player Comparison Tool",
+      description: "Side-by-side player comparison with Baseball Savant-style percentile bars, stat tables, projections, trend charts, splits, and radar profiles. Search for players, drag them into comparison slots, and switch between tabs to analyze from different angles. Share comparisons via URL."
+    },
+    "compare-overview": {
+      title: "Percentile Overview",
+      description: "Baseball Savant-style percentile bars showing where each player ranks relative to all qualified players. Blue bars indicate below-average performance, red bars indicate above-average. The deeper the color, the more extreme the percentile. Use the Stat Set dropdown to toggle between Statcast, Traditional, and All metrics."
+    },
+    "compare-stats": {
+      title: "Stat Comparison Table",
+      description: "Side-by-side stat table with leader highlighting. Green cells indicate the best value in the comparison group; red indicates the worst. Use Period and Type selectors to drill into recent performance or advanced metrics."
+    },
+    "compare-projections": {
+      title: "Projection Comparison",
+      description: "Rest-of-season projections from blended projection systems (Steamer, ZiPS, ATC, The BAT). Shows Buy Low / Sell High signals based on the gap between expected (Statcast) and actual performance. The xwOBA Delta is the key indicator."
+    },
+    "compare-trends": {
+      title: "Performance Trends",
+      description: "Rolling trend lines showing how each player's stats have changed across time windows (Full Season, Last 30, Last 14, Last 7 days). Rising lines indicate improving performance. Use the sparkline row for a quick overview of multiple metrics at once."
+    },
+    "compare-splits": {
+      title: "Splits Comparison",
+      description: "Platoon (vs LHP / vs RHP) and home/away splits for each player. Critical for start/sit decisions — a hitter who crushes lefties but struggles against righties should only be started when facing a southpaw."
+    },
+    "compare-radar": {
+      title: "Radar Chart",
+      description: "Visual player profile overlay using percentile-based axes. Hitter axes: Power, Speed, Contact, Discipline, Batted Ball Quality, Hit Tool. Larger area = more well-rounded player. Useful for quickly identifying player archetypes and complementary strengths."
+    },
   },
 
   stats: {

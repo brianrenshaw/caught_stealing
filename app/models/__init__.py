@@ -3,6 +3,7 @@ from app.models.conversation import Conversation, UsageLog
 from app.models.league_team import LeagueTeam
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
+from app.models.player_splits import PlayerSplits
 from app.models.projection import Projection
 from app.models.roster import Roster
 from app.models.statcast_summary import StatcastSummary
@@ -16,6 +17,7 @@ __all__ = [
     "LeagueTeam",
     "PitchingStats",
     "Player",
+    "PlayerSplits",
     "Projection",
     "Roster",
     "StatcastSummary",

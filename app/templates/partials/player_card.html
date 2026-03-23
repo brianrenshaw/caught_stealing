@@ -28,8 +28,13 @@
                 {% endif %}
             </div>
         </div>
-        <button onclick="closePlayerModal()"
-                class="text-gray-500 hover:text-white text-xl leading-none px-1">&times;</button>
+        <div class="flex items-center gap-2">
+            <button onclick="addToCompare({id: {{ player.id }}, name: '{{ player.name | replace("'", "\\'") }}', team: '{{ player.team or '' }}', position: '{{ player.position or '' }}', headshot_url: {% if player.mlbam_id %}'https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/{{ player.mlbam_id }}/headshot/67/current'{% else %}null{% endif %}})"
+                    class="text-gray-400 hover:text-blue-400 text-xs px-2 py-1 rounded border border-gray-600 hover:border-blue-500 transition-colors"
+                    title="Add to comparison">⚖️ Compare</button>
+            <button onclick="closePlayerModal()"
+                    class="text-gray-500 hover:text-white text-xl leading-none px-1">&times;</button>
+        </div>
     </div>
 
     {% if batting %}

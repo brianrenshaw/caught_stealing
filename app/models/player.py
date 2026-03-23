@@ -33,3 +33,4 @@ class Player(Base):
     batting_stats: Mapped[list["BattingStats"]] = relationship(back_populates="player")  # noqa: F821
     pitching_stats: Mapped[list["PitchingStats"]] = relationship(back_populates="player")  # noqa: F821
     statcast_summaries: Mapped[list["StatcastSummary"]] = relationship(back_populates="player")  # noqa: F821
+    splits: Mapped[list["PlayerSplits"]] = relationship(back_populates="player")  # noqa: F821

@@ -20,6 +20,7 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
   - [Projection Comparison](#projection-comparison)
   - [Player Detail Page](#player-detail-page)
   - [Matchups](#matchups)
+  - [Compare Players](#compare-players)
   - [Player Popup (Quick Look)](#player-popup-quick-look)
   - [Chat Assistant](#chat-assistant)
 - [Understanding the Stats](#understanding-the-stats)
@@ -327,6 +328,60 @@ Pitchers scheduled for two starts this week:
 | Reasoning | Details on each matchup |
 
 **Why it matters for fantasy:** Weekly lineup optimization is one of the biggest edges in fantasy baseball. Streaming pitchers (picking up a pitcher for a single favorable start) can add 2–3 wins and 15+ strikeouts over the course of a season. Hitter stacks exploit the fact that when one batter in a lineup has a big day, his teammates often do too (they bat around). Two-start pitchers get double the opportunity for wins and Ks, making them must-starts if the matchups are favorable.
+
+---
+
+### Compare Players
+
+**What it shows:**
+
+A powerful side-by-side comparison tool inspired by Baseball Savant's percentile rankings and FanGraphs' player rater. Compare up to 5 players across every stat dimension.
+
+**How to use it:**
+
+1. **Search and add players** — Type a player name in the search bar. Click a result to add them to the player dock (top bar). Use position filter pills to narrow results.
+2. **Drag to compare** — Drag player chips from the dock into comparison slots below. You can also click an empty slot to focus the search input.
+3. **Explore tabs** — Once 2+ players are in slots, the comparison panels activate with 6 tabs.
+
+**Quick Compare presets:** Click "Top 5 1B", "Buy Low Targets", or "Today's Streamers" to auto-populate with relevant players.
+
+#### Tab 1: Overview (Percentile Bars)
+
+Baseball Savant-style horizontal bars showing each player's percentile rank (0–100) for key metrics. Color coding:
+- Deep blue (0–10): well below average
+- Light blue (31–50): slightly below average
+- Light red (51–70): slightly above average
+- Deep red (91–100): elite
+
+Use the "Stat Set" dropdown to switch between Statcast metrics, Traditional stats, or All.
+
+#### Tab 2: Stats Table
+
+Standard side-by-side stat table with controls for:
+- **Period:** Full Season, Last 30, Last 14, Last 7 days
+- **Type:** Standard, Advanced, Statcast
+
+Green highlighting marks the best value in each row; red marks the worst. Use this to quickly identify who leads in each category.
+
+#### Tab 3: Projections
+
+Rest-of-season projection cards showing projected stats, fantasy value (surplus value, positional rank, z-score), and Buy Low / Sell High signals. The xwOBA Delta indicates how much a player is over/under-performing their batted ball quality.
+
+#### Tab 4: Trends
+
+Multi-player line chart showing how a stat has changed across time windows. Use the metric dropdown to switch between AVG, OPS, xwOBA, Barrel%, and Exit Velo. The sparkline row above the chart gives a quick visual overview of multiple metrics.
+
+#### Tab 5: Splits
+
+Platoon and situational splits (vs LHP, vs RHP, Home, Away) displayed side by side. Color-coded: green for strong, red for weak relative to league average. Essential for start/sit decisions against specific pitcher handedness.
+
+#### Tab 6: Radar Chart
+
+Spider/radar chart overlaying player profiles. For hitters, axes are Power, Speed, Contact, Discipline, Batted Ball Quality, and Hit Tool. A larger filled area indicates a more well-rounded player.
+
+**Sharing:** The URL updates with your comparison (?ids=12,45,78). Copy and share it to let others see the same comparison. Your dock persists across browser sessions via localStorage.
+
+**Add from other pages:** Click the "Compare" button on any player card popup to add that player to your comparison dock. A badge on the Compare nav link shows how many players are in your dock.
 
 ---
 

@@ -1,0 +1,42 @@
+{# Side-by-side stat comparison table #}
+{% if cards and table_data %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="border-b border-gray-700">
+                <th class="text-left py-2 px-3 text-gray-400 font-medium w-32">Stat</th>
+                {% for card in cards %}
+                <th class="text-center py-2 px-3 text-gray-300 font-medium">
+                    {{ card.player.name }}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in table_data %}
+            <tr class="border-b border-gray-700/50 hover:bg-gray-800/50">
+                <td class="py-2 px-3 text-gray-400 font-medium">{{ row.label }}</td>
+                {% for val in row.player_values %}
+                <td class="text-center py-2 px-3 font-mono text-sm
+                    {% if val is not none and row.best is not none %}
+                        {% if val == row.best %}bg-green-900/30 text-green-300
+                        {% elif val == row.worst and row.player_values|select('ne', none)|list|length > 1 %}bg-red-900/20 text-red-300
+                        {% else %}text-gray-200{% endif %}
+                    {% else %}text-gray-500{% endif %}">
+                    {% if val is not none %}
+                        {% if val is number %}
+                            {% if val >= 10 %}{{ "%.0f" | format(val) }}
+                            {% elif val >= 1 %}{{ "%.2f" | format(val) }}
+                            {% else %}{{ "%.3f" | format(val) }}{% endif %}
+                        {% else %}{{ val }}{% endif %}
+                    {% else %}&mdash;{% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-gray-500 text-sm py-4 text-center">No data available for the selected period.</div>
+{% endif %}

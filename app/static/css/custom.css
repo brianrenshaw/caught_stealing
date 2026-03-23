@@ -27,3 +27,109 @@
     pointer-events: auto;
     transition: opacity 0.15s ease;
 }
+
+/* ── Player Comparison Tool ── */
+
+/* Comparison slots */
+.comparison-slot {
+    min-height: 80px;
+    border-radius: 0.5rem;
+    border: 2px dashed #4b5563;
+    background: #1f2937;
+    transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.comparison-slot.filled-slot {
+    border-style: solid;
+    border-color: #374151;
+    cursor: grab;
+}
+
+.comparison-slot.filled-slot:active {
+    cursor: grabbing;
+}
+
+.comparison-slot.empty-slot {
+    cursor: pointer;
+}
+
+.comparison-slot.empty-slot:hover {
+    border-color: #6b7280;
+    background: #1f2937;
+}
+
+/* Drop target highlight */
+.drop-target-active {
+    border-color: #3b82f6 !important;
+    background: rgba(59, 130, 246, 0.1) !important;
+    transform: scale(1.02);
+}
+
+/* Slot fill animation */
+@keyframes slotPulse {
+    0% { transform: scale(0.95); opacity: 0.7; }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.slot-fill-anim {
+    animation: slotPulse 0.4s ease;
+}
+
+/* Percentile bars */
+.percentile-bar-fill {
+    height: 24px;
+    border-radius: 4px;
+    width: 0;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    font-size: 11px;
+    font-family: ui-monospace, SFMono-Regular, monospace;
+    color: white;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.bar-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Dock chips */
+.dock-chip {
+    user-select: none;
+    transition: opacity 0.15s, transform 0.15s, border-color 0.15s;
+}
+
+.dock-chip:active {
+    cursor: grabbing;
+}
+
+/* Tab styling */
+.compare-tab-btn {
+    border-color: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    background: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.compare-tab-btn:hover {
+    color: #e5e7eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #comparison-slots {
+        grid-template-columns: 1fr !important;
+    }
+    .percentile-row .flex.items-center.gap-2 span:first-child {
+        width: 60px;
+        font-size: 10px;
+    }
+}

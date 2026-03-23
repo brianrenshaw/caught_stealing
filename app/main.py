@@ -11,6 +11,7 @@ from app.database import init_db
 from app.routes import (
     api,
     assistant,
+    comparison,
     dashboard,
     matchups,
     player,
@@ -92,4 +93,5 @@ app.include_router(matchups.router)
 app.include_router(player.router)
 app.include_router(stats_dashboard.router)
 app.include_router(assistant.router)
+app.include_router(comparison.router)
 app.include_router(api.router)

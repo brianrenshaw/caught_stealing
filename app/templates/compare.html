@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}Compare Players — Fantasy Baseball{% endblock %}
+{% block nav_compare %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/info_icon.html" import stat_info, page_info %}
+
+{% block content %}
+{# ── Zone 1: Player Selection Dock ── #}
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h1 class="text-2xl font-bold text-white">Compare Players {{ page_info('compare') }}</h1>
+        <div class="flex items-center gap-3">
+            <label class="text-gray-400 text-sm">Season:</label>
+            <select id="compare-season" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                    onchange="ComparisonState.season = parseInt(this.value); refreshAllSlots();">
+                {% for s in available_seasons %}
+                <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    {# Search + Position Filters #}
+    <div class="flex items-center gap-4 mb-3">
+        <div class="relative flex-1 max-w-md">
+            <input type="search" id="compare-search-input" placeholder="Search players to compare..."
+                   autocomplete="off"
+                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
+                          text-sm text-gray-200 placeholder-gray-500
+                          focus:outline-none focus:border-blue-500">
+            <div id="compare-search-dropdown" class="absolute z-50 w-full mt-1 hidden"></div>
+        </div>
+        <div class="flex gap-1" id="position-filters">
+            <button onclick="setPositionFilter(null)" class="pos-filter-btn active px-2 py-1 text-xs rounded bg-blue-600 text-white" data-pos="all">ALL</button>
+            <button onclick="setPositionFilter('C')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="C">C</button>
+            <button onclick="setPositionFilter('1B')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="1B">1B</button>
+            <button onclick="setPositionFilter('2B')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="2B">2B</button>
+            <button onclick="setPositionFilter('3B')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="3B">3B</button>
+            <button onclick="setPositionFilter('SS')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SS">SS</button>
+            <button onclick="setPositionFilter('OF')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="OF">OF</button>
+            <button onclick="setPositionFilter('SP')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SP">SP</button>
+            <button onclick="setPositionFilter('RP')" class="pos-filter-btn px-2 py-1 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="RP">RP</button>
+        </div>
+    </div>
+
+    {# Quick Compare Buttons #}
+    <div class="flex gap-2 mb-3">
+        <button onclick="quickCompare('top5_1b')" class="text-xs px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600">Top 5 1B</button>
+        <button onclick="quickCompare('buy_low')" class="text-xs px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600">Buy Low Targets</button>
+        <button onclick="quickCompare('streamers')" class="text-xs px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 border border-gray-600">Today's Streamers</button>
+        <button onclick="clearAll()" class="text-xs px-3 py-1 rounded bg-gray-700 text-red-400 hover:bg-gray-600 border border-gray-600 ml-auto">Clear All</button>
+    </div>
+
+    {# Player Dock (Draggable Chips) #}
+    <div id="player-dock" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-800 rounded-lg border border-gray-700">
+        <span id="dock-placeholder" class="text-gray-500 text-sm py-1">Search and add players above (max 8)</span>
+    </div>
+</div>
+
+{# ── Zone 2: Comparison Slots ── #}
+<div class="mb-6">
+    <div class="flex items-center justify-between mb-2">
+        <span class="text-sm text-gray-400">Comparison Slots</span>
+        <div class="flex items-center gap-2">
+            <button onclick="removeSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Remove slot">−</button>
+            <span id="slot-count" class="text-sm text-gray-400">3</span>
+            <button onclick="addSlot()" class="text-gray-400 hover:text-white text-lg px-2" title="Add slot">+</button>
+        </div>
+    </div>
+    <div id="comparison-slots" class="grid gap-4" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="comparison-slot empty-slot" data-slot="0" ondrop="handleSlotDrop(event, 0)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+            <div class="slot-empty-content">
+                <span class="text-gray-500 text-sm">Drop player here</span>
+            </div>
+            <div class="slot-filled-content hidden"></div>
+        </div>
+        <div class="comparison-slot empty-slot" data-slot="1" ondrop="handleSlotDrop(event, 1)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+            <div class="slot-empty-content">
+                <span class="text-gray-500 text-sm">Drop player here</span>
+            </div>
+            <div class="slot-filled-content hidden"></div>
+        </div>
+        <div class="comparison-slot empty-slot" data-slot="2" ondrop="handleSlotDrop(event, 2)" ondragover="handleDragOver(event)" ondragenter="handleDragEnter(event)" ondragleave="handleDragLeave(event)">
+            <div class="slot-empty-content">
+                <span class="text-gray-500 text-sm">Drop player here</span>
+            </div>
+            <div class="slot-filled-content hidden"></div>
+        </div>
+    </div>
+</div>
+
+{# ── Zone 3: Tabbed Comparison Panels ── #}
+<div id="comparison-panels" class="hidden">
+    <div class="border-b border-gray-700 mb-6">
+        <nav class="flex gap-4 -mb-px" id="compare-tabs">
+            <button onclick="switchTab('overview')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="overview">
+                Overview
+            </button>
+            <button onclick="switchTab('stats')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="stats">
+                Stats
+            </button>
+            <button onclick="switchTab('projections')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="projections">
+                Projections
+            </button>
+            <button onclick="switchTab('trends')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="trends">
+                Trends
+            </button>
+            <button onclick="switchTab('splits')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="splits">
+                Splits
+            </button>
+            <button onclick="switchTab('radar')" class="compare-tab-btn pb-3 text-sm font-medium border-b-2" data-tab="radar">
+                Radar
+            </button>
+        </nav>
+    </div>
+
+    {# Tab Content #}
+    <div id="tab-content">
+        {# Overview Tab: Percentile Bars #}
+        <div id="tab-overview" class="tab-panel">
+            <div class="flex items-center gap-3 mb-4">
+                <label class="text-gray-400 text-sm">Stat Set:</label>
+                <select id="percentile-stat-set" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                        onchange="renderOverviewTab()">
+                    <option value="statcast">Statcast</option>
+                    <option value="traditional">Traditional</option>
+                    <option value="all">All</option>
+                </select>
+            </div>
+            <div id="percentile-bars-container"></div>
+        </div>
+
+        {# Stats Tab: Server-rendered table #}
+        <div id="tab-stats" class="tab-panel hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <label class="text-gray-400 text-sm">Period:</label>
+                <select id="stat-period" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                        onchange="loadStatTable()">
+                    <option value="full_season">Full Season</option>
+                    <option value="last_30">Last 30</option>
+                    <option value="last_14">Last 14</option>
+                    <option value="last_7">Last 7</option>
+                </select>
+                <label class="text-gray-400 text-sm ml-2">Type:</label>
+                <select id="stat-type" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                        onchange="loadStatTable()">
+                    <option value="standard">Standard</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="statcast">Statcast</option>
+                </select>
+            </div>
+            <div id="stat-table-content">
+                <div class="text-gray-500 text-sm">Select players to compare stats.</div>
+            </div>
+        </div>
+
+        {# Projections Tab #}
+        <div id="tab-projections" class="tab-panel hidden">
+            <div id="projections-content">
+                <div class="text-gray-500 text-sm">Select players to compare projections.</div>
+            </div>
+        </div>
+
+        {# Trends Tab #}
+        <div id="tab-trends" class="tab-panel hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <label class="text-gray-400 text-sm">Metric:</label>
+                <select id="trend-metric" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                        onchange="renderTrendChart()">
+                    <option value="ops">OPS</option>
+                    <option value="avg">AVG</option>
+                    <option value="woba">wOBA</option>
+                    <option value="xwoba">xwOBA</option>
+                    <option value="barrel_pct">Barrel%</option>
+                    <option value="avg_exit_velo">Exit Velo</option>
+                </select>
+            </div>
+            {# Sparkline Row #}
+            <div id="sparkline-row" class="grid gap-4 mb-4"></div>
+            <div id="trend-chart" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 400px;"></div>
+        </div>
+
+        {# Splits Tab #}
+        <div id="tab-splits" class="tab-panel hidden">
+            <div id="splits-content">
+                <div class="text-gray-500 text-sm">Select players to compare splits.</div>
+            </div>
+        </div>
+
+        {# Radar Tab #}
+        <div id="tab-radar" class="tab-panel hidden">
+            <div id="radar-chart" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 500px;"></div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/comparison.js"></script>
+<script>
+    // Pass server-side data to JS
+    const INITIAL_PLAYERS = {{ initial_players | tojson }};
+    const INITIAL_SEASON = {{ season }};
+    const INITIAL_TAB = "{{ active_tab }}";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        initComparison(INITIAL_PLAYERS, INITIAL_SEASON, INITIAL_TAB);
+    });
+</script>
+{% endblock %}
