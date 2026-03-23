@@ -123,7 +123,12 @@
             <h4 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Columns</h4>
             <div class="flex flex-col gap-1 text-xs text-gray-500">
                 <span><span class="text-blue-400 font-medium">Score</span> — Composite waiver score (0-100): projection 35%, trend 25%, position 15%, fit 15%, schedule 10%</span>
-                <span><span class="text-white font-medium">{% if period != 'ros' %}Week Pts{% else %}Proj Pts{% endif %}</span> — {% if period != 'ros' %}Projected fantasy points for the selected week{% else %}Projected rest-of-season fantasy points{% endif %}</span>
+                {% if period != 'ros' %}
+                <span><span class="text-white font-medium">Week Pts</span> — Projected fantasy points for the selected week (rate × games)</span>
+                {% else %}
+                <span><span class="text-white font-medium">Steamer</span> — Steamer ROS projection (FanGraphs) with regression to the mean. Falls back to app projection when unavailable.</span>
+                <span><span class="text-white font-medium">My Proj</span> — App projection: actual stats scaled to remaining games. During offseason, shows full-season projection from prior year. After Week 2, uses live data.</span>
+                {% endif %}
                 <span><span class="text-gray-300 font-medium">Rate</span> — Points per plate appearance (hitters) or per inning pitched (pitchers)</span>
                 {% if period != 'ros' %}
                 <span><span class="text-gray-300 font-medium">Games</span> — Team games this week. <span class="text-gray-400">(2S)</span> = number of pitcher starts</span>

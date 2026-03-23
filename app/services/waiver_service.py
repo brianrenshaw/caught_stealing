@@ -23,6 +23,7 @@ from app.league_config import REPLACEMENT_LEVEL_SLOTS
 from app.models.batting_stats import BattingStats
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
+from app.models.roster import Roster
 from app.models.player_points import PlayerPoints
 from app.models.statcast_summary import StatcastSummary
 from app.services.mlb_service import InjuryEntry
@@ -50,7 +51,8 @@ class WaiverRecommendation:
     xwoba_delta: float = 0.0
     trend: str = "stable"  # hot, cold, stable
     # Points league fields
-    projected_points: float = 0.0
+    projected_points: float = 0.0  # primary (Steamer when available)
+    app_projected_points: float = 0.0  # app projection (stats-based)
     points_per_pa: float | None = None
     points_per_ip: float | None = None
     scoring_fit_score: float = 0.0
@@ -79,8 +81,27 @@ class WaiverRecommendation:
     start_opponents: list[str] = field(default_factory=list)
 
 
-async def _get_all_players(session: AsyncSession, season: int) -> list[Player]:
-    """Get all qualified hitters and pitchers."""
+async def _best_stats_season(session: AsyncSession, season: int) -> int:
+    """Fall back to most recent season with stats if requested season has none."""
+    result = await session.execute(
+        select(BattingStats.season).distinct().order_by(BattingStats.season.desc())
+    )
+    available = [r[0] for r in result.fetchall()]
+    if season in available:
+        return season
+    return available[0] if available else season
+
+
+async def _get_all_players(
+    session: AsyncSession, season: int, include_rostered: bool = False
+) -> list[Player]:
+    """Get all qualified free agents (or all players if include_rostered=True)."""
+    # Get rostered player IDs to exclude
+    rostered_ids: set[int] = set()
+    if not include_rostered:
+        rostered_result = await session.execute(select(Roster.player_id).distinct())
+        rostered_ids = {r[0] for r in rostered_result.fetchall()}
+
     result = await session.execute(
         select(Player)
         .join(BattingStats)
@@ -108,39 +129,55 @@ async def _get_all_players(session: AsyncSession, season: int) -> list[Player]:
     seen_ids: set[int] = set()
     all_players = []
     for p in list(hitters) + list(pitchers):
-        if p.id not in seen_ids:
+        if p.id not in seen_ids and p.id not in rostered_ids:
             seen_ids.add(p.id)
             all_players.append(p)
     return all_players
 
 
 async def _get_max_pts(session: AsyncSession, season: int) -> float:
-    """Get max projected ROS points for normalization."""
+    """Get max projected points for normalization (prefers Steamer when available)."""
+    from sqlalchemy import func
+
+    # Try Steamer first (regressed, more accurate for preseason)
+    steamer_result = await session.execute(
+        select(func.max(PlayerPoints.steamer_ros_points))
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.steamer_ros_points.isnot(None),
+        )
+    )
+    steamer_max = steamer_result.scalar_one_or_none()
+    if steamer_max and steamer_max > 0:
+        return steamer_max
+
+    # Fall back to app projection
     max_pts_result = await session.execute(
-        select(PlayerPoints.projected_ros_points)
+        select(func.max(PlayerPoints.projected_ros_points))
         .where(
             PlayerPoints.season == season,
             PlayerPoints.period == "full_season",
         )
-        .order_by(PlayerPoints.projected_ros_points.desc())
-        .limit(1)
     )
     max_pts_row = max_pts_result.scalar_one_or_none()
     return max_pts_row if max_pts_row and max_pts_row > 0 else 400.0
 
 
 async def _compute_trend(
-    session: AsyncSession, player_id: int, season: int
+    session: AsyncSession, player_id: int, season: int, player_type: str = "hitter"
 ) -> tuple[float, str, float, float, float]:
     """Compute trend score and breakout indicators from Statcast data.
 
     Returns: (trend_score, trend_label, xwoba_delta, barrel_delta, hard_hit_delta)
     """
+    sc_type = "batter" if player_type == "hitter" else "pitcher"
     full_sc = await session.execute(
         select(StatcastSummary).where(
             StatcastSummary.player_id == player_id,
             StatcastSummary.season == season,
             StatcastSummary.period == "full_season",
+            StatcastSummary.player_type == sc_type,
         )
     )
     full_sc_row = full_sc.scalar_one_or_none()
@@ -150,6 +187,7 @@ async def _compute_trend(
             StatcastSummary.player_id == player_id,
             StatcastSummary.season == season,
             StatcastSummary.period == "last_14",
+            StatcastSummary.player_type == sc_type,
         )
     )
     recent_sc_row = recent_sc.scalar_one_or_none()
@@ -233,7 +271,7 @@ async def _compute_scoring_fit(
                 BattingStats.player_id == player.id,
                 BattingStats.season == season,
                 BattingStats.period == "full_season",
-            )
+            ).limit(1)
         )
         bat = bat_result.scalar_one_or_none()
         if bat and bat.k_pct and bat.k_pct < 0.18:
@@ -248,7 +286,7 @@ async def _compute_scoring_fit(
                 PitchingStats.player_id == player.id,
                 PitchingStats.season == season,
                 PitchingStats.period == "full_season",
-            )
+            ).limit(1)
         )
         pitch = pitch_result.scalar_one_or_none()
         if pitch:
@@ -279,8 +317,12 @@ async def score_free_agents(
     Uses projected fantasy points from the player_points table as the
     primary scoring input, with league-specific scoring fit bonuses.
     """
+    # Fall back to best available season if requested has no data
+    season = await _best_stats_season(session, season)
+
     all_players = await _get_all_players(session, season)
     max_pts = await _get_max_pts(session, season)
+    logger.info(f"Waiver scoring: {len(all_players)} free agents, season={season}, max_pts={max_pts}")
 
     # Build injury lookup
     injury_lookup: dict[int, InjuryEntry] = {}
@@ -291,104 +333,120 @@ async def score_free_agents(
 
     recommendations: list[WaiverRecommendation] = []
 
+    skipped = 0
     for player in all_players:
-        pp_result = await session.execute(
-            select(PlayerPoints).where(
-                PlayerPoints.player_id == player.id,
-                PlayerPoints.season == season,
-                PlayerPoints.period == "full_season",
+        try:
+            pp_result = await session.execute(
+                select(PlayerPoints)
+                .where(
+                    PlayerPoints.player_id == player.id,
+                    PlayerPoints.season == season,
+                    PlayerPoints.period == "full_season",
+                )
+                .order_by(PlayerPoints.projected_ros_points.desc())
+                .limit(1)
             )
-        )
-        pp = pp_result.scalar_one_or_none()
+            pp = pp_result.scalar_one_or_none()
 
-        proj = await project_hitter(session, player, season)
-        player_type = "hitter"
-        if not proj:
-            proj = await project_pitcher(session, player, season)
-            player_type = "pitcher"
-        if not proj:
+            proj = await project_hitter(session, player, season)
+            player_type = "hitter"
+            if not proj:
+                proj = await project_pitcher(session, player, season)
+                player_type = "pitcher"
+            if not proj:
+                skipped += 1
+                continue
+
+            # Projection score — prefer Steamer ROS (regressed) over app projection
+            steamer_pts = pp.steamer_ros_points if pp else None
+            app_pts = pp.projected_ros_points if pp else 0.0
+            proj_pts = steamer_pts or app_pts or 0.0
+            proj_score = min((proj_pts / max_pts) * 100, 100) if proj_pts > 0 else 0.0
+
+            # Trend + breakout
+            trend_score, trend, xwoba_delta, barrel_delta, hard_hit_delta = await _compute_trend(
+                session, player.id, season, player_type
+            )
+            breakout, breakout_detail = _detect_breakout(xwoba_delta, barrel_delta, hard_hit_delta)
+            if breakout:
+                trend_score = min(trend_score + 15, 100)
+
+            # Positional scarcity
+            pos_score = _compute_positional_scarcity(player.position)
+
+            # Scoring fit
+            scoring_fit, reasons = await _compute_scoring_fit(session, player, player_type, season)
+
+            # Injury status
+            injury_status = None
+            mlbam_id = int(player.mlbam_id) if player.mlbam_id else None
+            if mlbam_id and mlbam_id in injury_lookup:
+                entry = injury_lookup[mlbam_id]
+                injury_status = f"{entry.status} - {entry.injury}"
+
+            # Reasoning
+            if trend == "hot":
+                reasons.append("Recent Statcast metrics trending up")
+            if breakout:
+                reasons.append(breakout_detail)
+            if hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
+                reasons.append(f"Buy low: xwOBA exceeds wOBA by {proj.xwoba_delta:+.3f}")
+            if pos_score >= 70:
+                pos = (player.position or "UTIL").split(",")[0].strip()
+                reasons.append(f"Scarce position ({pos})")
+            if proj_pts > 0:
+                reasons.append(f"Projected {proj_pts:.0f} ROS points")
+            if injury_status:
+                reasons.append(f"⚠ {injury_status}")
+
+            reasoning = "; ".join(reasons) if reasons else "Solid production"
+
+            # Composite score
+            composite = (
+                proj_score * 0.35
+                + trend_score * 0.25
+                + pos_score * 0.15
+                + scoring_fit * 0.15
+                + 50.0 * 0.10  # schedule neutral for ROS
+            )
+
+            buy_low = getattr(proj, "buy_low_signal", False)
+            xwoba_d = getattr(proj, "xwoba_delta", 0.0)
+
+            recommendations.append(
+                WaiverRecommendation(
+                    player_id=player.id,
+                    name=player.name,
+                    team=player.team,
+                    position=player.position,
+                    waiver_score=round(composite, 1),
+                    projection_score=round(proj_score, 1),
+                    trend_score=round(trend_score, 1),
+                    positional_need_score=round(pos_score, 1),
+                    reasoning=reasoning,
+                    buy_low=buy_low,
+                    xwoba_delta=xwoba_d,
+                    trend=trend,
+                    projected_points=round(proj_pts, 1) if proj_pts else 0.0,
+                    app_projected_points=round(app_pts, 1) if app_pts else 0.0,
+                    points_per_pa=pp.points_per_pa if pp else None,
+                    points_per_ip=pp.points_per_ip if pp else None,
+                    scoring_fit_score=round(scoring_fit, 1),
+                    player_type=player_type,
+                    projection_period="ros",
+                    breakout_signal=breakout,
+                    breakout_detail=breakout_detail,
+                    injury_status=injury_status,
+                )
+        )
+        except Exception as e:
+            logger.error(f"Waiver scoring failed for {player.name} (id={player.id}): {e}")
             continue
 
-        # Projection score
-        proj_pts = pp.projected_ros_points if pp else 0.0
-        proj_score = min((proj_pts / max_pts) * 100, 100) if proj_pts > 0 else 0.0
-
-        # Trend + breakout
-        trend_score, trend, xwoba_delta, barrel_delta, hard_hit_delta = await _compute_trend(
-            session, player.id, season
-        )
-        breakout, breakout_detail = _detect_breakout(xwoba_delta, barrel_delta, hard_hit_delta)
-        if breakout:
-            trend_score = min(trend_score + 15, 100)
-
-        # Positional scarcity
-        pos_score = _compute_positional_scarcity(player.position)
-
-        # Scoring fit
-        scoring_fit, reasons = await _compute_scoring_fit(session, player, player_type, season)
-
-        # Injury status
-        injury_status = None
-        mlbam_id = int(player.mlbam_id) if player.mlbam_id else None
-        if mlbam_id and mlbam_id in injury_lookup:
-            entry = injury_lookup[mlbam_id]
-            injury_status = f"{entry.status} - {entry.injury}"
-
-        # Reasoning
-        if trend == "hot":
-            reasons.append("Recent Statcast metrics trending up")
-        if breakout:
-            reasons.append(breakout_detail)
-        if hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
-            reasons.append(f"Buy low: xwOBA exceeds wOBA by {proj.xwoba_delta:+.3f}")
-        if pos_score >= 70:
-            pos = (player.position or "UTIL").split(",")[0].strip()
-            reasons.append(f"Scarce position ({pos})")
-        if proj_pts > 0:
-            reasons.append(f"Projected {proj_pts:.0f} ROS points")
-        if injury_status:
-            reasons.append(f"⚠ {injury_status}")
-
-        reasoning = "; ".join(reasons) if reasons else "Solid production"
-
-        # Composite score
-        composite = (
-            proj_score * 0.35
-            + trend_score * 0.25
-            + pos_score * 0.15
-            + scoring_fit * 0.15
-            + 50.0 * 0.10  # schedule neutral for ROS
-        )
-
-        buy_low = getattr(proj, "buy_low_signal", False)
-        xwoba_d = getattr(proj, "xwoba_delta", 0.0)
-
-        recommendations.append(
-            WaiverRecommendation(
-                player_id=player.id,
-                name=player.name,
-                team=player.team,
-                position=player.position,
-                waiver_score=round(composite, 1),
-                projection_score=round(proj_score, 1),
-                trend_score=round(trend_score, 1),
-                positional_need_score=round(pos_score, 1),
-                reasoning=reasoning,
-                buy_low=buy_low,
-                xwoba_delta=xwoba_d,
-                trend=trend,
-                projected_points=round(proj_pts, 1) if proj_pts else 0.0,
-                points_per_pa=pp.points_per_pa if pp else None,
-                points_per_ip=pp.points_per_ip if pp else None,
-                scoring_fit_score=round(scoring_fit, 1),
-                player_type=player_type,
-                projection_period="ros",
-                breakout_signal=breakout,
-                breakout_detail=breakout_detail,
-                injury_status=injury_status,
-            )
-        )
-
+    logger.info(
+        f"Waiver scoring complete: {len(recommendations)} recommendations, "
+        f"{skipped} skipped (no projection)"
+    )
     recommendations.sort(key=lambda r: r.waiver_score, reverse=True)
     return recommendations[:limit]
 
@@ -413,6 +471,9 @@ async def score_free_agents_weekly(
         get_game_details_in_range,
         get_probable_starters_in_range,
     )
+
+    # Fall back to best available season
+    season = await _best_stats_season(session, season)
 
     all_players = await _get_all_players(session, season)
 
@@ -494,6 +555,8 @@ async def score_free_agents_weekly(
                 PlayerPoints.season == season,
                 PlayerPoints.period == "full_season",
             )
+            .order_by(PlayerPoints.projected_ros_points.desc())
+            .limit(1)
         )
         pp = pp_result.scalar_one_or_none()
 
@@ -529,7 +592,7 @@ async def score_free_agents_weekly(
                         BattingStats.player_id == player.id,
                         BattingStats.season == season,
                         BattingStats.period == "full_season",
-                    )
+                    ).limit(1)
                 )
                 bat = bat_result.scalar_one_or_none()
                 if bat and bat.pa and bat.g and bat.g > 0:
@@ -545,7 +608,7 @@ async def score_free_agents_weekly(
                     PitchingStats.player_id == player.id,
                     PitchingStats.season == season,
                     PitchingStats.period == "full_season",
-                )
+                ).limit(1)
             )
             pitch = pitch_result.scalar_one_or_none()
 
@@ -632,7 +695,7 @@ async def score_free_agents_weekly(
 
         # --- Trend + breakout ---
         trend_score, trend, xwoba_delta, barrel_delta, hard_hit_delta = await _compute_trend(
-            session, player.id, season
+            session, player.id, season, player_type
         )
         breakout, breakout_detail = _detect_breakout(xwoba_delta, barrel_delta, hard_hit_delta)
         if breakout:

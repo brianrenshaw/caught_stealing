@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Minimum seconds between syncs
-SYNC_COOLDOWN = 300  # 5 minutes
+SYNC_COOLDOWN = 60  # 1 minute
 MAX_RETRIES = 3
 RETRY_DELAY = 2  # seconds
 
@@ -117,6 +117,87 @@ async def _update_player_ages(session) -> int:
 
     await session.flush()
     logger.info(f"Updated ages for {count} players")
+    return count
+
+
+async def _store_steamer_projections(
+    session, season: int, fetch_batting, fetch_pitching
+) -> int:
+    """Fetch Steamer ROS projections and store in the projections table.
+
+    Matches players by fangraphs_id or mlbam_id, then stores each counting stat
+    as a separate row in the projections table (system='steamer_ros').
+    """
+    from sqlalchemy import delete
+
+    from app.models.player import Player
+    from app.models.projection import Projection
+
+    # Clear old steamer_ros entries for this season
+    await session.execute(
+        delete(Projection).where(
+            Projection.system == "steamer_ros",
+            Projection.season == season,
+        )
+    )
+
+    # Build lookup maps: fangraphs_id -> player_id, mlbam_id -> player_id
+    player_result = await session.execute(select(Player))
+    players = player_result.scalars().all()
+    fg_map: dict[str, int] = {}
+    mlb_map: dict[str, int] = {}
+    for p in players:
+        if p.fangraphs_id:
+            fg_map[str(p.fangraphs_id)] = p.id
+        if p.mlbam_id:
+            mlb_map[str(p.mlbam_id)] = p.id
+
+    count = 0
+
+    # Fetch and store batting projections
+    bat_data = await fetch_batting()
+    for entry in bat_data:
+        player_id = fg_map.get(entry["fangraphs_id"])
+        if not player_id and entry.get("mlbam_id"):
+            player_id = mlb_map.get(entry["mlbam_id"])
+        if not player_id:
+            continue
+
+        for stat_name, value in entry["stats"].items():
+            session.add(
+                Projection(
+                    player_id=player_id,
+                    season=season,
+                    system="steamer_ros",
+                    stat_name=stat_name,
+                    projected_value=float(value),
+                )
+            )
+            count += 1
+
+    # Fetch and store pitching projections
+    pitch_data = await fetch_pitching()
+    for entry in pitch_data:
+        player_id = fg_map.get(entry["fangraphs_id"])
+        if not player_id and entry.get("mlbam_id"):
+            player_id = mlb_map.get(entry["mlbam_id"])
+        if not player_id:
+            continue
+
+        for stat_name, value in entry["stats"].items():
+            session.add(
+                Projection(
+                    player_id=player_id,
+                    season=season,
+                    system="steamer_ros",
+                    stat_name=stat_name,
+                    projected_value=float(value),
+                )
+            )
+            count += 1
+
+    await session.flush()
+    logger.info(f"Stored {count} Steamer ROS projection rows")
     return count
 
 
@@ -370,6 +451,33 @@ async def run_stats_pipeline(season: int | None = None) -> dict:
             except Exception as e:
                 logger.warning(f"Player age update failed: {e}")
                 results["player_ages_error"] = str(e)
+
+            # Step 8: Fetch Steamer ROS projections from FanGraphs API
+            logger.info("=== STATS PIPELINE: Fetching Steamer ROS projections ===")
+            try:
+                from app.services.external_projections import (
+                    fetch_steamer_batting_ros,
+                    fetch_steamer_pitching_ros,
+                )
+
+                steamer_count = await _store_steamer_projections(
+                    session, season, fetch_steamer_batting_ros, fetch_steamer_pitching_ros
+                )
+                results["steamer_projections"] = steamer_count
+            except Exception as e:
+                logger.warning(f"Steamer ROS projection fetch failed: {e}")
+                results["steamer_projections_error"] = str(e)
+
+            # Step 9: Calculate player points from loaded stats
+            logger.info("=== STATS PIPELINE: Calculating player points ===")
+            try:
+                from app.services.points_service import calculate_all_player_points
+
+                points_summaries = await calculate_all_player_points(session, season)
+                results["player_points"] = len(points_summaries)
+            except Exception as e:
+                logger.error(f"Player points calculation failed: {e}")
+                results["player_points_error"] = str(e)
 
             total = sum(v for v in results.values() if isinstance(v, int))
             await loader.update_sync_log(sync_log, status="success", records_processed=total)

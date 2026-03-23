@@ -22,12 +22,6 @@ from app.models.batting_stats import BattingStats
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
 from app.models.player_points import PlayerPoints
-from app.services.projection_service import (
-    HitterProjection,
-    PitcherProjection,
-    project_hitter,
-    project_pitcher,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -225,109 +219,129 @@ def get_points_breakdown(stats: dict, is_pitcher: bool, is_reliever: bool = Fals
 
 
 # ── Projection-to-Points Conversion ──
+#
+# Uses the same scaling approach as the weekly dashboard
+# (weekly_matchup_service.py): take actual counting stats, scale
+# proportionally to remaining games, apply league scoring weights.
+
+# Stat attribute → scoring category mapping (matches weekly dashboard)
+_BATTER_STAT_MAP = [
+    ("r", "R"), ("h", "H"), ("doubles", "2B"), ("triples", "3B"),
+    ("hr", "HR"), ("rbi", "RBI"), ("sb", "SB"), ("cs", "CS"),
+    ("bb", "BB"), ("hbp", "HBP"), ("so", "K"),
+]
+
+_PITCHER_STAT_MAP = [
+    ("ip", "IP"), ("so", "K"), ("sv", "SV"), ("hld", "HLD"),
+    ("w", "W"), ("qs", "QS"), ("h", "H"), ("er", "ER"),
+    ("bb", "BB"), ("hbp", "HBP"),
+]
 
 
-def calculate_projected_batter_points(proj: HitterProjection) -> float:
-    """Convert a HitterProjection into projected ROS fantasy points.
+def _estimate_remaining_games_batter(pa: float | None) -> int:
+    """Estimate remaining MLB games for ROS projection.
 
-    The projection service gives us projected_hr, projected_r, projected_rbi,
-    projected_sb, projected_avg, projected_obp, projected_slg.
-
-    For points we need counting stats. We estimate:
-    - Remaining PA from the projection's confidence and pace
-    - H from AVG * AB (AB ≈ PA * 0.88)
-    - 2B, 3B estimated from typical ratios to H
-    - BB estimated from OBP, H, HBP, PA
-    - K estimated from typical K rate or league average
+    During season: 162 - estimated games played.
+    Offseason (full season played): 162 (project full next season from rates).
     """
-    # This is an approximation since projections store rate+counting stats
-    # Use the counting stats directly where available
-    stats = {
-        "R": proj.projected_r,
-        "HR": proj.projected_hr,
-        "RBI": proj.projected_rbi,
-        "SB": proj.projected_sb,
-    }
+    if not pa or pa == 0:
+        return 162
+    games_played = pa / 4.5
+    remaining = 162 - games_played
+    if remaining < 30:
+        # Season essentially complete — project full next season from rates
+        return 162
+    return round(remaining)
 
-    # Estimate remaining counting stats from rate stats
-    # Assume ~600 PA for a full season, scale by confidence
-    estimated_pa = 600 * proj.confidence_score if proj.confidence_score > 0 else 300
-    ab = estimated_pa * 0.88  # rough AB/PA ratio
-    h = proj.projected_avg * ab if proj.projected_avg else 0
 
-    # Estimate hit distribution from typical MLB ratios
-    # Roughly: 2B = 25% of non-HR hits, 3B = 3% of non-HR hits
-    non_hr_hits = max(h - proj.projected_hr, 0)
-    stats["2B"] = non_hr_hits * 0.25
-    stats["3B"] = non_hr_hits * 0.03
-    stats["H"] = h
+def _estimate_remaining_scale_pitcher(ps) -> float:
+    """Estimate scale factor for remaining season pitcher projection.
 
-    # Estimate BB from OBP: OBP ≈ (H + BB + HBP) / PA
-    # BB ≈ OBP * PA - H - HBP (estimate HBP ≈ PA * 0.01)
-    hbp_est = estimated_pa * 0.01
-    bb_est = max((proj.projected_obp or 0.320) * estimated_pa - h - hbp_est, 0)
-    stats["BB"] = bb_est
-    stats["HBP"] = hbp_est
+    Returns a multiplier to apply to full-season counting stats.
+    Offseason: 1.0 (project full season from rates).
+    """
+    gs = ps.gs or 0
+    g = ps.g or 0
+    is_starter = gs > 0 and gs >= g * 0.5
 
-    # Estimate K: K ≈ AB * (1 - AVG) * K_rate_factor
-    # Typical K rate is ~22% of PA
-    stats["K"] = estimated_pa * 0.22
+    if is_starter:
+        total_expected = 32  # typical starter makes ~32 starts
+        remaining = max(total_expected - gs, 0)
+        if remaining < 3:
+            return 1.0  # offseason — project full season
+        return remaining / max(gs, 1)
+    else:
+        total_expected = 65  # typical reliever ~65 appearances
+        remaining = max(total_expected - g, 0)
+        if remaining < 5:
+            return 1.0  # offseason — project full season
+        return remaining / max(g, 1)
 
-    # CS: estimate from SB at ~25% caught rate
-    stats["CS"] = proj.projected_sb * 0.25 if proj.projected_sb else 0
+
+def project_batter_ros_points(bs) -> float:
+    """Project ROS fantasy points for a batter from actual BattingStats.
+
+    Uses the same method as the weekly dashboard: scale actual counting
+    stats proportionally, derive singles, apply league scoring weights.
+    """
+    remaining_games = _estimate_remaining_games_batter(bs.pa)
+    scale = remaining_games / 162
+
+    stats = {}
+    for attr, cat in _BATTER_STAT_MAP:
+        stats[cat] = (getattr(bs, attr, 0) or 0) * scale
+
+    # Derive singles (same as weekly dashboard line 721)
+    h = stats.get("H", 0)
+    d = stats.get("2B", 0)
+    t = stats.get("3B", 0)
+    hr = stats.get("HR", 0)
+    stats["1B"] = max(h - d - t - hr, 0)
 
     return calculate_batter_points(stats)
 
 
-def calculate_projected_pitcher_points(proj: PitcherProjection, is_reliever: bool = False) -> float:
-    """Convert a PitcherProjection into projected ROS fantasy points.
+def project_pitcher_ros_points(ps, is_reliever: bool = False) -> float:
+    """Project ROS fantasy points for a pitcher from actual PitchingStats.
 
-    Uses projected_w, projected_sv, projected_k, projected_era, projected_whip.
+    Uses the same method as the weekly dashboard: scale actual counting
+    stats proportionally, apply league scoring weights.
     """
-    # Estimate IP from pace: starters ~180 IP, relievers ~65 IP
-    if is_reliever:
-        estimated_ip = 65 * proj.confidence_score if proj.confidence_score > 0 else 30
-    else:
-        estimated_ip = 180 * proj.confidence_score if proj.confidence_score > 0 else 90
+    scale = _estimate_remaining_scale_pitcher(ps)
 
+    stats = {}
+    for attr, cat in _PITCHER_STAT_MAP:
+        stats[cat] = (getattr(ps, attr, 0) or 0) * scale
+
+    return calculate_pitcher_points(stats, is_reliever=is_reliever)
+
+
+# Keep old functions as aliases for any other callers
+def calculate_projected_batter_points(proj) -> float:
+    """Legacy wrapper — prefer project_batter_ros_points(BattingStats)."""
+    # If called with a BattingStats object directly, use new method
+    if hasattr(proj, "pa") and hasattr(proj, "doubles"):
+        return project_batter_ros_points(proj)
+    # Fallback for HitterProjection — use counting stats directly
     stats = {
-        "IP": estimated_ip,
-        "K": proj.projected_k,
-        "SV": proj.projected_sv,
-        "W": proj.projected_w,
+        "R": proj.projected_r or 0,
+        "HR": proj.projected_hr or 0,
+        "RBI": proj.projected_rbi or 0,
+        "SB": proj.projected_sb or 0,
+        "CS": (proj.projected_sb or 0) * 0.25,
     }
+    return calculate_batter_points(stats)
 
-    # Estimate counting stats from rate stats
-    # H = WHIP * IP - BB; ER = ERA * IP / 9
-    era = proj.projected_era or 4.00
-    whip = proj.projected_whip or 1.25
-    stats["ER"] = era * estimated_ip / 9
-    total_baserunners = whip * estimated_ip
-    stats["BB"] = estimated_ip * 3.0 / 9  # ~3 BB/9 average
-    stats["H"] = max(total_baserunners - stats["BB"], 0)
 
-    # HLD: estimate from appearances if reliever
-    if is_reliever and proj.projected_sv == 0:
-        # Setup men average ~20-25 holds per season
-        stats["HLD"] = 20 * proj.confidence_score if proj.confidence_score > 0 else 10
-
-    # QS: estimate from ERA for starters
-    # Roughly: if ERA < 4.00, QS rate ~55-65% of starts
-    if not is_reliever:
-        estimated_starts = estimated_ip / 6  # ~6 IP/start
-        if era < 3.50:
-            qs_rate = 0.65
-        elif era < 4.00:
-            qs_rate = 0.55
-        elif era < 4.50:
-            qs_rate = 0.40
-        else:
-            qs_rate = 0.25
-        stats["QS"] = estimated_starts * qs_rate
-
-    # HBP: estimate ~0.3 per 9 IP
-    stats["HBP"] = estimated_ip * 0.3 / 9
-
+def calculate_projected_pitcher_points(proj, is_reliever: bool = False) -> float:
+    """Legacy wrapper — prefer project_pitcher_ros_points(PitchingStats)."""
+    if hasattr(proj, "gs") and hasattr(proj, "ip"):
+        return project_pitcher_ros_points(proj, is_reliever=is_reliever)
+    stats = {
+        "K": proj.projected_k or 0,
+        "SV": proj.projected_sv or 0,
+        "W": proj.projected_w or 0,
+    }
     return calculate_pitcher_points(stats, is_reliever=is_reliever)
 
 
@@ -399,6 +413,7 @@ class PlayerPointsSummary:
     points_per_start: float | None  # starters
     points_per_appearance: float | None  # relievers
     is_reliever: bool = False
+    steamer_ros_points: float | None = None
 
 
 async def calculate_player_actual_points(
@@ -523,23 +538,43 @@ async def calculate_all_player_points(
     for player in hitters:
         summary = await calculate_player_actual_points(session, player, season, period)
         if summary and summary.player_type == "hitter":
-            # Add projected points
-            proj = await project_hitter(session, player, season)
-            if proj:
+            # Project ROS points from actual stats (same method as weekly dashboard)
+            bs_result = await session.execute(
+                select(BattingStats).where(
+                    BattingStats.player_id == player.id,
+                    BattingStats.season == season,
+                    BattingStats.period == "full_season",
+                )
+            )
+            bs = bs_result.scalar_one_or_none()
+            if bs:
                 summary.projected_ros_points = round(
-                    calculate_projected_batter_points(proj), 1
+                    project_batter_ros_points(bs), 1
                 )
             summaries.append(summary)
 
     for player in pitchers:
         summary = await calculate_player_actual_points(session, player, season, period)
         if summary and summary.player_type == "pitcher":
-            proj = await project_pitcher(session, player, season)
-            if proj:
+            # Project ROS points from actual stats (same method as weekly dashboard)
+            ps_result = await session.execute(
+                select(PitchingStats).where(
+                    PitchingStats.player_id == player.id,
+                    PitchingStats.season == season,
+                    PitchingStats.period == "full_season",
+                )
+            )
+            ps = ps_result.scalar_one_or_none()
+            if ps:
                 summary.projected_ros_points = round(
-                    calculate_projected_pitcher_points(proj, is_reliever=summary.is_reliever), 1
+                    project_pitcher_ros_points(ps, is_reliever=summary.is_reliever), 1
                 )
             summaries.append(summary)
+
+    # Attach Steamer ROS points if available
+    steamer_map = await _build_steamer_points_map(session)
+    for s in summaries:
+        s.steamer_ros_points = steamer_map.get(s.player_id)
 
     # Calculate positional ranks and surplus value
     summaries = _calculate_rankings_and_surplus(summaries)
@@ -555,6 +590,53 @@ async def calculate_all_player_points(
     )
 
     return summaries
+
+
+async def _build_steamer_points_map(session: AsyncSession) -> dict[int, float]:
+    """Build a mapping of player_id -> Steamer ROS fantasy points.
+
+    Reads Steamer projections from the projections table (system='steamer_ros')
+    and converts counting stats to league-specific fantasy points.
+    """
+    from app.models.projection import Projection
+
+    # Query all steamer_ros projections grouped by player
+    result = await session.execute(
+        select(Projection).where(Projection.system == "steamer_ros")
+    )
+    rows = result.scalars().all()
+
+    if not rows:
+        return {}
+
+    # Group projections by player_id
+    player_stats: dict[int, dict[str, float]] = {}
+    player_types: dict[int, str] = {}
+    for proj in rows:
+        if proj.player_id not in player_stats:
+            player_stats[proj.player_id] = {}
+        player_stats[proj.player_id][proj.stat_name] = proj.projected_value
+        # Track player type from the stats present
+        if proj.stat_name == "PA":
+            player_types[proj.player_id] = "hitter"
+        elif proj.stat_name == "IP":
+            player_types[proj.player_id] = "pitcher"
+
+    # Calculate fantasy points for each player
+    steamer_map: dict[int, float] = {}
+    for pid, stats in player_stats.items():
+        ptype = player_types.get(pid)
+        if ptype == "hitter":
+            pts = calculate_batter_points(stats)
+        elif ptype == "pitcher":
+            is_reliever = (stats.get("GS", 0) or 0) < (stats.get("G", 0) or 0) * 0.3
+            pts = calculate_pitcher_points(stats, is_reliever=is_reliever)
+        else:
+            continue
+        steamer_map[pid] = round(pts, 1)
+
+    logger.info(f"Built Steamer points map for {len(steamer_map)} players")
+    return steamer_map
 
 
 def _calculate_rankings_and_surplus(
@@ -668,6 +750,7 @@ async def _store_player_points(
                 player_type=s.player_type,
                 actual_points=s.actual_points,
                 projected_ros_points=s.projected_ros_points,
+                steamer_ros_points=s.steamer_ros_points,
                 points_per_pa=s.points_per_pa,
                 points_per_ip=s.points_per_ip,
                 points_per_start=s.points_per_start,

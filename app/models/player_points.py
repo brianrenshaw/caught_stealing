@@ -38,6 +38,7 @@ class PlayerPoints(Base):
     # Points totals
     actual_points: Mapped[float | None] = mapped_column(Float, nullable=True)
     projected_ros_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    steamer_ros_points: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # Rate stats (nullable — only populated for relevant player types)
     points_per_pa: Mapped[float | None] = mapped_column(Float, nullable=True)  # hitters

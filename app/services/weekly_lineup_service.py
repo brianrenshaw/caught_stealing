@@ -469,10 +469,39 @@ async def generate_weekly_outlook(
         get_or_create_weekly_snapshot,
     )
 
+    def _short_team(name: str) -> str:
+        """First word of fantasy team name, or 'FA' for unrostered."""
+        return name.split()[0] if name else "FA"
+
     if not settings.anthropic_api_key:
         return "**Weekly outlook unavailable** — API key not configured."
 
     week_start, week_end = get_week_boundaries(0)
+
+    # --- Build fantasy team lookup (player_id → abbreviated team name) ---
+    roster_rows = await session.execute(
+        select(Roster.player_id, Roster.team_name, Player.mlbam_id)
+        .join(Player, Roster.player_id == Player.id)
+    )
+    _team_lookup: dict[int, str] = {}
+    _mlbam_lookup: dict[int, str] = {}
+    for r in roster_rows.all():
+        short = _short_team(r.team_name)
+        _team_lookup[r.player_id] = short
+        if r.mlbam_id:
+            _mlbam_lookup[int(r.mlbam_id)] = short
+
+    def _ftag(player_id: int | None) -> str:
+        """Return fantasy team tag string for a player, e.g. '(Empire)'."""
+        if player_id is None:
+            return "(FA)"
+        return f"({_team_lookup.get(player_id, 'FA')})"
+
+    def _ftag_mlbam(mlbam_id: int | None) -> str:
+        """Return fantasy team tag by mlbam_id, e.g. '(Ithilien)'."""
+        if mlbam_id is None:
+            return "(FA)"
+        return f"({_mlbam_lookup.get(int(mlbam_id), 'FA')})"
 
     # --- Gather all context ---
 
@@ -509,6 +538,8 @@ async def generate_weekly_outlook(
     # 3. My team + opponent breakdowns
     my_breakdown_text = ""
     opp_breakdown_text = ""
+    my_app_proj = None
+    opp_app_proj = None
     if snapshot:
         try:
             my_bd = json.loads(snapshot.my_projected_breakdown or "{}")
@@ -518,23 +549,30 @@ async def generate_weekly_outlook(
 
             my_lines = []
             for p in sorted(my_players, key=lambda x: x.get("points", 0), reverse=True)[:10]:
+                pid = p.get("player_id")
                 my_lines.append(
                     f"  {p.get('roster_position', '?')}: "
-                    f"{p.get('name', '?')} — "
+                    f"{p.get('name', '?')} {_ftag(pid)} — "
                     f"{p.get('points', 0):.0f} pts"
                 )
             my_breakdown_text = "\n".join(my_lines)
 
             opp_lines = []
             for p in sorted(opp_players, key=lambda x: x.get("points", 0), reverse=True)[:10]:
+                pid = p.get("player_id")
                 opp_lines.append(
                     f"  {p.get('roster_position', '?')}: "
-                    f"{p.get('name', '?')} — "
+                    f"{p.get('name', '?')} {_ftag(pid)} — "
                     f"{p.get('points', 0):.0f} pts"
                 )
             opp_breakdown_text = "\n".join(opp_lines)
+
+            # App-calculated totals (sum of per-player projections)
+            my_app_proj = sum(p.get("points", 0) for p in my_players) if my_players else None
+            opp_app_proj = sum(p.get("points", 0) for p in opp_players) if opp_players else None
         except Exception:
-            pass
+            my_app_proj = None
+            opp_app_proj = None
 
     # 4. Hot/cold players + signals
     hot_players = []
@@ -593,30 +631,21 @@ async def generate_weekly_outlook(
             for roster, player, pp in top_ith:
                 pts = pp.projected_ros_points if pp and pp.projected_ros_points else 0
                 ith_lines.append(
-                    f"  {roster.roster_position}: {player.name} ({player.team}) — {pts:.0f} ROS pts"
+                    f"  {roster.roster_position}: {player.name} (Ithilien) ({player.team}) — {pts:.0f} ROS pts"
                 )
             ithilien_text = "\n".join(ith_lines)
     except Exception as e:
         logger.debug(f"Failed to load Ithilien data: {e}")
 
-    # 8. Cardinals players in the matchup
+    # 8. Cardinals players on relevant rosters (my team, opponent, Ithilien)
     cardinals_text = ""
     if snapshot:
         try:
-            all_matchup_players = []
-            for bd_json in [
-                snapshot.my_projected_breakdown,
-                snapshot.opponent_projected_breakdown,
-            ]:
-                bd = json.loads(bd_json or "{}")
-                all_matchup_players.extend(bd.get("players", []))
-
-            # Find STL players
-            stl_pids = set()
-            for p in all_matchup_players:
-                pid = p.get("player_id")
-                if pid:
-                    stl_pids.add(pid)
+            relevant_team_names = {snapshot.my_team_name, snapshot.opponent_team_name, "Ithilien"}
+            relevant_roster = await session.execute(
+                select(Roster.player_id).where(Roster.team_name.in_(relevant_team_names))
+            )
+            stl_pids = {r.player_id for r in relevant_roster.all()}
 
             if stl_pids:
                 stl_result = await session.execute(
@@ -637,7 +666,7 @@ async def generate_weekly_outlook(
                     stl_lines = []
                     for player, pp in stl_rows:
                         pts = pp.projected_ros_points if pp and pp.projected_ros_points else 0
-                        stl_lines.append(f"  {player.name} — {pts:.0f} ROS pts")
+                        stl_lines.append(f"  {player.name} {_ftag(player.id)} — {pts:.0f} ROS pts")
                     cardinals_text = "\n".join(stl_lines)
         except Exception:
             pass
@@ -647,11 +676,18 @@ async def generate_weekly_outlook(
     if snapshot:
         my_proj = snapshot.my_projected_points or 0
         opp_proj = snapshot.opponent_projected_points or 0
+        app_proj_line = ""
+        if my_app_proj is not None and opp_app_proj is not None:
+            app_proj_line = (
+                f"  App Projected (schedule-adjusted): {my_app_proj:.0f} pts vs {opp_app_proj:.0f} pts\n"
+                f"  Analyze why Yahoo and App projections differ and which is more reliable this week."
+            )
         matchup_section = f"""
 H2H MATCHUP THIS WEEK:
   {snapshot.my_team_name} (Rank #{my_rank}) vs {snapshot.opponent_team_name} (Rank #{opp_rank})
-  My Projected: {my_proj:.0f} pts | Opponent Projected: {opp_proj:.0f} pts
-  Edge: {"+" if my_proj > opp_proj else ""}{my_proj - opp_proj:.0f} pts
+  Yahoo Projected: {my_proj:.0f} pts vs {opp_proj:.0f} pts
+{app_proj_line}
+  Edge (Yahoo): {"+" if my_proj > opp_proj else ""}{my_proj - opp_proj:.0f} pts
 
 MY TOP PROJECTED PLAYERS:
 {my_breakdown_text if my_breakdown_text else "  (no data)"}
@@ -662,7 +698,7 @@ OPPONENT'S TOP PROJECTED PLAYERS:
 
     hot_section = ""
     if hot_players:
-        hot_lines = [f"  {p.name} ({p.team}) — trending hot" for p in hot_players[:5]]
+        hot_lines = [f"  {p.name} {_ftag(p.player_id)} ({p.team}) — trending hot" for p in hot_players[:5]]
         hot_section = "HOT PLAYERS:\n" + "\n".join(hot_lines)
 
     signals_section = ""
@@ -670,12 +706,12 @@ OPPONENT'S TOP PROJECTED PLAYERS:
     if buy_low:
         for p in buy_low[:3]:
             signal_lines.append(
-                f"  BUY LOW: {p.name} ({p.team}) — xwOBA delta {p.xwoba_delta:+.3f}"
+                f"  BUY LOW: {p.name} {_ftag(p.player_id)} ({p.team}) — xwOBA delta {p.xwoba_delta:+.3f}"
             )
     if sell_high:
         for p in sell_high[:3]:
             signal_lines.append(
-                f"  SELL HIGH: {p.name} ({p.team}) — xwOBA delta {p.xwoba_delta:+.3f}"
+                f"  SELL HIGH: {p.name} {_ftag(p.player_id)} ({p.team}) — xwOBA delta {p.xwoba_delta:+.3f}"
             )
     if signal_lines:
         signals_section = "BUY LOW / SELL HIGH:\n" + "\n".join(signal_lines)
@@ -683,7 +719,7 @@ OPPONENT'S TOP PROJECTED PLAYERS:
     injury_section = ""
     if injuries:
         inj_lines = [
-            f"  {i.player_name} ({i.team}) — {i.status}: {i.injury}" for i in injuries[:15]
+            f"  {i.player_name} {_ftag_mlbam(i.mlbam_id)} ({i.team}) — {i.status}: {i.injury}" for i in injuries[:15]
         ]
         injury_section = "INJURY REPORT (Source: MLB Official Injury Report):\n" + "\n".join(
             inj_lines
@@ -744,23 +780,27 @@ LEAGUE STANDINGS:
 
 Write the preview covering:
 1. The H2H matchup storyline — edges and vulnerabilities
-2. Key players to watch on both sides
-3. Schedule and weather factors
-4. Injury concerns for both rosters
-5. League standings context — playoff positioning
-6. Cardinals Corner — STL players in the matchup
-7. Ithilien Watch — brother's team update"""
+2. Projection analysis — compare Yahoo vs App projections and explain discrepancies
+3. Key players to watch on both sides
+4. Schedule and weather factors
+5. Injury concerns for both rosters
+6. League standings context — playoff positioning
+7. Cardinals Corner — STL players in the matchup
+8. Ithilien Watch — brother's team update"""
 
     system_prompt = (
-        "You are a fantasy baseball analyst writing a weekly preview "
-        "column for a 10-team H2H Points keeper league called "
-        "'Galactic Empire'. Write in the voice of a knowledgeable, "
-        "engaging analyst — like a weekly column on ESPN or The "
-        "Athletic. Be specific with numbers and projected points. "
-        "Make it feel like a real preview, not a data dump. "
-        "Use section headers. Include personality and occasional "
-        "humor. The reader is a Cardinals fan whose brother runs "
-        "'Ithilien' — make the rivalry section fun."
+        "You are a professional fantasy baseball analyst writing a weekly "
+        "preview column in the style of ESPN or The Athletic. Write with "
+        "authority and analytical depth — be specific with numbers and "
+        "projected points. Focus on actionable insights and matchup edges. "
+        "This is a 10-team H2H Points keeper league. "
+        "Use markdown formatting: ## for section headers, **bold** for "
+        "emphasis, bullet lists for key points. "
+        "Every time you mention a player, include their fantasy team "
+        "abbreviation in parentheses exactly as provided in the data. "
+        "The reader is a Cardinals fan — make the Cardinals Corner "
+        "section insightful. The reader's brother runs 'Ithilien' — "
+        "keep the rivalry section brief and factual."
     )
 
     try:

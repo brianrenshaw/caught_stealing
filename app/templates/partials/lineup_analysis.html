@@ -5,16 +5,36 @@
     </div>
 
     {% if analysis %}
-    <div class="prose prose-invert prose-xs max-w-none text-gray-300 text-xs leading-relaxed
-                [&_strong]:text-white [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs
-                [&_ul]:my-1 [&_li]:my-0.5 [&_p]:my-1.5">
-        {{ analysis | replace('\n', '<br>') | safe }}
+    <div data-ai-content>
+        <script type="text/markdown" data-markdown-source>{{ analysis }}</script>
+        <div data-markdown-target class="prose prose-invert prose-xs max-w-none text-gray-300 text-xs leading-relaxed
+                    [&_strong]:text-white [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs
+                    [&_ul]:my-1 [&_li]:my-0.5 [&_p]:my-1.5">
+        </div>
     </div>
     {% else %}
     <p class="text-gray-500 text-xs">Analysis could not be generated.</p>
     {% endif %}
 
-    <div class="mt-2 pt-2 border-t border-gray-700/50 text-right">
+    <div class="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <button onclick="copyAsRichText(this)"
+                    class="text-[10px] text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+                Copy
+            </button>
+            <button onclick="emailAnalysis(this, 'Weekly Lineup Analysis')"
+                    class="text-[10px] text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                </svg>
+                Email
+            </button>
+        </div>
         <button hx-post="/api/lineup/analyze"
                 hx-target="#lineup-analysis-container"
                 hx-swap="innerHTML"

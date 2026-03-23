@@ -5,10 +5,12 @@
     </div>
 
     {% if analysis %}
-    <div class="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed
-                [&_strong]:text-white [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm
-                [&_ul]:my-2 [&_li]:my-0.5 [&_p]:my-2">
-        {{ analysis | replace('\n', '<br>') | safe }}
+    <div data-ai-content>
+        <script type="text/markdown" data-markdown-source>{{ analysis }}</script>
+        <div data-markdown-target class="prose prose-invert prose-sm max-w-none text-gray-300 leading-relaxed
+                    [&_strong]:text-white [&_h1]:text-lg [&_h2]:text-base [&_h3]:text-sm
+                    [&_ul]:my-2 [&_li]:my-0.5 [&_p]:my-2">
+        </div>
     </div>
     {% else %}
     <p class="text-gray-500 text-sm">Analysis could not be generated.</p>
@@ -16,13 +18,31 @@
 
     <div class="mt-3 pt-3 border-t border-gray-700/50 flex items-center justify-between">
         <span class="text-[10px] text-gray-600">Generated just now</span>
-        <button hx-post="/waivers/analyze"
-                hx-target="#waiver-analysis-container"
-                hx-swap="innerHTML"
-                hx-include="#period-select"
-                hx-indicator="#analyze-spinner"
-                class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
-            Re-analyze
-        </button>
+        <div class="flex items-center gap-3">
+            <button onclick="copyAsRichText(this)"
+                    class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                    <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                </svg>
+                Copy
+            </button>
+            <button onclick="emailAnalysis(this, 'Waiver Wire Analysis')"
+                    class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                </svg>
+                Email
+            </button>
+            <button hx-post="/waivers/analyze"
+                    hx-target="#waiver-analysis-container"
+                    hx-swap="innerHTML"
+                    hx-include="#period-select"
+                    hx-indicator="#analyze-spinner"
+                    class="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+                Re-analyze
+            </button>
+        </div>
     </div>
 </div>

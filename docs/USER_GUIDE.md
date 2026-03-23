@@ -86,6 +86,7 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 
 | Section | Description |
 |---------|-------------|
+| **Weekly Outlook** | AI-generated professional analysis column (ESPN/Athletic style). Covers H2H matchup storyline with dual projections (Yahoo vs app), key players with fantasy team tags, schedule/weather, injuries, standings, Cardinals Corner, and Ithilien Watch. Rendered as rich markdown with **Copy** (clipboard as rich text) and **Email** (copies + opens mail client) buttons. |
 | **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week; actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
 | **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by 4-phase matchup adjustments. Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
@@ -232,6 +233,41 @@ Two sections:
 
 **Why it matters for your league:** In H2H Points with SV=7 and ER=-4, traditional fantasy rankings can be wildly misleading. A closer with 35 saves generates 245 points from saves alone — that's comparable to an entire season from a decent hitter. An innings-eating starter averaging 6.5 IP/start collects 29 points per outing just from outs. Meanwhile, a power hitter with 35 HR but 170 strikeouts loses 85 points to Ks. The surplus value on this page accounts for all of this, so you can evaluate trades with confidence that the numbers reflect your actual league. Don't trade your closer for a middling bat just because ESPN says the hitter is ranked higher — in this format, the closer might genuinely be more valuable. See [Fantasy Points and Surplus Value](#fantasy-points-and-surplus-value) for the full methodology.
 
+#### Triple Projection Columns
+
+The trade analyzer shows three projection columns for every player:
+
+| Column | Source | What It Tells You |
+|--------|--------|-------------------|
+| **App Projected** | Custom blend of actual stats and Statcast expected metrics, weighted toward recent performance | Our best estimate of true talent — accounts for quality-of-contact regression that other systems miss |
+| **Steamer ROS** | FanGraphs Steamer rest-of-season projections, converted to league fantasy points | Industry-standard baseline using multi-year track record — conservative and reliable |
+| **Actual Points** | Fantasy points actually scored this season using league scoring rules | What the player has actually produced — compare to projections to spot over/underperformers |
+
+**Reading disagreements between columns:**
+- **App Projected >> Actual**: The player is underperforming their contact quality — buy low candidate
+- **Actual >> App Projected**: The player is outperforming their Statcast metrics — sell high candidate
+- **Steamer >> App Projected**: Our model sees recent decline that Steamer's multi-year approach hasn't captured yet
+- **App Projected >> Steamer**: Recent Statcast improvements suggest the player is better than their historical track record
+
+#### AI Trade Suggestions
+
+Click **Find Trade Opportunities** to have Claude AI scan every opponent's roster against your team. The analysis:
+- Identifies your team's weakest positions and stat categories
+- Searches all opponents for players who fill those gaps
+- Evaluates trade feasibility using surplus values from all three projection systems
+- Suggests **aggressive** trades (higher upside, opponent may hesitate) and **conservative** trades (more likely to be accepted)
+- Names specific players on both sides with point values
+- Recommends standing pat if no available trade improves your team
+
+#### AI Trade Analysis
+
+After evaluating a specific trade, click **Get AI Analysis** for a narrative breakdown that explains:
+- How the trade affects your roster construction and positional depth
+- Where the three projection systems agree or disagree on the players involved
+- Relevant Statcast trends (exit velocity changes, barrel rate shifts, pitch mix evolution)
+- Current injury status and return timelines
+- Whether the trade makes sense given your league's scoring rules and your current standings position
+
 ---
 
 ### Waivers
@@ -255,7 +291,9 @@ A ranked table of waiver wire recommendations scored from 0 to 100, specifically
 | **Player** | Name, team, and position. May include badges: **2-START** (green, pitcher has two starts this week), **CLOSER OPP** (emerald, setup man on a team whose closer is injured), **BREAKOUT** (orange, Statcast metrics surging). |
 | **Pos** | Primary position. Relievers also show a role badge: **CL** (closer, green), **SU** (setup, blue), **MR** (middle), **LR** (long). |
 | **Score** | Composite waiver score (0–100), weighted: projected points (35%), trend (25%), position scarcity (15%), scoring fit (15%), schedule volume (10%). |
-| **Week Pts / Proj Pts** | Weekly: projected fantasy points for the selected week. ROS: projected rest-of-season points. |
+| **Week Pts** | (Weekly view only) Projected fantasy points for the selected week (rate × games). |
+| **Steamer** | (ROS view) Steamer ROS projection from FanGraphs with regression to the mean. The primary ROS projection — most accurate for preseason and early-season. Falls back to app projection when Steamer data is unavailable. |
+| **My Proj** | (ROS view) App projection: actual counting stats scaled to remaining games using the same method as the weekly dashboard. During offseason, shows a full 162-game projection from prior year stats. After Week 2 of the new season, switches to live ROS data. Comparing Steamer vs My Proj reveals over/under-performers. |
 | **Rate** | Points per plate appearance (hitters) or per inning pitched (pitchers). |
 | **Games** | (Weekly only) Number of team games that week, with pitcher starts shown as "(2S)". |
 | **Fit** | League scoring fit (50=neutral, 75+=premium). Boosted for two-start pitchers (+20) and closer vacancy pickups (+25). |
@@ -761,12 +799,21 @@ The app's primary valuation method uses **projected fantasy points** based on th
 
 **How projected points are calculated:**
 
-The app takes each player's actual stats and blended projections (weighted mix of full-season data, recent trends, and Statcast expected metrics), then applies the league scoring formula:
+The app uses two projection sources, choosing the best available:
+
+| Source | When Used | Method |
+|--------|-----------|--------|
+| **Steamer ROS** (primary) | When Steamer projections are synced | FanGraphs Steamer projections with regression to the mean and aging curves. Converted to fantasy points using league scoring weights. Most accurate for preseason and early-season ROS projections. |
+| **App Projection** (fallback) | When Steamer is unavailable | Same method as the weekly dashboard: actual counting stats scaled proportionally to remaining games. During offseason, projects a full 162-game season from prior year stats. After Week 2 of the new season, switches to live ROS using current year data. |
+
+Both sources apply the league scoring formula:
 
 - **Hitters:** R×1 + 1B×1 + 2B×2 + 3B×3 + HR×4 + RBI×1 + SB×2 + CS×(-1) + BB×1 + HBP×1 + K×(-0.5)
 - **Pitchers:** OUT×1.5 + K×0.5 + SV×7 + HLD×4 + RW×4 + QS×2 + H×(-0.75) + ER×(-4) + BB×(-0.75) + HBP×(-0.75)
 
 This produces a single number — projected rest-of-season fantasy points — that directly measures how much value each player is expected to generate.
+
+**Why two sources?** Steamer is better for long-term value — it regresses outlier seasons and adjusts for aging. The app projection is better for recent performance context — it directly reflects what a player is actually doing right now. During the season, comparing both tells you if a player is over/under-performing expectations.
 
 **Surplus Value** = Projected Points − Replacement-Level Points at that position.
 
@@ -804,7 +851,7 @@ Every waiver recommendation receives a composite score from 0 to 100, calculated
 
 | Component | Weight | What It Measures | How It's Scored |
 |-----------|--------|-----------------|-----------------|
-| **Projected Points** | 35% | Projected fantasy points (ROS or weekly) | ROS: normalized to 0-100 vs top projection. Weekly: rate × games, using per-start projections for SP and per-appearance for RP. |
+| **Projected Points** | 35% | Projected fantasy points (ROS or weekly) | ROS: uses Steamer ROS projections (with regression) when available, falls back to app projection. Normalized to 0-100 vs top projection. Weekly: rate × games, using per-start projections for SP and per-appearance for RP. |
 | **Trend** | 25% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). Includes **BREAKOUT detection**: barrel% +3%, hard-hit% +5%, or xwOBA +.030 (any 2 of 3 = breakout bonus of +15). |
 | **Positional Scarcity** | 15% | How hard is it to replace this player's position? | Scarce positions in a 10-team league (C, 1B, 2B, 3B, SS — 10 rostered each) score 70. Mid-depth (SP, RP — 20 each) score 60. Deep (OF — 30) score 40. |
 | **Scoring Fit** | 15% | Does this player specifically excel in your scoring format? | **Closers** with saves score 85 (SV=7 is premium). **Setup men** with holds score 75 (HLD=4). **Low-K hitters** (K% < 18%) score 75. **Two-start pitchers** get +20 bonus. **Closer vacancy pickups** get +25 bonus. |

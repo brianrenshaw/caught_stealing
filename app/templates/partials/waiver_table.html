@@ -13,8 +13,11 @@
                 <th class="text-left py-2 px-1">Pos</th>
                 <th class="text-right py-2 px-3 whitespace-nowrap">Score</th>
                 <th class="text-right py-2 px-3 whitespace-nowrap">
-                    {% if is_weekly %}Week Pts{% else %}Proj Pts{% endif %}
+                    {% if is_weekly %}Week Pts{% else %}Steamer {{ stat_info('projected_points') }}{% endif %}
                 </th>
+                {% if not is_weekly %}
+                <th class="text-right py-2 px-3 whitespace-nowrap">My Proj</th>
+                {% endif %}
                 <th class="text-right py-2 px-3 whitespace-nowrap">Rate</th>
                 {% if is_weekly %}
                 <th class="text-right py-2 px-2 whitespace-nowrap">Games</th>
@@ -66,6 +69,12 @@
                         {{ "%.0f"|format(rec.projected_points) if rec.projected_points else '—' }}
                     {% endif %}
                 </td>
+                {% if not is_weekly %}
+                <td class="py-2 px-3 text-right
+                    {% if rec.app_projected_points >= 200 %}text-green-400{% elif rec.app_projected_points >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                    {{ "%.0f"|format(rec.app_projected_points) if rec.app_projected_points else '—' }}
+                </td>
+                {% endif %}
                 <td class="py-2 px-3 text-right text-gray-300">
                     {% if rec.player_type == 'pitcher' and rec.points_per_ip %}
                         {{ "%.2f"|format(rec.points_per_ip) }}

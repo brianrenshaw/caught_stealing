@@ -2,17 +2,32 @@
 
 Supports Steamer, ZiPS, ATC, and THE BAT projection systems.
 Results are stored in the projections table for blending and comparison.
+
+Also fetches Steamer ROS projections directly from FanGraphs API with full
+counting stats for league-specific fantasy points calculation.
 """
 
 import asyncio
 import logging
 
+import httpx
 import pandas as pd
 import pybaseball
 
 logger = logging.getLogger(__name__)
 
 pybaseball.cache.enable()
+
+# FanGraphs projections API endpoint
+_FG_PROJECTIONS_URL = "https://www.fangraphs.com/api/projections"
+_FG_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko)"
+    ),
+    "Accept": "application/json",
+    "Referer": "https://www.fangraphs.com/projections",
+}
 
 # Projection system identifiers used in the FanGraphs API
 # pybaseball.batting_stats and pitching_stats accept a 'stat_type' parameter
@@ -161,3 +176,134 @@ async def fetch_all_projections(season: int) -> dict[str, list[dict]]:
         results["steamer"] = {"batting": bat_projs, "pitching": pitch_projs}
 
     return results
+
+
+# ── Steamer ROS via FanGraphs Projections API ──
+# These fetch full counting stats directly from the FanGraphs projections API
+# (not pybaseball leaderboards) so we can calculate league-specific fantasy points.
+
+
+async def fetch_steamer_batting_ros() -> list[dict]:
+    """Fetch Steamer batting projections from FanGraphs projections API.
+
+    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
+    needed for fantasy points calculation.
+    """
+    logger.info("Fetching Steamer batting projections from FanGraphs API")
+    try:
+        async with httpx.AsyncClient(headers=_FG_HEADERS, timeout=30) as client:
+            resp = await client.get(
+                _FG_PROJECTIONS_URL,
+                params={
+                    "type": "steamer",
+                    "stats": "bat",
+                    "pos": "all",
+                    "team": "0",
+                    "lg": "all",
+                    "players": "0",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        results = []
+        for row in data:
+            fg_id = row.get("playerid") or row.get("playerids")
+            mlbam_id = row.get("xMLBAMID")
+            if not fg_id:
+                continue
+
+            stats = {
+                "PA": row.get("PA", 0) or 0,
+                "H": row.get("H", 0) or 0,
+                "1B": row.get("1B", 0) or 0,
+                "2B": row.get("2B", 0) or 0,
+                "3B": row.get("3B", 0) or 0,
+                "HR": row.get("HR", 0) or 0,
+                "R": row.get("R", 0) or 0,
+                "RBI": row.get("RBI", 0) or 0,
+                "SB": row.get("SB", 0) or 0,
+                "CS": row.get("CS", 0) or 0,
+                "BB": row.get("BB", 0) or 0,
+                "HBP": row.get("HBP", 0) or 0,
+                "SO": row.get("SO", 0) or 0,
+            }
+
+            results.append({
+                "fangraphs_id": str(fg_id),
+                "mlbam_id": str(int(mlbam_id)) if mlbam_id else None,
+                "name": row.get("PlayerName", ""),
+                "stats": stats,
+            })
+
+        logger.info(f"Fetched {len(results)} Steamer batting projections")
+        return results
+
+    except Exception as e:
+        logger.error(f"Failed to fetch Steamer batting projections: {e}")
+        return []
+
+
+async def fetch_steamer_pitching_ros() -> list[dict]:
+    """Fetch Steamer pitching projections from FanGraphs projections API.
+
+    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
+    needed for fantasy points calculation.
+    """
+    logger.info("Fetching Steamer pitching projections from FanGraphs API")
+    try:
+        async with httpx.AsyncClient(headers=_FG_HEADERS, timeout=30) as client:
+            resp = await client.get(
+                _FG_PROJECTIONS_URL,
+                params={
+                    "type": "steamer",
+                    "stats": "pit",
+                    "pos": "all",
+                    "team": "0",
+                    "lg": "all",
+                    "players": "0",
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        results = []
+        for row in data:
+            fg_id = row.get("playerid") or row.get("playerids")
+            mlbam_id = row.get("xMLBAMID")
+            if not fg_id:
+                continue
+
+            gs = row.get("GS", 0) or 0
+            g = row.get("G", 0) or 0
+            is_reliever = gs < (g * 0.3) if g > 0 else False
+
+            stats = {
+                "IP": row.get("IP", 0) or 0,
+                "K": row.get("SO", 0) or 0,
+                "W": row.get("W", 0) or 0,
+                "SV": row.get("SV", 0) or 0,
+                "HLD": row.get("HLD", 0) or 0,
+                "QS": row.get("QS", 0) or 0,
+                "H": row.get("H", 0) or 0,
+                "ER": row.get("ER", 0) or 0,
+                "BB": row.get("BB", 0) or 0,
+                "HBP": row.get("HBP", 0) or 0,
+                "GS": gs,
+                "G": g,
+            }
+
+            results.append({
+                "fangraphs_id": str(fg_id),
+                "mlbam_id": str(int(mlbam_id)) if mlbam_id else None,
+                "name": row.get("PlayerName", ""),
+                "is_reliever": is_reliever,
+                "stats": stats,
+            })
+
+        logger.info(f"Fetched {len(results)} Steamer pitching projections")
+        return results
+
+    except Exception as e:
+        logger.error(f"Failed to fetch Steamer pitching projections: {e}")
+        return []

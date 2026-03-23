@@ -70,6 +70,14 @@ const TOOLTIP_DATA = {
       title: "Trade Value Rankings",
       description: "Players ranked by Surplus Value — projected fantasy points above what a replacement-level player at the same position would produce. Positive (green) = worth more than a waiver pickup. Negative (red) = below replacement. Closers and innings-eating starters often rank surprisingly high because SV=7 and IP=4.5 in this format."
     },
+    "ai-trade-suggestions": {
+      title: "AI Trade Suggestions",
+      text: "Scans all opponents' rosters against your team's weak spots using three projection systems (App Projected, FanGraphs Steamer, and Actual Points). Suggests aggressive and conservative trade packages with specific players, or recommends standing pat if no trade improves your team."
+    },
+    "ai-trade-analysis": {
+      title: "AI Trade Analysis",
+      text: "AI-powered narrative analysis of this specific trade using your roster context, three projection systems, Statcast trends, injury status, and league scoring rules. Explains what the numbers mean for your team."
+    },
 
     // Waivers
     "waivers": {
@@ -582,8 +590,8 @@ const TOOLTIP_DATA = {
     // ── League Points Metrics ──
     "projected_points": {
       name: "Projected ROS Points",
-      description: "Projected rest-of-season fantasy points using this league's H2H Points scoring (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). Higher = more valuable. This is the primary ranking metric.",
-      good: "300+", avg: "150", bad: "<75"
+      description: "Projected rest-of-season fantasy points powered by Steamer ROS projections, scored with your league's H2H Points weights (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). Steamer includes regression to the mean and aging curves for realistic forecasts. Falls back to app projection (actual stats scaled to remaining games) when Steamer is unavailable. After Week 2 of the new season, the app projection switches to live ROS data.",
+      good: "400+", avg: "200", bad: "<100"
     },
     "actual_points": {
       name: "Actual Points",
@@ -614,6 +622,21 @@ const TOOLTIP_DATA = {
       name: "Surplus Value (Points)",
       description: "Projected points above replacement level at the player's position. Replacement level = the projected points of the first player outside the roster-worthy pool at each position. The key metric for trade evaluation.",
       good: "100+", avg: "25", bad: "<0"
+    },
+    "trade-app-proj": {
+      name: "App Projected",
+      description: "Our custom ROS projection blending actual stats (traditional + Statcast expected metrics). Weights recent performance and expected stat regression based on quality of contact.",
+      good: ">200", avg: "100–200", bad: "<100"
+    },
+    "trade-steamer": {
+      name: "Steamer ROS",
+      description: "FanGraphs Steamer rest-of-season projection system — an industry-standard baseline using multi-year track record weighted toward recent performance. Converted to league-specific fantasy points.",
+      good: ">200", avg: "100–200", bad: "<100"
+    },
+    "trade-actual": {
+      name: "Actual Points",
+      description: "Fantasy points actually scored this season using league scoring rules. Compare to projections to identify over/underperformers.",
+      good: ">200", avg: "100–200", bad: "<100"
     },
     "k_points_lost": {
       name: "Points Lost to Strikeouts",

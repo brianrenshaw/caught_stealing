@@ -8,6 +8,28 @@
 {% block content %}
 <h2 class="text-2xl font-bold mb-2">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
 
+<!-- AI Trade Suggestions -->
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mb-6">
+    <div class="flex items-center gap-2 mb-2">
+        <h3 class="text-lg font-semibold text-gray-200">AI Trade Suggestions</h3>
+        {{ page_info('ai-trade-suggestions') }}
+    </div>
+    <p class="text-gray-400 text-sm mb-3">
+        Scans all opponents' rosters against your weak spots using three projection systems to find realistic trade targets.
+    </p>
+    <div class="flex items-center gap-3">
+        <button hx-post="/api/trades/ai-suggest"
+                hx-target="#trade-suggestions-result"
+                hx-swap="innerHTML"
+                hx-indicator="#suggest-spinner"
+                class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+            Find Trade Opportunities
+        </button>
+        <span id="suggest-spinner" class="htmx-indicator text-indigo-400 text-sm">Analyzing...</span>
+    </div>
+    <div id="trade-suggestions-result" class="mt-4"></div>
+</div>
+
 <!-- League Scoring Context -->
 <div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 mb-6">
     <p class="text-sm text-gray-300 leading-relaxed">
@@ -31,59 +53,39 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
         <!-- Side A -->
         <div>
-            <label class="block text-sm font-medium text-blue-400 mb-2">Side A</label>
-            <div class="relative mb-2">
-                <input type="search" id="trade-search-a" placeholder="Search players..."
-                       autocomplete="off"
-                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
-                              text-sm text-gray-200 placeholder-gray-500
-                              focus:outline-none focus:border-blue-500"
-                       oninput="onTradeSearch(this.value, 'a')">
-                <div id="trade-dropdown-a" class="absolute z-50 w-full mt-1 hidden
-                        bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto"></div>
-            </div>
-            <div class="flex gap-1 mb-2 flex-wrap" id="trade-pos-filters-a">
-                <button onclick="setTradePositionFilter(null, 'a')" class="trade-pos-btn-a active px-2 py-0.5 text-xs rounded bg-blue-600 text-white" data-pos="all">ALL</button>
-                <button onclick="setTradePositionFilter('C', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="C">C</button>
-                <button onclick="setTradePositionFilter('1B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="1B">1B</button>
-                <button onclick="setTradePositionFilter('2B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="2B">2B</button>
-                <button onclick="setTradePositionFilter('3B', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="3B">3B</button>
-                <button onclick="setTradePositionFilter('SS', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SS">SS</button>
-                <button onclick="setTradePositionFilter('OF', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="OF">OF</button>
-                <button onclick="setTradePositionFilter('SP', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SP">SP</button>
-                <button onclick="setTradePositionFilter('RP', 'a')" class="trade-pos-btn-a px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="RP">RP</button>
+            <label class="block text-sm font-medium text-blue-400 mb-2">I'm Trading Away (My Team)</label>
+            <div class="mb-2">
+                <select id="trade-select-a" onchange="addFromSelect('a')"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200">
+                    <option value="">Select a player to trade away...</option>
+                    {% for p in my_roster %}
+                    <option value='{{ p | tojson }}'>{{ p.roster_position }}: {{ p.name }} ({{ p.team }}) — {{ "%.0f"|format(p.projected_points) }} pts</option>
+                    {% endfor %}
+                </select>
             </div>
             <div id="trade-players-a" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
-                <span class="trade-placeholder-a text-gray-500 text-sm py-1">Search and add players</span>
+                <span class="trade-placeholder-a text-gray-500 text-sm py-1">Select players to trade away</span>
             </div>
         </div>
 
         <!-- Side B -->
         <div>
-            <label class="block text-sm font-medium text-green-400 mb-2">Side B</label>
-            <div class="relative mb-2">
-                <input type="search" id="trade-search-b" placeholder="Search players..."
-                       autocomplete="off"
-                       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
-                              text-sm text-gray-200 placeholder-gray-500
-                              focus:outline-none focus:border-blue-500"
-                       oninput="onTradeSearch(this.value, 'b')">
-                <div id="trade-dropdown-b" class="absolute z-50 w-full mt-1 hidden
-                        bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto"></div>
-            </div>
-            <div class="flex gap-1 mb-2 flex-wrap" id="trade-pos-filters-b">
-                <button onclick="setTradePositionFilter(null, 'b')" class="trade-pos-btn-b active px-2 py-0.5 text-xs rounded bg-blue-600 text-white" data-pos="all">ALL</button>
-                <button onclick="setTradePositionFilter('C', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="C">C</button>
-                <button onclick="setTradePositionFilter('1B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="1B">1B</button>
-                <button onclick="setTradePositionFilter('2B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="2B">2B</button>
-                <button onclick="setTradePositionFilter('3B', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="3B">3B</button>
-                <button onclick="setTradePositionFilter('SS', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SS">SS</button>
-                <button onclick="setTradePositionFilter('OF', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="OF">OF</button>
-                <button onclick="setTradePositionFilter('SP', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="SP">SP</button>
-                <button onclick="setTradePositionFilter('RP', 'b')" class="trade-pos-btn-b px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-300 hover:bg-gray-600" data-pos="RP">RP</button>
+            <label class="block text-sm font-medium text-green-400 mb-2">I'm Receiving (Their Roster)</label>
+            <div class="mb-2">
+                <select id="trade-team-select" onchange="onTeamSelected()"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 mb-2">
+                    <option value="">Select an opponent team...</option>
+                    {% for t in opponent_teams %}
+                    <option value="{{ t.team_id }}">{{ t.team_name }}</option>
+                    {% endfor %}
+                </select>
+                <select id="trade-select-b" onchange="addFromSelect('b')"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 hidden">
+                    <option value="">Select a player to receive...</option>
+                </select>
             </div>
             <div id="trade-players-b" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
-                <span class="trade-placeholder-b text-gray-500 text-sm py-1">Search and add players</span>
+                <span class="trade-placeholder-b text-gray-500 text-sm py-1">Select an opponent team, then add players</span>
             </div>
         </div>
     </div>
@@ -129,45 +131,80 @@
         </p>
     </div>
     {% if trade_values %}
+    <div class="p-4 border-b border-gray-700">
+        <input type="text" id="rankings-search" placeholder="Search players..."
+               oninput="filterRankingsTable()"
+               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500">
+    </div>
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
                     <th class="text-left py-2 px-3">#</th>
-                    <th class="text-left py-2 px-3">Player</th>
-                    <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Pos Rank {{ stat_info('Pos Rank') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Proj Pts {{ stat_info('projected_points') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Surplus {{ stat_info('surplus_value') }}</th>
+                    <th class="text-left py-2 px-3 cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('name')">
+                        Player <span class="sort-indicator" data-col="name"></span>
+                    </th>
+                    <th class="text-left py-2 px-1 cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('position')">
+                        Pos <span class="sort-indicator" data-col="position"></span>
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('positional_rank')">
+                        Rank {{ stat_info('Pos Rank') }} <span class="sort-indicator" data-col="positional_rank"></span>
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('projected_points')">
+                        App Proj {{ stat_info('trade-app-proj') }} <span class="sort-indicator" data-col="projected_points"></span>
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('steamer_ros_points')">
+                        Steamer {{ stat_info('trade-steamer') }} <span class="sort-indicator" data-col="steamer_ros_points"></span>
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('actual_points')">
+                        Actual {{ stat_info('trade-actual') }} <span class="sort-indicator" data-col="actual_points"></span>
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('surplus_value')">
+                        Surplus {{ stat_info('surplus_value') }} <span class="sort-indicator" data-col="surplus_value">&#8595;</span>
+                    </th>
                     <th class="text-center py-2 px-3">Add</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for player in trade_values %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+            <tbody id="rankings-table-body">
+                {% for v in trade_values %}
+                {% set v_json %}{"id": {{ v.player_id }}, "name": "{{ v.name | replace('"', '\\"') }}", "team": "{{ v.team }}", "position": "{{ v.position }}"}{% endset %}
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    data-name="{{ v.name }}" data-team="{{ v.team }}" data-position="{{ v.position }}"
+                    data-projected_points="{{ v.get('projected_points', v.get('z_score_total', 0)) }}"
+                    data-steamer_ros_points="{{ v.get('steamer_ros_points', 0) }}"
+                    data-actual_points="{{ v.get('actual_points', 0) }}"
+                    data-surplus_value="{{ v.surplus_value }}"
+                    data-positional_rank="{{ v.positional_rank }}">
                     <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
                     <td class="py-2 px-3">
-                        {{ player_link(player.player_id, player.name, player.team) }}
+                        {{ player_link(v.player_id, v.name, v.team) }}
                     </td>
-                    <td class="py-2 px-1 text-gray-400 text-xs">{{ player.position }}</td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ player.positional_rank }}</td>
-                    <td class="py-2 px-3 text-right {% if player.get('projected_points', player.get('z_score_total', 0)) > 200 %}text-green-400{% elif player.get('projected_points', player.get('z_score_total', 0)) > 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
-                        {{ "%.1f"|format(player.get('projected_points', player.get('z_score_total', 0))) }}
+                    <td class="py-2 px-1 text-gray-400 text-xs">{{ v.position }}</td>
+                    <td class="py-2 px-3 text-right text-gray-400">{{ v.positional_rank }}</td>
+                    <td class="py-2 px-3 text-right {% if v.get('projected_points', v.get('z_score_total', 0)) >= 200 %}text-green-400{% elif v.get('projected_points', v.get('z_score_total', 0)) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                        {{ "%.1f"|format(v.get('projected_points', v.get('z_score_total', 0))) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if player.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
-                        {{ "%.1f"|format(player.surplus_value) }}
+                    <td class="py-2 px-3 text-right {% if v.get('steamer_ros_points', 0) >= 200 %}text-green-400{% elif v.get('steamer_ros_points', 0) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                        {{ "%.1f"|format(v.get('steamer_ros_points', 0)) }}
+                    </td>
+                    <td class="py-2 px-3 text-right {% if v.get('actual_points', 0) >= 200 %}text-green-400{% elif v.get('actual_points', 0) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                        {{ "%.1f"|format(v.get('actual_points', 0)) }}
+                    </td>
+                    <td class="py-2 px-3 text-right {% if v.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
+                        {{ "%.1f"|format(v.surplus_value) }}
                     </td>
                     <td class="py-2 px-3 text-center">
-                        <div class="flex justify-center gap-1">
-                            <button data-player='{{ {"id": player.player_id, "name": player.name, "team": player.team or "", "position": player.position or ""} | tojson }}'
-                                    onclick="addFromRankings(this, 'a')"
-                                    class="text-blue-400 hover:text-blue-300 text-xs px-1.5 py-0.5 rounded border border-blue-500/30 hover:border-blue-400"
-                                    title="Add to Side A">A</button>
-                            <button data-player='{{ {"id": player.player_id, "name": player.name, "team": player.team or "", "position": player.position or ""} | tojson }}'
-                                    onclick="addFromRankings(this, 'b')"
-                                    class="text-green-400 hover:text-green-300 text-xs px-1.5 py-0.5 rounded border border-green-500/30 hover:border-green-400"
-                                    title="Add to Side B">B</button>
-                        </div>
+                        {% if v.roster_side == 'a' %}
+                        <button onclick='addToSide({{ v_json }}, "a")' class="text-xs px-2 py-1 rounded bg-blue-700/50 text-blue-300 hover:bg-blue-600">
+                            &larr; Mine
+                        </button>
+                        {% elif v.roster_side == 'b' %}
+                        <button onclick='addToSide({{ v_json }}, "b")' class="text-xs px-2 py-1 rounded bg-green-700/50 text-green-300 hover:bg-green-600">
+                            Theirs &rarr;
+                        </button>
+                        {% else %}
+                        <span class="text-xs text-gray-600">FA</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -183,86 +220,74 @@
 </div>
 
 <script>
+// ── Opponent Rosters Data ──
+const opponentRosters = {{ opponent_rosters | tojson }};
+
 // ── Trade Analyzer State ──
 const tradeState = {
     sideA: [],
     sideB: [],
-    posFilterA: null,
-    posFilterB: null,
 };
-
-let tradeSearchTimeout = null;
 
 function headshot(mlbamId) {
     if (!mlbamId) return null;
     return `https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${mlbamId}/headshot/67/current`;
 }
 
-// ── Search ──
-function onTradeSearch(query, side) {
-    clearTimeout(tradeSearchTimeout);
-    const dropdown = document.getElementById(`trade-dropdown-${side}`);
-    if (query.length < 2) {
-        dropdown.classList.add('hidden');
-        dropdown.innerHTML = '';
-        return;
-    }
-    const posFilter = side === 'a' ? tradeState.posFilterA : tradeState.posFilterB;
-    const posParam = posFilter ? `&position=${encodeURIComponent(posFilter)}` : '';
+// ── Select-based Player Adding ──
+function addFromSelect(side) {
+    const select = document.getElementById(side === 'a' ? 'trade-select-a' : 'trade-select-b');
+    if (!select.value) return;
+    const player = JSON.parse(select.value);
+    addToSide(player, side);
+    select.value = '';
 
-    tradeSearchTimeout = setTimeout(async () => {
-        const resp = await fetch(`/api/compare/search?q=${encodeURIComponent(query)}&limit=10${posParam}`);
-        if (!resp.ok) return;
-        const players = await resp.json();
-        renderTradeDropdown(players, side);
-    }, 300);
+    if (side === 'a') {
+        updateSelectOptions('a');
+    } else {
+        updateSelectOptions('b');
+    }
 }
 
-function renderTradeDropdown(players, side) {
-    const dropdown = document.getElementById(`trade-dropdown-${side}`);
-    const currentIds = side === 'a'
-        ? tradeState.sideA.map(p => p.id)
-        : tradeState.sideB.map(p => p.id);
+function onTeamSelected() {
+    const teamSelect = document.getElementById('trade-team-select');
+    const playerSelect = document.getElementById('trade-select-b');
+    const teamId = teamSelect.value;
 
-    if (!players.length) {
-        dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500">No players found</div>';
-        dropdown.classList.remove('hidden');
+    if (!teamId) {
+        playerSelect.classList.add('hidden');
         return;
     }
 
-    dropdown.innerHTML = players.map(p => {
-        const alreadyAdded = currentIds.includes(p.id);
-        const imgSrc = p.headshot_url || '';
-        return `
-            <div class="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm
-                        ${alreadyAdded ? 'opacity-40 pointer-events-none' : ''}"
-                 data-player='${JSON.stringify(p).replace(/'/g, "&#39;")}'
-                 onclick="addPlayerFromDropdown(this, '${side}')">
-                ${imgSrc ? `<img src="${imgSrc}" alt="${p.name}" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'">` : '<div class="w-6 h-6 rounded-full bg-gray-600"></div>'}
-                <span class="text-gray-100">${p.name}</span>
-                <span class="text-gray-500 text-xs">${p.team || ''}</span>
-                <span class="text-gray-500 text-xs ml-auto">${p.position || ''}</span>
-                ${alreadyAdded ? '<span class="text-xs text-gray-500">Added</span>' : ''}
-            </div>
-        `;
-    }).join('');
-    dropdown.classList.remove('hidden');
+    playerSelect.classList.remove('hidden');
+    const players = opponentRosters[teamId] || [];
+    const currentIds = tradeState.sideB.map(p => p.id);
+
+    playerSelect.innerHTML = '<option value="">Select a player to receive...</option>';
+    players.forEach(p => {
+        if (!currentIds.includes(p.id)) {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(p);
+            opt.textContent = `${p.roster_position}: ${p.name} (${p.team}) — ${Math.round(p.projected_points)} pts`;
+            playerSelect.appendChild(opt);
+        }
+    });
 }
 
-function addPlayerFromDropdown(el, side) {
-    const player = JSON.parse(el.dataset.player);
-    addToSide(player, side);
-    const dropdown = document.getElementById(`trade-dropdown-${side}`);
-    const searchInput = document.getElementById(`trade-search-${side}`);
-    dropdown.classList.add('hidden');
-    dropdown.innerHTML = '';
-    searchInput.value = '';
-    searchInput.focus();
-}
-
-function addFromRankings(btn, side) {
-    const player = JSON.parse(btn.dataset.player);
-    addToSide(player, side);
+function updateSelectOptions(side) {
+    if (side === 'a') {
+        const select = document.getElementById('trade-select-a');
+        const currentIds = tradeState.sideA.map(p => p.id);
+        Array.from(select.options).forEach(opt => {
+            if (opt.value) {
+                const p = JSON.parse(opt.value);
+                opt.disabled = currentIds.includes(p.id);
+                opt.style.opacity = currentIds.includes(p.id) ? '0.4' : '1';
+            }
+        });
+    } else {
+        onTeamSelected();
+    }
 }
 
 // ── Side Management ──
@@ -283,6 +308,7 @@ function removeFromSide(playerId, side) {
     }
     renderSideChips(side);
     updateSubmitButton();
+    updateSelectOptions(side);
 }
 
 function renderSideChips(side) {
@@ -314,33 +340,6 @@ function renderSideChips(side) {
     });
 }
 
-// ── Position Filters ──
-function setTradePositionFilter(pos, side) {
-    if (side === 'a') {
-        tradeState.posFilterA = pos;
-    } else {
-        tradeState.posFilterB = pos;
-    }
-
-    const buttons = document.querySelectorAll(`.trade-pos-btn-${side}`);
-    buttons.forEach(btn => {
-        const isActive = pos === null ? btn.dataset.pos === 'all' : btn.dataset.pos === pos;
-        if (isActive) {
-            btn.classList.add('bg-blue-600', 'text-white');
-            btn.classList.remove('bg-gray-700', 'text-gray-300');
-        } else {
-            btn.classList.remove('bg-blue-600', 'text-white');
-            btn.classList.add('bg-gray-700', 'text-gray-300');
-        }
-    });
-
-    // Re-trigger search if there's text in the search box
-    const searchInput = document.getElementById(`trade-search-${side}`);
-    if (searchInput.value.length >= 2) {
-        onTradeSearch(searchInput.value, side);
-    }
-}
-
 // ── Submit ──
 function updateSubmitButton() {
     const btn = document.getElementById('trade-submit-btn');
@@ -364,17 +363,60 @@ function clearTradeSides() {
     renderSideChips('b');
     updateSubmitButton();
     document.getElementById('trade-result').innerHTML = '';
+
+    // Reset team select and hide player select
+    document.getElementById('trade-team-select').value = '';
+    document.getElementById('trade-select-b').classList.add('hidden');
+
+    // Re-enable all options in side A
+    updateSelectOptions('a');
 }
 
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(e) {
-    ['a', 'b'].forEach(side => {
-        const dropdown = document.getElementById(`trade-dropdown-${side}`);
-        const search = document.getElementById(`trade-search-${side}`);
-        if (!dropdown.contains(e.target) && e.target !== search) {
-            dropdown.classList.add('hidden');
+// ── Rankings Table Sort & Filter ──
+let sortColumn = 'surplus_value';
+let sortAsc = false;
+
+function sortRankingsTable(column) {
+    const table = document.getElementById('rankings-table-body');
+    if (!table) return;
+
+    if (sortColumn === column) {
+        sortAsc = !sortAsc;
+    } else {
+        sortColumn = column;
+        sortAsc = false;
+    }
+
+    const rows = Array.from(table.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+        let aVal = a.dataset[column] || '';
+        let bVal = b.dataset[column] || '';
+
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return sortAsc ? aNum - bNum : bNum - aNum;
         }
+        return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
-});
+
+    rows.forEach(row => table.appendChild(row));
+
+    // Update sort indicators
+    document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '');
+    const indicator = document.querySelector(`.sort-indicator[data-col="${column}"]`);
+    if (indicator) indicator.textContent = sortAsc ? ' \u2191' : ' \u2193';
+}
+
+function filterRankingsTable() {
+    const query = document.getElementById('rankings-search').value.toLowerCase();
+    const rows = document.querySelectorAll('#rankings-table-body tr');
+    rows.forEach(row => {
+        const name = (row.dataset.name || '').toLowerCase();
+        const team = (row.dataset.team || '').toLowerCase();
+        const pos = (row.dataset.position || '').toLowerCase();
+        row.style.display = (name.includes(query) || team.includes(query) || pos.includes(query)) ? '' : 'none';
+    });
+}
 </script>
 {% endblock %}

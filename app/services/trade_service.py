@@ -12,11 +12,9 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.league_config import BATTING_SCORING, PITCHING_SCORING
 from app.models.player import Player
 from app.models.player_points import PlayerPoints
 from app.models.trade_value import TradeValue
-from app.services.points_service import get_points_breakdown
 from app.services.projection_service import (
     project_all_hitters,
     project_all_pitchers,
@@ -251,12 +249,13 @@ async def _evaluate_trade_points(
     for player_id in all_ids:
         result = await session.execute(
             select(Player, PlayerPoints)
-            .join(PlayerPoints, PlayerPoints.player_id == Player.id)
-            .where(
-                Player.id == player_id,
-                PlayerPoints.season == season,
-                PlayerPoints.period == "full_season",
+            .outerjoin(
+                PlayerPoints,
+                (PlayerPoints.player_id == Player.id)
+                & (PlayerPoints.season == season)
+                & (PlayerPoints.period == "full_season"),
             )
+            .where(Player.id == player_id)
         )
         row = result.first()
         if row:
@@ -266,16 +265,17 @@ async def _evaluate_trade_points(
                 "name": player.name,
                 "team": player.team,
                 "position": player.position,
-                "player_type": pp.player_type,
-                "surplus_value": pp.surplus_value or 0.0,
-                "projected_points": pp.projected_ros_points or 0.0,
-                "actual_points": pp.actual_points or 0.0,
-                "positional_rank": pp.positional_rank or 0,
-                "points_per_pa": pp.points_per_pa,
-                "points_per_ip": pp.points_per_ip,
-                "points_per_start": pp.points_per_start,
-                "points_per_appearance": pp.points_per_appearance,
-                "is_reliever": pp.points_per_appearance is not None,
+                "player_type": pp.player_type if pp else "unknown",
+                "surplus_value": (pp.surplus_value or 0.0) if pp else 0.0,
+                "projected_points": (pp.projected_ros_points or 0.0) if pp else 0.0,
+                "actual_points": (pp.actual_points or 0.0) if pp else 0.0,
+                "steamer_ros_points": (pp.steamer_ros_points or 0.0) if pp else 0.0,
+                "positional_rank": (pp.positional_rank or 0) if pp else 0,
+                "points_per_pa": pp.points_per_pa if pp else None,
+                "points_per_ip": pp.points_per_ip if pp else None,
+                "points_per_start": pp.points_per_start if pp else None,
+                "points_per_appearance": pp.points_per_appearance if pp else None,
+                "is_reliever": (pp.points_per_appearance is not None) if pp else False,
             }
             if player_id in side_a_ids:
                 side_a_players.append(info)
@@ -428,3 +428,507 @@ async def _evaluate_trade_roto(
         category_impact_b={},
         scoring_type="roto",
     )
+
+
+async def suggest_trades_ai(session: AsyncSession, season: int) -> str:
+    """Scan all opponents' rosters and suggest realistic trade targets using AI.
+
+    Gathers roster data, projections, Statcast trends, and injuries, then
+    calls Claude to recommend aggressive, conservative, and watch-list trades.
+    Returns markdown-formatted analysis text.
+    """
+    import anthropic
+
+    from app.config import settings
+    from app.models.roster import Roster
+    from app.models.statcast_summary import StatcastSummary
+    from app.services.mlb_service import build_injury_lookup, get_injuries
+
+    if not settings.anthropic_api_key:
+        return "**AI analysis unavailable** — Anthropic API key not configured."
+
+    # ── 1. Load my roster ──────────────────────────────────────────────
+    my_result = await session.execute(
+        select(Roster, Player, PlayerPoints)
+        .join(Player, Roster.player_id == Player.id)
+        .outerjoin(
+            PlayerPoints,
+            (PlayerPoints.player_id == Player.id)
+            & (PlayerPoints.season == season)
+            & (PlayerPoints.period == "full_season"),
+        )
+        .where(Roster.is_my_team.is_(True))
+    )
+    my_rows = my_result.all()
+
+    if not my_rows:
+        return "**No roster data available.** Sync your Yahoo roster first."
+
+    # Build my roster lines by position
+    my_roster_lines: list[str] = []
+    pos_points: dict[str, list[float]] = {}
+    my_player_ids: set[int] = set()
+    for roster, player, pp in my_rows:
+        my_player_ids.add(player.id)
+        pos = roster.roster_position or player.position or "UTIL"
+        proj = pp.projected_ros_points if pp else 0
+        steamer = pp.steamer_ros_points if pp else 0
+        actual = pp.actual_points if pp else 0
+        surplus = pp.surplus_value if pp else 0
+        rate_str = ""
+        if pp and pp.points_per_pa:
+            rate_str = f", {pp.points_per_pa:.1f} pts/PA"
+        elif pp and pp.points_per_ip:
+            rate_str = f", {pp.points_per_ip:.1f} pts/IP"
+        my_roster_lines.append(
+            f"  {pos}: {player.name} ({player.team}) — "
+            f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
+            f"surplus {surplus:+.0f}{rate_str}"
+        )
+        pos_points.setdefault(pos, []).append(proj or 0)
+
+    # ── 2. Identify weak spots ─────────────────────────────────────────
+    weak_spots: list[str] = []
+    total_pts = sum(p for pts_list in pos_points.values() for p in pts_list)
+    total_count = sum(len(v) for v in pos_points.values())
+    avg_pts = total_pts / max(total_count, 1)
+    for pos, pts_list in pos_points.items():
+        pos_avg = sum(pts_list) / len(pts_list) if pts_list else 0
+        if pos_avg < avg_pts * 0.7:
+            weak_spots.append(f"{pos} (avg {pos_avg:.0f} pts, roster avg {avg_pts:.0f})")
+
+    weak_spots_str = "No obvious weak spots identified."
+    if weak_spots:
+        weak_spots_str = "ROSTER WEAK SPOTS:\n" + "\n".join(f"  {w}" for w in weak_spots)
+
+    # ── 3. Load all opponents' rosters ─────────────────────────────────
+    opp_result = await session.execute(
+        select(Roster, Player, PlayerPoints)
+        .join(Player, Roster.player_id == Player.id)
+        .outerjoin(
+            PlayerPoints,
+            (PlayerPoints.player_id == Player.id)
+            & (PlayerPoints.season == season)
+            & (PlayerPoints.period == "full_season"),
+        )
+        .where(Roster.is_my_team.is_(False))
+    )
+    opp_rows = opp_result.all()
+
+    # Group by team, keep top 8 per team by surplus_value
+    teams: dict[str, list[tuple]] = {}
+    all_player_ids: set[int] = set(my_player_ids)
+    for roster, player, pp in opp_rows:
+        team_name = roster.team_name or "Unknown"
+        teams.setdefault(team_name, []).append((roster, player, pp))
+        all_player_ids.add(player.id)
+
+    opp_lines: list[str] = []
+    for team_name, members in sorted(teams.items()):
+        members.sort(
+            key=lambda x: (x[2].surplus_value if x[2] and x[2].surplus_value else 0),
+            reverse=True,
+        )
+        opp_lines.append(f'  Team: "{team_name}"')
+        for roster, player, pp in members[:8]:
+            pos = player.position or "UTIL"
+            proj = pp.projected_ros_points if pp else 0
+            steamer = pp.steamer_ros_points if pp else 0
+            actual = pp.actual_points if pp else 0
+            surplus = pp.surplus_value if pp else 0
+            opp_lines.append(
+                f"    {player.name} ({pos}, {player.team}) — "
+                f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
+                f"surplus {surplus:+.0f}"
+            )
+
+    # ── 4. Injuries ────────────────────────────────────────────────────
+    injury_lines: list[str] = []
+    try:
+        injuries = await get_injuries()
+        injury_lookup = build_injury_lookup(injuries)
+        for roster, player, _ in list(my_rows) + opp_rows:
+            if player.mlbam_id and int(player.mlbam_id) in injury_lookup:
+                inj = injury_lookup[int(player.mlbam_id)]
+                injury_lines.append(
+                    f"  {inj.player_name} ({inj.team}) — {inj.status}: {inj.injury}"
+                )
+    except Exception as e:
+        logger.warning(f"Could not fetch injuries for trade suggestions: {e}")
+        injury_lines.append("  Injury data unavailable")
+
+    # ── 5. Projection disagreements (App vs Steamer >20%) ──────────────
+    disagree_lines: list[str] = []
+    for roster, player, pp in list(my_rows) + opp_rows:
+        if not pp or not pp.projected_ros_points or not pp.steamer_ros_points:
+            continue
+        app_val = pp.projected_ros_points
+        steamer_val = pp.steamer_ros_points
+        if steamer_val == 0:
+            continue
+        pct_diff = (app_val - steamer_val) / abs(steamer_val) * 100
+        if abs(pct_diff) > 20:
+            direction = "higher" if pct_diff > 0 else "lower"
+            disagree_lines.append(
+                f"  {player.name} — App: {app_val:.0f}, Steamer: {steamer_val:.0f} "
+                f"(App {abs(pct_diff):.0f}% {direction})"
+            )
+
+    # ── 6. Statcast trends (full_season vs last_14 xwOBA delta) ────────
+    statcast_lines: list[str] = []
+    try:
+        sc_result = await session.execute(
+            select(StatcastSummary, Player)
+            .join(Player, StatcastSummary.player_id == Player.id)
+            .where(
+                StatcastSummary.season == season,
+                StatcastSummary.period.in_(["full_season", "last_14"]),
+                StatcastSummary.player_id.in_(all_player_ids),
+            )
+        )
+        sc_rows = sc_result.all()
+
+        # Group by player
+        sc_by_player: dict[int, dict[str, float]] = {}
+        sc_names: dict[int, str] = {}
+        for sc, player in sc_rows:
+            sc_names[sc.player_id] = player.name
+            sc_by_player.setdefault(sc.player_id, {})[sc.period] = sc.xwoba or 0
+
+        for pid, periods in sc_by_player.items():
+            full = periods.get("full_season", 0)
+            recent = periods.get("last_14", 0)
+            if full and recent:
+                delta = recent - full
+                if abs(delta) > 0.020:
+                    direction = "UP" if delta > 0 else "DOWN"
+                    statcast_lines.append(
+                        f"  {sc_names[pid]} — xwOBA {direction} {abs(delta):.3f} "
+                        f"(season: {full:.3f}, last 14d: {recent:.3f})"
+                    )
+    except Exception as e:
+        logger.warning(f"Could not fetch Statcast trends: {e}")
+
+    # ── 7. Build scoring line ──────────────────────────────────────────
+    scoring_line = (
+        "LEAGUE SCORING: H2H Points — "
+        "R=1, 1B=1, 2B=2, 3B=3, HR=4, RBI=1, SB=2, "
+        "CS=-1, BB=1, HBP=1, K=-0.5 | "
+        "OUT=1.5, K(P)=0.5, SV=7, HLD=4, RW=4, QS=2, "
+        "ER=-4, BB(P)=-0.75, H(P)=-0.75"
+    )
+
+    # ── 8. Assemble user message ───────────────────────────────────────
+    user_message = f"""MY ROSTER (by position):
+{chr(10).join(my_roster_lines)}
+
+{weak_spots_str}
+
+OPPONENT ROSTERS:
+{chr(10).join(opp_lines)}
+"""
+
+    if disagree_lines:
+        user_message += f"""
+PROJECTION DISAGREEMENTS (App vs Steamer diff >20%):
+{chr(10).join(disagree_lines)}
+"""
+
+    if statcast_lines:
+        user_message += f"""
+STATCAST TRENDS (last 14 days vs season):
+{chr(10).join(statcast_lines)}
+"""
+
+    if injury_lines:
+        user_message += f"""
+INJURY STATUS (Source: MLB Official Injury Report):
+{chr(10).join(injury_lines)}
+"""
+
+    user_message += f"""
+{scoring_line}
+
+Suggest trade opportunities:
+1. AGGRESSIVE MOVE — significant upgrade, may require overpaying
+2. CONSERVATIVE MOVE — fair-value trade that fills a need
+3. KEEP AN EYE ON — players to monitor
+
+For each suggestion, name specific players on both sides and explain WHY the
+other manager might accept. Discuss projection disagreements where relevant.
+If nothing improves my team, say STAND PAT."""
+
+    system_prompt = (
+        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league. "
+        "Analyze my roster and all opponents' rosters to suggest realistic trade targets. "
+        "Focus on REST-OF-SEASON value — trades are long-term moves, not weekly plays.\n\n"
+        "You have three projection sources:\n"
+        "- App Projected: Our custom model blending actual stats + Statcast expected metrics\n"
+        "- Steamer ROS: FanGraphs Steamer rest-of-season projection system\n"
+        "- Actual Points: What the player has scored so far this season\n\n"
+        "When these projections disagree significantly, explain why and which to trust. "
+        "Use bold section headers. Be honest — if no trade clearly improves my team, say STAND PAT."
+    )
+
+    try:
+        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        response = await client.messages.create(
+            model=settings.assistant_model,
+            max_tokens=2000,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return response.content[0].text
+    except Exception as e:
+        logger.error(f"AI trade suggestion failed: {e}")
+        return f"**AI analysis failed:** {e}"
+
+
+async def analyze_trade_ai(
+    session: AsyncSession, evaluation: TradeEvaluation, season: int
+) -> str:
+    """Provide AI narrative analysis of a specific proposed trade.
+
+    Takes a completed TradeEvaluation (math already done) and enriches it
+    with Steamer projections, Statcast trends, injuries, and roster context,
+    then calls Claude for a verdict. Returns markdown-formatted analysis text.
+    """
+    import anthropic
+
+    from app.config import settings
+    from app.models.roster import Roster
+    from app.models.statcast_summary import StatcastSummary
+    from app.services.mlb_service import build_injury_lookup, get_injuries
+
+    if not settings.anthropic_api_key:
+        return "**AI analysis unavailable** — Anthropic API key not configured."
+
+    # ── 1. Build trade proposal lines ──────────────────────────────────
+    traded_player_ids: set[int] = set()
+    side_a_lines: list[str] = []
+    for p in evaluation.side_a_players:
+        traded_player_ids.add(p["player_id"])
+        pos = p.get("position", "UTIL")
+        proj = p.get("projected_points", 0)
+        actual = p.get("actual_points", 0)
+        surplus = p.get("surplus_value", 0)
+        side_a_lines.append(
+            f"  {p['name']} ({pos}) — App: {proj:.0f}, Actual: {actual:.0f}, "
+            f"surplus {surplus:+.0f}"
+        )
+
+    side_b_lines: list[str] = []
+    for p in evaluation.side_b_players:
+        traded_player_ids.add(p["player_id"])
+        pos = p.get("position", "UTIL")
+        proj = p.get("projected_points", 0)
+        actual = p.get("actual_points", 0)
+        surplus = p.get("surplus_value", 0)
+        side_b_lines.append(
+            f"  {p['name']} ({pos}) — App: {proj:.0f}, Actual: {actual:.0f}, "
+            f"surplus {surplus:+.0f}"
+        )
+
+    # ── 2. Fetch Steamer ROS for traded players ────────────────────────
+    for p in evaluation.side_a_players + evaluation.side_b_players:
+        pp_result = await session.execute(
+            select(PlayerPoints).where(
+                PlayerPoints.player_id == p["player_id"],
+                PlayerPoints.season == season,
+                PlayerPoints.period == "full_season",
+            )
+        )
+        pp_row = pp_result.scalar_one_or_none()
+        steamer = pp_row.steamer_ros_points if pp_row and pp_row.steamer_ros_points else 0
+        p["steamer_ros_points"] = steamer
+
+    # Update lines with Steamer data
+    side_a_lines = []
+    for p in evaluation.side_a_players:
+        pos = p.get("position", "UTIL")
+        proj = p.get("projected_points", 0)
+        steamer = p.get("steamer_ros_points", 0)
+        actual = p.get("actual_points", 0)
+        surplus = p.get("surplus_value", 0)
+        side_a_lines.append(
+            f"  {p['name']} ({pos}) — App: {proj:.0f}, Steamer: {steamer:.0f}, "
+            f"Actual: {actual:.0f}, surplus {surplus:+.0f}"
+        )
+
+    side_b_lines = []
+    for p in evaluation.side_b_players:
+        pos = p.get("position", "UTIL")
+        proj = p.get("projected_points", 0)
+        steamer = p.get("steamer_ros_points", 0)
+        actual = p.get("actual_points", 0)
+        surplus = p.get("surplus_value", 0)
+        side_b_lines.append(
+            f"  {p['name']} ({pos}) — App: {proj:.0f}, Steamer: {steamer:.0f}, "
+            f"Actual: {actual:.0f}, surplus {surplus:+.0f}"
+        )
+
+    # ── 3. Math evaluation summary ─────────────────────────────────────
+    math_lines: list[str] = [
+        f"  Value difference: {evaluation.value_difference:.0f} pts — {evaluation.fairness}"
+    ]
+    if evaluation.points_analysis.get("insights"):
+        for insight in evaluation.points_analysis["insights"]:
+            math_lines.append(f"  {insight}")
+
+    # ── 4. Load my roster for context ──────────────────────────────────
+    my_result = await session.execute(
+        select(Roster, Player, PlayerPoints)
+        .join(Player, Roster.player_id == Player.id)
+        .outerjoin(
+            PlayerPoints,
+            (PlayerPoints.player_id == Player.id)
+            & (PlayerPoints.season == season)
+            & (PlayerPoints.period == "full_season"),
+        )
+        .where(Roster.is_my_team.is_(True))
+    )
+    my_rows = my_result.all()
+
+    my_roster_lines: list[str] = []
+    pos_points: dict[str, list[float]] = {}
+    for roster, player, pp in my_rows:
+        pos = roster.roster_position or player.position or "UTIL"
+        proj = pp.projected_ros_points if pp else 0
+        steamer = pp.steamer_ros_points if pp else 0
+        actual = pp.actual_points if pp else 0
+        my_roster_lines.append(
+            f"  {pos}: {player.name} ({player.team}) — "
+            f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}"
+        )
+        pos_points.setdefault(pos, []).append(proj or 0)
+
+    # ── 5. Weak spots ──────────────────────────────────────────────────
+    weak_spots: list[str] = []
+    total_pts = sum(p for pts_list in pos_points.values() for p in pts_list)
+    total_count = sum(len(v) for v in pos_points.values())
+    avg_pts = total_pts / max(total_count, 1)
+    for pos, pts_list in pos_points.items():
+        pos_avg = sum(pts_list) / len(pts_list) if pts_list else 0
+        if pos_avg < avg_pts * 0.7:
+            weak_spots.append(f"{pos} (avg {pos_avg:.0f} pts, roster avg {avg_pts:.0f})")
+
+    weak_spots_str = "No obvious weak spots identified."
+    if weak_spots:
+        weak_spots_str = "ROSTER WEAK SPOTS:\n" + "\n".join(f"  {w}" for w in weak_spots)
+
+    # ── 6. Injuries for traded players ─────────────────────────────────
+    injury_lines: list[str] = []
+    try:
+        injuries = await get_injuries()
+        injury_lookup = build_injury_lookup(injuries)
+        for p in evaluation.side_a_players + evaluation.side_b_players:
+            # Look up mlbam_id from Player table
+            p_result = await session.execute(
+                select(Player).where(Player.id == p["player_id"])
+            )
+            player_obj = p_result.scalar_one_or_none()
+            if player_obj and player_obj.mlbam_id and int(player_obj.mlbam_id) in injury_lookup:
+                inj = injury_lookup[int(player_obj.mlbam_id)]
+                injury_lines.append(
+                    f"  {inj.player_name} ({inj.team}) — {inj.status}: {inj.injury}"
+                )
+    except Exception as e:
+        logger.warning(f"Could not fetch injuries for trade analysis: {e}")
+        injury_lines.append("  Injury data unavailable")
+
+    # ── 7. Statcast trends for traded players ──────────────────────────
+    statcast_lines: list[str] = []
+    try:
+        sc_result = await session.execute(
+            select(StatcastSummary, Player)
+            .join(Player, StatcastSummary.player_id == Player.id)
+            .where(
+                StatcastSummary.season == season,
+                StatcastSummary.period.in_(["full_season", "last_14"]),
+                StatcastSummary.player_id.in_(traded_player_ids),
+            )
+        )
+        sc_rows = sc_result.all()
+
+        sc_by_player: dict[int, dict[str, float]] = {}
+        sc_names: dict[int, str] = {}
+        for sc, player in sc_rows:
+            sc_names[sc.player_id] = player.name
+            sc_by_player.setdefault(sc.player_id, {})[sc.period] = sc.xwoba or 0
+
+        for pid, periods in sc_by_player.items():
+            full = periods.get("full_season", 0)
+            recent = periods.get("last_14", 0)
+            if full and recent:
+                delta = recent - full
+                direction = "UP" if delta > 0 else "DOWN"
+                statcast_lines.append(
+                    f"  {sc_names[pid]} — xwOBA {direction} {abs(delta):.3f} "
+                    f"(season: {full:.3f}, last 14d: {recent:.3f})"
+                )
+    except Exception as e:
+        logger.warning(f"Could not fetch Statcast trends for trade analysis: {e}")
+
+    # ── 8. Scoring line ────────────────────────────────────────────────
+    scoring_line = (
+        "LEAGUE SCORING: H2H Points — "
+        "R=1, 1B=1, 2B=2, 3B=3, HR=4, RBI=1, SB=2, "
+        "CS=-1, BB=1, HBP=1, K=-0.5 | "
+        "OUT=1.5, K(P)=0.5, SV=7, HLD=4, RW=4, QS=2, "
+        "ER=-4, BB(P)=-0.75, H(P)=-0.75"
+    )
+
+    # ── 9. Assemble user message ───────────────────────────────────────
+    user_message = f"""TRADE PROPOSAL:
+  Side A gives up:
+{chr(10).join(side_a_lines)}
+  Side B gives up:
+{chr(10).join(side_b_lines)}
+
+MATHEMATICAL EVALUATION:
+{chr(10).join(math_lines)}
+
+MY CURRENT ROSTER:
+{chr(10).join(my_roster_lines)}
+
+{weak_spots_str}
+"""
+
+    if statcast_lines:
+        user_message += f"""
+STATCAST TRENDS FOR TRADED PLAYERS:
+{chr(10).join(statcast_lines)}
+"""
+
+    if injury_lines:
+        user_message += f"""
+INJURY STATUS:
+{chr(10).join(injury_lines)}
+"""
+
+    user_message += f"""
+{scoring_line}
+
+Should I make this trade? Evaluate roster fit, projection differences,
+and whether the numbers tell the full story."""
+
+    system_prompt = (
+        "You are a fantasy baseball analyst for a 10-team H2H Points keeper league. "
+        "Evaluate this specific trade from MY team's perspective. Focus on REST-OF-SEASON value. "
+        "Be concise — lead with your verdict, then explain WHY. Consider roster fit, positional "
+        "scarcity, Statcast trends, projection disagreements, and injury risk. "
+        "Use bold section headers."
+    )
+
+    try:
+        client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+        response = await client.messages.create(
+            model=settings.assistant_model,
+            max_tokens=1500,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_message}],
+        )
+        return response.content[0].text
+    except Exception as e:
+        logger.error(f"AI trade analysis failed: {e}")
+        return f"**AI analysis failed:** {e}"
