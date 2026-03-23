@@ -1,18 +1,22 @@
-"""Trade value calculator using VORP and z-score methodology.
+"""Trade value calculator using fantasy points surplus value and z-score methodology.
 
-Calculates surplus value (value above replacement) for each player
-to enable fair trade evaluation.
+Supports both H2H Points league evaluation (default) and 5x5 roto z-score evaluation.
+The points-based evaluation uses projected fantasy points and surplus value from the
+player_points table, providing league-specific trade analysis.
 """
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.league_config import BATTING_SCORING, PITCHING_SCORING
 from app.models.player import Player
+from app.models.player_points import PlayerPoints
 from app.models.trade_value import TradeValue
+from app.services.points_service import get_points_breakdown
 from app.services.projection_service import (
     project_all_hitters,
     project_all_pitchers,
@@ -39,6 +43,9 @@ class TradeEvaluation:
     fairness: str  # fair, slightly_favors_a/b, heavily_favors_a/b
     category_impact_a: dict[str, float]  # net change in each category for side A
     category_impact_b: dict[str, float]
+    # Points-specific fields
+    scoring_type: str = "points"
+    points_analysis: dict = field(default_factory=dict)  # league-specific analysis
 
 
 def _z_scores(values: list[float], invert: bool = False) -> list[float]:
@@ -208,12 +215,158 @@ async def evaluate_trade(
     side_a_ids: list[int],
     side_b_ids: list[int],
     season: int,
+    scoring_type: str = "points",
 ) -> TradeEvaluation:
     """Evaluate a trade between two sides.
 
     side_a_ids and side_b_ids are lists of player IDs being traded.
     Side A gives away side_a_ids and receives side_b_ids (and vice versa).
+
+    scoring_type: "points" (default) uses H2H points surplus value,
+                  "roto" uses z-score methodology.
     """
+    if scoring_type == "points":
+        return await _evaluate_trade_points(session, side_a_ids, side_b_ids, season)
+    return await _evaluate_trade_roto(session, side_a_ids, side_b_ids, season)
+
+
+async def _evaluate_trade_points(
+    session: AsyncSession,
+    side_a_ids: list[int],
+    side_b_ids: list[int],
+    season: int,
+) -> TradeEvaluation:
+    """Evaluate a trade using H2H Points league surplus value.
+
+    Provides league-specific analysis including:
+    - Net projected points gained/lost per side
+    - Points breakdown showing why the trade is good/bad in this scoring format
+    - Key scoring insights (saves value, innings value, K impact, etc.)
+    """
+    all_ids = side_a_ids + side_b_ids
+
+    side_a_players = []
+    side_b_players = []
+
+    for player_id in all_ids:
+        result = await session.execute(
+            select(Player, PlayerPoints)
+            .join(PlayerPoints, PlayerPoints.player_id == Player.id)
+            .where(
+                Player.id == player_id,
+                PlayerPoints.season == season,
+                PlayerPoints.period == "full_season",
+            )
+        )
+        row = result.first()
+        if row:
+            player, pp = row
+            info = {
+                "player_id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "player_type": pp.player_type,
+                "surplus_value": pp.surplus_value or 0.0,
+                "projected_points": pp.projected_ros_points or 0.0,
+                "actual_points": pp.actual_points or 0.0,
+                "positional_rank": pp.positional_rank or 0,
+                "points_per_pa": pp.points_per_pa,
+                "points_per_ip": pp.points_per_ip,
+                "points_per_start": pp.points_per_start,
+                "points_per_appearance": pp.points_per_appearance,
+                "is_reliever": pp.points_per_appearance is not None,
+            }
+            if player_id in side_a_ids:
+                side_a_players.append(info)
+            else:
+                side_b_players.append(info)
+
+    side_a_total = sum(p["surplus_value"] for p in side_a_players)
+    side_b_total = sum(p["surplus_value"] for p in side_b_players)
+    diff = side_a_total - side_b_total
+
+    # Points-based fairness thresholds (wider than z-scores since points range is larger)
+    if abs(diff) < 20:
+        fairness = "fair"
+    elif diff > 75:
+        fairness = "heavily_favors_b"
+    elif diff > 20:
+        fairness = "slightly_favors_b"
+    elif diff < -75:
+        fairness = "heavily_favors_a"
+    else:
+        fairness = "slightly_favors_a"
+
+    # Build league-specific analysis
+    points_analysis = _build_points_analysis(side_a_players, side_b_players)
+
+    return TradeEvaluation(
+        side_a_players=side_a_players,
+        side_b_players=side_b_players,
+        side_a_total_value=round(side_a_total, 1),
+        side_b_total_value=round(side_b_total, 1),
+        value_difference=round(abs(diff), 1),
+        fairness=fairness,
+        category_impact_a={},
+        category_impact_b={},
+        scoring_type="points",
+        points_analysis=points_analysis,
+    )
+
+
+def _build_points_analysis(side_a: list[dict], side_b: list[dict]) -> dict:
+    """Build league-specific trade analysis with scoring insights."""
+    analysis = {
+        "side_a_projected_total": sum(p["projected_points"] for p in side_a),
+        "side_b_projected_total": sum(p["projected_points"] for p in side_b),
+        "insights": [],
+    }
+
+    # Check for reliever premium
+    a_relievers = [p for p in side_a if p.get("is_reliever")]
+    b_relievers = [p for p in side_b if p.get("is_reliever")]
+    if a_relievers or b_relievers:
+        a_rp_pts = sum(p["projected_points"] for p in a_relievers)
+        b_rp_pts = sum(p["projected_points"] for p in b_relievers)
+        if a_rp_pts > 0 or b_rp_pts > 0:
+            analysis["insights"].append(
+                f"Reliever value: Side A gives up {a_rp_pts:.0f} projected RP points, "
+                f"Side B gives up {b_rp_pts:.0f}. "
+                f"(SV=7, HLD=4 — relievers are premium in this format)"
+            )
+
+    # Check for starter volume
+    a_starters = [p for p in side_a if p.get("points_per_start") is not None]
+    b_starters = [p for p in side_b if p.get("points_per_start") is not None]
+    if a_starters or b_starters:
+        a_sp_pts = sum(p["projected_points"] for p in a_starters)
+        b_sp_pts = sum(p["projected_points"] for p in b_starters)
+        analysis["insights"].append(
+            f"Starter value: Side A gives up {a_sp_pts:.0f} projected SP points, "
+            f"Side B gives up {b_sp_pts:.0f}. "
+            f"(Innings = 4.5 pts/IP — volume starters are gold)"
+        )
+
+    # Points differential context
+    diff = analysis["side_a_projected_total"] - analysis["side_b_projected_total"]
+    if abs(diff) > 50:
+        analysis["insights"].append(
+            f"Projected points gap: {abs(diff):.0f} points — "
+            f"equivalent to roughly {abs(diff) / 7:.0f} saves or "
+            f"{abs(diff) / 4.5:.0f} extra innings pitched"
+        )
+
+    return analysis
+
+
+async def _evaluate_trade_roto(
+    session: AsyncSession,
+    side_a_ids: list[int],
+    side_b_ids: list[int],
+    season: int,
+) -> TradeEvaluation:
+    """Evaluate a trade using 5x5 roto z-score methodology (legacy)."""
     # Ensure trade values exist — calculate and store if table is empty
     tv_check = await session.execute(select(TradeValue).limit(1))
     if tv_check.scalar_one_or_none() is None:
@@ -271,6 +424,7 @@ async def evaluate_trade(
         side_b_total_value=round(side_b_total, 2),
         value_difference=round(abs(diff), 2),
         fairness=fairness,
-        category_impact_a={},  # Could be expanded with per-category z-score changes
+        category_impact_a={},
         category_impact_b={},
+        scoring_type="roto",
     )

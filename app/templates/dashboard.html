@@ -52,7 +52,7 @@
                       hx-swap="innerHTML"
                       hx-disabled-elt="find button[type=submit]">
                     <div class="space-y-1 max-h-48 overflow-y-auto">
-                        {% for yr in range(2025, 2014, -1) %}
+                        {% for yr in sync_seasons %}
                         <label class="flex items-center gap-2 text-sm text-gray-300 hover:text-white cursor-pointer py-0.5">
                             <input type="checkbox" name="seasons" value="{{ yr }}"
                                    {% if yr == selected_season %}checked{% endif %}
@@ -124,6 +124,188 @@
 {% endif %}
 
 {% if not setup_needed %}
+
+{# ── Weekly Matchup Analysis (full-width, player-centric) ── #}
+{% if matchup_data %}
+<div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold text-gray-200">
+            Week {{ matchup_data.week }}: vs {{ matchup_data.opponent_name }} {{ page_info('matchup-analysis') }}
+        </h3>
+    </div>
+
+    <!-- Summary totals: Yahoo Proj / My Proj / Actual -->
+    <div class="overflow-x-auto mb-5">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-gray-500 border-b border-gray-700">
+                    <th class="text-left py-1.5 px-3 w-40"></th>
+                    <th class="text-center py-1.5 px-3 text-blue-400 font-medium">{{ matchup_data.my_team_name or 'My Team' }}</th>
+                    <th class="text-center py-1.5 px-3 text-red-400 font-medium">{{ matchup_data.opponent_name }}</th>
+                    <th class="text-center py-1.5 px-3 text-gray-400 w-24">Diff</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="border-b border-gray-700/50">
+                    <td class="py-1.5 px-3 text-gray-400">Yahoo Projected {{ stat_info('matchup-yahoo-proj') }}</td>
+                    <td class="py-1.5 px-3 text-center text-blue-300 font-semibold text-lg">{{ "%.1f"|format(matchup_data.my_yahoo_projected) }}</td>
+                    <td class="py-1.5 px-3 text-center text-red-300 font-semibold text-lg">{{ "%.1f"|format(matchup_data.opp_yahoo_projected) }}</td>
+                    {% set diff_yahoo = matchup_data.my_yahoo_projected - matchup_data.opp_yahoo_projected %}
+                    <td class="py-1.5 px-3 text-center font-semibold {% if diff_yahoo > 0 %}text-green-400{% elif diff_yahoo < 0 %}text-red-400{% else %}text-gray-400{% endif %}">{{ "%+.1f"|format(diff_yahoo) }}</td>
+                </tr>
+                <tr class="border-b border-gray-700/50">
+                    <td class="py-1.5 px-3 text-gray-400">My Projected {{ stat_info('matchup-my-proj') }}</td>
+                    <td class="py-1.5 px-3 text-center text-blue-200 font-semibold text-lg">{{ "%.1f"|format(matchup_data.my_projected) }}</td>
+                    <td class="py-1.5 px-3 text-center text-red-200 font-semibold text-lg">{{ "%.1f"|format(matchup_data.opp_projected) }}</td>
+                    {% set diff_proj = matchup_data.my_projected - matchup_data.opp_projected %}
+                    <td class="py-1.5 px-3 text-center font-semibold {% if diff_proj > 0 %}text-green-400{% elif diff_proj < 0 %}text-red-400{% else %}text-gray-400{% endif %}">{{ "%+.1f"|format(diff_proj) }}</td>
+                </tr>
+                <tr>
+                    <td class="py-1.5 px-3 text-gray-300 font-medium">Actual</td>
+                    <td class="py-1.5 px-3 text-center text-white font-bold text-lg">{{ "%.1f"|format(matchup_data.my_actual) }}</td>
+                    <td class="py-1.5 px-3 text-center text-white font-bold text-lg">{{ "%.1f"|format(matchup_data.opp_actual) }}</td>
+                    {% set diff_actual = matchup_data.my_actual - matchup_data.opp_actual %}
+                    <td class="py-1.5 px-3 text-center font-bold {% if diff_actual > 0 %}text-green-400{% elif diff_actual < 0 %}text-red-400{% else %}text-gray-400{% endif %}">{{ "%+.1f"|format(diff_actual) }}</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {# ── Macro: render a team's player table with proj/actual per category ── #}
+    {% macro player_matchup_table(team_label, hitters, pitchers, batting_cats, pitching_cats, accent_color) %}
+    <div class="mb-6">
+        <h4 class="text-sm font-semibold text-{{ accent_color }}-400 uppercase tracking-wider mb-2">{{ team_label }}</h4>
+
+        {# Hitters #}
+        {% if hitters %}
+        <div class="overflow-x-auto mb-3">
+            <table class="w-full text-xs border-collapse">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-700">
+                        <th class="text-left py-1 px-2 sticky left-0 bg-gray-800 z-10" rowspan="2">Hitter</th>
+                        <th class="text-right py-0.5 px-1" colspan="2">Total Pts</th>
+                        {% for cat in batting_cats %}
+                        <th class="text-center py-0.5 px-1 border-l border-gray-700/30" colspan="2">{{ cat }}</th>
+                        {% endfor %}
+                    </tr>
+                    <tr class="text-gray-600 border-b border-gray-700 text-[10px]">
+                        <th class="text-right py-0.5 px-1">Proj</th>
+                        <th class="text-right py-0.5 px-1">Act</th>
+                        {% for cat in batting_cats %}
+                        <th class="text-right py-0.5 px-1 border-l border-gray-700/30">P</th>
+                        <th class="text-right py-0.5 px-1">A</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in hitters %}
+                    <tr class="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        {% set rp = p.roster_position|default('') %}
+                        {% set is_inactive = rp in ['BN', 'IL', 'NA'] %}
+                        <td class="py-1 px-2 whitespace-nowrap sticky left-0 bg-gray-800 z-10 {% if is_inactive %}text-gray-500 italic{% else %}text-gray-200{% endif %}">
+                            <span class="text-[10px] {% if is_inactive %}text-gray-600 bg-gray-700/50{% else %}text-gray-400 bg-gray-700{% endif %} rounded px-1 mr-1">{{ rp }}</span>{{ p.name }}{% if is_inactive %} <span class="text-[9px] text-gray-600">({{ rp }})</span>{% endif %}
+                        </td>
+                        <td class="py-1 px-1 text-right text-{{ accent_color }}-400/70">{{ "%.1f"|format(p.proj_pts) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-200 font-medium">{{ "%.1f"|format(p.actual_pts) }}</td>
+                        {% for cat in batting_cats %}
+                        <td class="py-1 px-1 text-right text-gray-500 border-l border-gray-700/30">{{ "%.0f"|format(p.proj_stats.get(cat, 0)) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-300">{{ "%.0f"|format(p.actual_stats.get(cat, 0)) }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    {# Totals row #}
+                    <tr class="border-t border-gray-600 font-semibold">
+                        <td class="py-1 px-2 text-gray-400 sticky left-0 bg-gray-800 z-10">TOTAL</td>
+                        <td class="py-1 px-1 text-right text-{{ accent_color }}-400">{{ "%.1f"|format(hitters|sum(attribute='proj_pts')) }}</td>
+                        <td class="py-1 px-1 text-right text-white">{{ "%.1f"|format(hitters|sum(attribute='actual_pts')) }}</td>
+                        {% for cat in batting_cats %}
+                        {% set ns = namespace(proj_sum=0, act_sum=0) %}
+                        {% for p in hitters %}{% set ns.proj_sum = ns.proj_sum + p.proj_stats.get(cat, 0) %}{% set ns.act_sum = ns.act_sum + p.actual_stats.get(cat, 0) %}{% endfor %}
+                        <td class="py-1 px-1 text-right text-gray-500 border-l border-gray-700/30">{{ "%.0f"|format(ns.proj_sum) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-300">{{ "%.0f"|format(ns.act_sum) }}</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {# Pitchers #}
+        {% if pitchers %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs border-collapse">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-700">
+                        <th class="text-left py-1 px-2 sticky left-0 bg-gray-800 z-10" rowspan="2">Pitcher</th>
+                        <th class="text-right py-0.5 px-1" colspan="2">Total Pts</th>
+                        {% for cat in pitching_cats %}
+                        <th class="text-center py-0.5 px-1 border-l border-gray-700/30" colspan="2">{{ cat }}</th>
+                        {% endfor %}
+                    </tr>
+                    <tr class="text-gray-600 border-b border-gray-700 text-[10px]">
+                        <th class="text-right py-0.5 px-1">Proj</th>
+                        <th class="text-right py-0.5 px-1">Act</th>
+                        {% for cat in pitching_cats %}
+                        <th class="text-right py-0.5 px-1 border-l border-gray-700/30">P</th>
+                        <th class="text-right py-0.5 px-1">A</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pitchers %}
+                    <tr class="border-b border-gray-700/30 hover:bg-gray-700/20">
+                        {% set rp = p.roster_position|default('') %}
+                        {% set is_inactive = rp in ['BN', 'IL', 'NA'] %}
+                        <td class="py-1 px-2 whitespace-nowrap sticky left-0 bg-gray-800 z-10 {% if is_inactive %}text-gray-500 italic{% else %}text-gray-200{% endif %}">
+                            <span class="text-[10px] {% if is_inactive %}text-gray-600 bg-gray-700/50{% else %}text-gray-400 bg-gray-700{% endif %} rounded px-1 mr-1">{{ rp }}</span>{{ p.name }}{% if is_inactive %} <span class="text-[9px] text-gray-600">({{ rp }})</span>{% endif %}
+                        </td>
+                        <td class="py-1 px-1 text-right text-{{ accent_color }}-400/70">{{ "%.1f"|format(p.proj_pts) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-200 font-medium">{{ "%.1f"|format(p.actual_pts) }}</td>
+                        {% for cat in pitching_cats %}
+                        <td class="py-1 px-1 text-right text-gray-500 border-l border-gray-700/30">{{ "%.0f"|format(p.proj_stats.get(cat, 0)) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-300">{{ "%.0f"|format(p.actual_stats.get(cat, 0)) }}</td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                    {# Totals row #}
+                    <tr class="border-t border-gray-600 font-semibold">
+                        <td class="py-1 px-2 text-gray-400 sticky left-0 bg-gray-800 z-10">TOTAL</td>
+                        <td class="py-1 px-1 text-right text-{{ accent_color }}-400">{{ "%.1f"|format(pitchers|sum(attribute='proj_pts')) }}</td>
+                        <td class="py-1 px-1 text-right text-white">{{ "%.1f"|format(pitchers|sum(attribute='actual_pts')) }}</td>
+                        {% for cat in pitching_cats %}
+                        {% set ns = namespace(proj_sum=0, act_sum=0) %}
+                        {% for p in pitchers %}{% set ns.proj_sum = ns.proj_sum + p.proj_stats.get(cat, 0) %}{% set ns.act_sum = ns.act_sum + p.actual_stats.get(cat, 0) %}{% endfor %}
+                        <td class="py-1 px-1 text-right text-gray-500 border-l border-gray-700/30">{{ "%.0f"|format(ns.proj_sum) }}</td>
+                        <td class="py-1 px-1 text-right text-gray-300">{{ "%.0f"|format(ns.act_sum) }}</td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    {% endmacro %}
+
+    {{ player_matchup_table(
+        matchup_data.my_team_name or 'My Team',
+        matchup_data.my_hitters,
+        matchup_data.my_pitchers,
+        matchup_data.batting_categories,
+        matchup_data.pitching_categories,
+        "blue"
+    ) }}
+
+    {{ player_matchup_table(
+        matchup_data.opponent_name,
+        matchup_data.opp_hitters,
+        matchup_data.opp_pitchers,
+        matchup_data.batting_categories,
+        matchup_data.pitching_categories,
+        "red"
+    ) }}
+</div>
+{% endif %}
+
 <!-- League Cards Row -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
     <!-- League Standings -->
@@ -158,28 +340,65 @@
         {% endif %}
     </div>
 
-    <!-- My Team Summary -->
+    <!-- Starting Lineup -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-semibold text-gray-200">My Team {{ page_info('my-team') }}</h3>
+            <h3 class="text-lg font-semibold text-gray-200">Starting Lineup {{ page_info('starting-lineup') }}</h3>
             {% if my_roster %}<a href="/roster" class="text-blue-400 text-xs hover:text-blue-300">Full roster</a>{% endif %}
         </div>
-        {% if my_roster %}
-        <div class="space-y-1">
-            {% for player in my_roster[:12] %}
-            <div class="flex items-center justify-between py-1 text-sm">
-                <div>
-                    {{ player_link(player.player_id, player.name, player.team, "text-gray-300") }}
+        {% if starting_lineup.hitters or starting_lineup.pitchers %}
+        <div class="text-xs">
+            <!-- Header -->
+            <div class="flex justify-between text-gray-500 border-b border-gray-700 pb-1 mb-1 uppercase tracking-wider">
+                <span>Player</span>
+                <div class="flex gap-3">
+                    <span class="w-12 text-right">Actual</span>
+                    <span class="w-12 text-right">Proj</span>
                 </div>
-                <span class="text-gray-400 text-xs bg-gray-700 px-1.5 py-0.5 rounded">{{ player.roster_position }}</span>
+            </div>
+            <!-- Hitters -->
+            {% if starting_lineup.hitters %}
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mt-2 mb-1 font-semibold">Hitters</p>
+            {% for p in starting_lineup.hitters %}
+            <div class="flex items-center justify-between py-0.5 text-sm">
+                <div class="flex items-center gap-1.5 overflow-hidden" style="flex: 1; min-width: 0;">
+                    <span class="text-gray-500 text-xs w-6 text-center shrink-0 bg-gray-700 rounded px-1">{{ p.roster_position }}</span>
+                    {{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}
+                </div>
+                <div class="flex gap-3 shrink-0 ml-2">
+                    <span class="w-12 text-right text-gray-300">{{ "%.0f"|format(p.actual_points) }}</span>
+                    <span class="w-12 text-right text-gray-500">{{ "%.0f"|format(p.projected_points) }}</span>
+                </div>
             </div>
             {% endfor %}
-            {% if my_roster|length > 12 %}
-            <p class="text-gray-500 text-xs mt-2">+ {{ my_roster|length - 12 }} more</p>
             {% endif %}
+            <!-- Pitchers -->
+            {% if starting_lineup.pitchers %}
+            <p class="text-gray-500 text-[10px] uppercase tracking-wider mt-2 mb-1 font-semibold">Pitchers</p>
+            {% for p in starting_lineup.pitchers %}
+            <div class="flex items-center justify-between py-0.5 text-sm">
+                <div class="flex items-center gap-1.5 overflow-hidden" style="flex: 1; min-width: 0;">
+                    <span class="text-gray-500 text-xs w-6 text-center shrink-0 bg-gray-700 rounded px-1">{{ p.roster_position }}</span>
+                    {{ player_link(p.player_id, p.name, p.team, "text-gray-300") }}
+                </div>
+                <div class="flex gap-3 shrink-0 ml-2">
+                    <span class="w-12 text-right text-gray-300">{{ "%.0f"|format(p.actual_points) }}</span>
+                    <span class="w-12 text-right text-gray-500">{{ "%.0f"|format(p.projected_points) }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+            <!-- Totals -->
+            <div class="flex items-center justify-between py-1.5 mt-1 border-t border-gray-700 text-sm font-semibold">
+                <span class="text-gray-400">TOTAL</span>
+                <div class="flex gap-3">
+                    <span class="w-12 text-right text-white">{{ "%.0f"|format(starting_lineup.total_actual) }}</span>
+                    <span class="w-12 text-right text-gray-400">{{ "%.0f"|format(starting_lineup.total_projected) }}</span>
+                </div>
+            </div>
         </div>
         {% else %}
-        <p class="text-gray-400 text-sm">Your roster will appear here after syncing.</p>
+        <p class="text-gray-400 text-sm">Your starting lineup will appear here after syncing.</p>
         {% endif %}
     </div>
 

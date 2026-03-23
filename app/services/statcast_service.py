@@ -15,6 +15,24 @@ XSTATS_COL_MAP = {
     "est_ba": "xba",
     "est_slg": "xslg",
     "est_woba": "xwoba",
+    "whiff_percent": "whiff_pct",
+}
+
+# Pitcher-specific expected stats (includes xERA)
+PITCHER_XSTATS_COL_MAP = {
+    "player_id": "mlbam_id",
+    "pa": "pa",
+    "est_ba": "xba",
+    "est_slg": "xslg",
+    "est_woba": "xwoba",
+    "est_era": "xera",
+    "whiff_percent": "whiff_pct",
+}
+
+# Column mapping for sprint speed data
+SPRINT_SPEED_COL_MAP = {
+    "player_id": "mlbam_id",
+    "hp_to_1b": "sprint_speed",
 }
 
 # Column mapping for exit velo/barrel data (from statcast_batter/pitcher_exitvelo_barrels)
@@ -117,7 +135,9 @@ async def fetch_statcast_pitching_summary(season: int) -> pd.DataFrame:
         return pd.DataFrame()
 
     xstats_mapped = (
-        _rename_and_select(xstats_df, XSTATS_COL_MAP) if not xstats_df.empty else pd.DataFrame()
+        _rename_and_select(xstats_df, PITCHER_XSTATS_COL_MAP)
+        if not xstats_df.empty
+        else pd.DataFrame()
     )
     ev_mapped = _rename_and_select(ev_df, EV_BARREL_COL_MAP) if not ev_df.empty else pd.DataFrame()
 
@@ -128,5 +148,30 @@ async def fetch_statcast_pitching_summary(season: int) -> pd.DataFrame:
     else:
         merged = ev_mapped
 
+    # Derive xERA from xwOBA-against if not directly available
+    if "xera" not in merged.columns and "xwoba" in merged.columns:
+        league_avg_woba = 0.320
+        league_avg_era = 4.00
+        merged["xera"] = (merged["xwoba"] / league_avg_woba) * league_avg_era
+
     logger.info(f"Got {len(merged)} pitcher Statcast summary rows for {season}")
     return merged
+
+
+async def fetch_sprint_speed(season: int) -> pd.DataFrame:
+    """Fetch sprint speed data for all players in a season.
+
+    Returns DataFrame with mlbam_id and sprint_speed (ft/s).
+    """
+    logger.info(f"Fetching Statcast sprint speed data for {season}")
+    try:
+        df = await _fetch_with_retry(pybaseball.statcast_sprint_speed, season)
+        if df.empty:
+            logger.warning(f"No sprint speed data returned for {season}")
+            return pd.DataFrame()
+        mapped = _rename_and_select(df, SPRINT_SPEED_COL_MAP)
+        logger.info(f"Got {len(mapped)} sprint speed rows for {season}")
+        return mapped
+    except Exception as e:
+        logger.warning(f"Failed to fetch sprint speed data: {e}")
+        return pd.DataFrame()

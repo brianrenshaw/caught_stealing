@@ -1,7 +1,9 @@
 """Fantasy baseball rankings engine.
 
 Converts raw projections into actionable fantasy rankings with
-5x5 roto scoring, points league scoring, and position scarcity adjustments.
+5x5 roto scoring, H2H points league scoring, and position scarcity adjustments.
+
+The default scoring_type is "points" which uses the Galactic Empire league config.
 """
 
 import logging
@@ -10,6 +12,11 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.league_config import REPLACEMENT_LEVEL_SLOTS
+from app.models.batting_stats import BattingStats
+from app.models.pitching_stats import PitchingStats
+from app.models.player import Player
+from app.models.player_points import PlayerPoints
 from app.models.statcast_summary import StatcastSummary
 from app.services.projection_service import (
     HitterProjection,
@@ -27,7 +34,7 @@ PITCHING_CATEGORIES = ["W", "SV", "K", "ERA", "WHIP"]
 # Categories where lower is better
 LOWER_IS_BETTER = {"ERA", "WHIP"}
 
-# Typical roster spots per position in a 12-team league
+# Typical roster spots per position in a 12-team league (roto)
 ROSTER_SPOTS = {
     "C": 12,
     "1B": 12,
@@ -38,32 +45,6 @@ ROSTER_SPOTS = {
     "SP": 84,  # ~7 SP * 12 teams
     "RP": 36,  # ~3 RP * 12 teams
 }
-
-
-@dataclass
-class ScoringConfig:
-    """Points league scoring weights."""
-
-    # Hitting
-    h: float = 1.0
-    doubles: float = 2.0
-    triples: float = 3.0
-    hr: float = 4.0
-    r: float = 1.0
-    rbi: float = 1.0
-    bb: float = 1.0
-    sb: float = 2.0
-    cs: float = -1.0
-    so_hitting: float = -0.5
-    # Pitching
-    ip: float = 3.0
-    w: float = 5.0
-    sv: float = 5.0
-    k: float = 1.0
-    er: float = -2.0
-    h_pitching: float = -0.5
-    bb_pitching: float = -0.5
-    qs: float = 3.0
 
 
 @dataclass
@@ -94,6 +75,15 @@ class RankedPlayer:
     trend: str = "stable"  # hot, cold, stable
     player_type: str = "hitter"  # hitter or pitcher
     confidence: float = 0.0
+    # Points league fields
+    projected_points: float = 0.0
+    actual_points: float = 0.0
+    points_per_pa: float | None = None
+    points_per_ip: float | None = None
+    points_per_start: float | None = None
+    points_per_appearance: float | None = None
+    surplus_value: float = 0.0
+    is_reliever: bool = False
 
 
 def _rank_category(players: list[dict], cat: str) -> list[dict]:
@@ -281,21 +271,79 @@ async def _detect_trend(session: AsyncSession, player_id: int, season: int) -> s
 async def get_overall_rankings(
     session: AsyncSession,
     season: int,
-    scoring_type: str = "roto",
+    scoring_type: str = "points",
     limit: int = 300,
 ) -> list[RankedPlayer]:
-    """Generate overall fantasy rankings."""
-    hitter_projs = await project_all_hitters(session, season)
-    pitcher_projs = await project_all_pitchers(session, season)
+    """Generate overall fantasy rankings.
 
-    ranked = _compute_roto_rankings(hitter_projs, pitcher_projs)
-    ranked = _apply_position_scarcity(ranked)
+    scoring_type: "points" (default, H2H points league) or "roto" (5x5 roto)
+    """
+    if scoring_type == "points":
+        ranked = await _compute_points_rankings(session, season, limit)
+    else:
+        hitter_projs = await project_all_hitters(session, season)
+        pitcher_projs = await project_all_pitchers(session, season)
+        ranked = _compute_roto_rankings(hitter_projs, pitcher_projs)
+        ranked = _apply_position_scarcity(ranked)
 
     # Add trend detection for top players
     for r in ranked[: min(limit, 100)]:
         r.trend = await _detect_trend(session, r.player_id, season)
 
     return ranked[:limit]
+
+
+async def _compute_points_rankings(
+    session: AsyncSession,
+    season: int,
+    limit: int = 300,
+) -> list[RankedPlayer]:
+    """Compute rankings based on H2H Points league scoring.
+
+    Reads from the player_points table (populated by points_service).
+    Primary sort: projected_ros_points descending.
+    """
+    result = await session.execute(
+        select(PlayerPoints, Player)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+        )
+        .order_by(PlayerPoints.projected_ros_points.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for pp, player in result.all():
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=0,
+                position_rank=pp.positional_rank or 0,
+                player_type=pp.player_type,
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                composite_score=pp.projected_ros_points or 0.0,
+                value_above_replacement=pp.surplus_value or 0.0,
+                surplus_value=pp.surplus_value or 0.0,
+                points_per_pa=pp.points_per_pa,
+                points_per_ip=pp.points_per_ip,
+                points_per_start=pp.points_per_start,
+                points_per_appearance=pp.points_per_appearance,
+                is_reliever=pp.points_per_appearance is not None,
+                confidence=0.0,
+            )
+        )
+
+    # Assign overall rank
+    for i, r in enumerate(ranked, 1):
+        r.overall_rank = i
+
+    return ranked
 
 
 async def get_position_rankings(
@@ -339,3 +387,264 @@ async def get_hot_pickups(
     hot = [r for r in all_ranked if r.trend == "hot"]
     hot.sort(key=lambda r: r.value_above_replacement, reverse=True)
     return hot[:limit]
+
+
+# ── League-Specific Points Ranking Views ──
+
+
+async def get_reliever_rankings(
+    session: AsyncSession, season: int, limit: int = 50
+) -> list[RankedPlayer]:
+    """Relievers ranked by projected points from SV + HLD + RW + base pitching.
+
+    Shows saves, holds, K/9, ERA, and projected total points.
+    Flags closers vs setup men vs middle relievers.
+    """
+    result = await session.execute(
+        select(PlayerPoints, Player, PitchingStats)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .join(
+            PitchingStats,
+            (PitchingStats.player_id == Player.id)
+            & (PitchingStats.season == PlayerPoints.season)
+            & (PitchingStats.period == "full_season"),
+        )
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.player_type == "pitcher",
+            PlayerPoints.points_per_appearance.isnot(None),
+        )
+        .order_by(PlayerPoints.projected_ros_points.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for i, (pp, player, ps) in enumerate(result.all(), 1):
+        # Determine role
+        sv = ps.sv or 0
+        hld = ps.hld or 0
+        if sv > 0:
+            role = "closer"
+        elif hld > 0:
+            role = "setup"
+        else:
+            role = "middle"
+
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=i,
+                player_type="pitcher",
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                points_per_appearance=pp.points_per_appearance,
+                points_per_ip=pp.points_per_ip,
+                projected_sv=sv,
+                projected_k=ps.so or 0,
+                projected_era=ps.era or 0.0,
+                projected_whip=ps.whip or 0.0,
+                surplus_value=pp.surplus_value or 0.0,
+                is_reliever=True,
+                trend=role,  # reuse trend field to indicate role
+            )
+        )
+
+    return ranked
+
+
+async def get_innings_eater_rankings(
+    session: AsyncSession, season: int, limit: int = 30
+) -> list[RankedPlayer]:
+    """Starting pitchers ranked by total projected points with emphasis on volume.
+
+    Shows projected IP, points_per_start, ERA, K/9, QS rate.
+    """
+    result = await session.execute(
+        select(PlayerPoints, Player, PitchingStats)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .join(
+            PitchingStats,
+            (PitchingStats.player_id == Player.id)
+            & (PitchingStats.season == PlayerPoints.season)
+            & (PitchingStats.period == "full_season"),
+        )
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.player_type == "pitcher",
+            PlayerPoints.points_per_start.isnot(None),
+        )
+        .order_by(PlayerPoints.projected_ros_points.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for i, (pp, player, ps) in enumerate(result.all(), 1):
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=i,
+                player_type="pitcher",
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                points_per_start=pp.points_per_start,
+                points_per_ip=pp.points_per_ip,
+                projected_k=ps.so or 0,
+                projected_era=ps.era or 0.0,
+                projected_whip=ps.whip or 0.0,
+                surplus_value=pp.surplus_value or 0.0,
+            )
+        )
+
+    return ranked
+
+
+async def get_contact_hitter_rankings(
+    session: AsyncSession, season: int, limit: int = 30
+) -> list[RankedPlayer]:
+    """Hitters ranked by points_per_pa with below-league-average K%.
+
+    These are the "sneaky value" players in H2H points scoring where K=-0.5.
+    """
+    # Get league average K%
+    avg_k_result = await session.execute(
+        select(BattingStats.k_pct)
+        .where(
+            BattingStats.season == season,
+            BattingStats.period == "full_season",
+            BattingStats.pa >= 100,
+            BattingStats.k_pct.isnot(None),
+        )
+    )
+    k_pcts = [row[0] for row in avg_k_result.all() if row[0] is not None]
+    avg_k_pct = sum(k_pcts) / len(k_pcts) if k_pcts else 0.22
+
+    result = await session.execute(
+        select(PlayerPoints, Player, BattingStats)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .join(
+            BattingStats,
+            (BattingStats.player_id == Player.id)
+            & (BattingStats.season == PlayerPoints.season)
+            & (BattingStats.period == "full_season"),
+        )
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.player_type == "hitter",
+            PlayerPoints.points_per_pa.isnot(None),
+            BattingStats.k_pct < avg_k_pct,
+            BattingStats.pa >= 100,
+        )
+        .order_by(PlayerPoints.points_per_pa.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for i, (pp, player, bs) in enumerate(result.all(), 1):
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=i,
+                player_type="hitter",
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                points_per_pa=pp.points_per_pa,
+                projected_avg=bs.avg or 0.0,
+                surplus_value=pp.surplus_value or 0.0,
+            )
+        )
+
+    return ranked
+
+
+async def get_points_per_start_leaders(
+    session: AsyncSession, season: int, limit: int = 30
+) -> list[RankedPlayer]:
+    """Starters ranked by average points per start over the last 30 days.
+
+    Best metric for weekly streaming decisions.
+    """
+    result = await session.execute(
+        select(PlayerPoints, Player)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "last_30",
+            PlayerPoints.player_type == "pitcher",
+            PlayerPoints.points_per_start.isnot(None),
+        )
+        .order_by(PlayerPoints.points_per_start.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for i, (pp, player) in enumerate(result.all(), 1):
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=i,
+                player_type="pitcher",
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                points_per_start=pp.points_per_start,
+                points_per_ip=pp.points_per_ip,
+            )
+        )
+
+    return ranked
+
+
+async def get_risk_assessment(
+    session: AsyncSession, season: int, limit: int = 30
+) -> list[RankedPlayer]:
+    """Pitchers ranked by variance in points per start.
+
+    High variance = risky streamer. Low variance + high average = safe ace.
+    Uses full_season and last_30 points_per_start to estimate consistency.
+    """
+    # Get full season and last 30 points for starters
+    full_result = await session.execute(
+        select(PlayerPoints, Player)
+        .join(Player, PlayerPoints.player_id == Player.id)
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.player_type == "pitcher",
+            PlayerPoints.points_per_start.isnot(None),
+        )
+        .order_by(PlayerPoints.points_per_start.desc())
+        .limit(limit)
+    )
+
+    ranked: list[RankedPlayer] = []
+    for i, (pp, player) in enumerate(full_result.all(), 1):
+        ranked.append(
+            RankedPlayer(
+                player_id=player.id,
+                name=player.name,
+                team=player.team,
+                position=player.position,
+                overall_rank=i,
+                player_type="pitcher",
+                projected_points=pp.projected_ros_points or 0.0,
+                actual_points=pp.actual_points or 0.0,
+                points_per_start=pp.points_per_start,
+                surplus_value=pp.surplus_value or 0.0,
+            )
+        )
+
+    return ranked

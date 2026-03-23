@@ -6,11 +6,11 @@ from pydantic_settings import BaseSettings
 def default_season() -> int:
     """Return the current MLB season year.
 
-    Before April, defaults to the previous year since the new season
-    hasn't started yet.
+    Before March, defaults to the previous year since drafts and
+    spring training haven't started yet.
     """
     today = date.today()
-    return today.year if today.month >= 4 else today.year - 1
+    return today.year if today.month >= 3 else today.year - 1
 
 
 class Settings(BaseSettings):

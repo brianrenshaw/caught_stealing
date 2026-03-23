@@ -37,6 +37,7 @@ class BattingStats(Base):
     cs: Mapped[float | None] = mapped_column(Float, nullable=True)
     bb: Mapped[float | None] = mapped_column(Float, nullable=True)
     so: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hbp: Mapped[float | None] = mapped_column(Float, nullable=True)  # hit by pitch
 
     # Rate stats
     avg: Mapped[float | None] = mapped_column(Float, nullable=True)

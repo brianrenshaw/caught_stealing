@@ -9,23 +9,37 @@ from app.models.batting_stats import BattingStats
 from app.models.league_team import LeagueTeam
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
+from app.models.player_points import PlayerPoints
 from app.models.roster import Roster
 from app.models.statcast_summary import StatcastSummary
-from app.models.stats import Stat
 from app.models.sync_log import SyncLog
 from app.services.yahoo_service import yahoo_service
+
+BENCH_POSITIONS = {"BN", "IL", "NA"}
+HITTER_POSITIONS = {"C", "1B", "2B", "3B", "SS", "OF", "Util"}
+PITCHER_POSITIONS = {"SP", "RP", "P"}
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
 
 async def _get_available_seasons(session) -> list[int]:
-    """Return all seasons that have stats data, descending."""
+    """Return all seasons that have stats data, descending.
+
+    Always includes the current default season so the user can select it
+    even before any stats data has been synced for that year.
+    """
     batting_seasons = select(BattingStats.season).distinct()
     pitching_seasons = select(PitchingStats.season).distinct()
     combined = union(batting_seasons, pitching_seasons).subquery()
     result = await session.execute(select(combined.c.season).order_by(combined.c.season.desc()))
-    return [row[0] for row in result.fetchall()]
+    seasons = [row[0] for row in result.fetchall()]
+
+    # Always include the current season so it appears in the dropdown
+    current = default_season()
+    if current not in seasons:
+        seasons.insert(0, current)
+    return sorted(seasons, reverse=True)
 
 
 async def _get_top_hitters(session, season: int, limit: int = 20) -> list[dict]:
@@ -204,6 +218,8 @@ async def dashboard(request: Request, season: int | None = Query(None)):
 
     standings = []
     my_roster = []
+    starting_lineup = {"hitters": [], "pitchers": [], "total_actual": 0, "total_projected": 0}
+    matchup_data = None
     last_sync = None
     league_name = None
     streaming_picks = []
@@ -260,7 +276,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             lid = yahoo_service._query.league_id if yahoo_service._query else ""
             league_name = f"League {lid}"
 
-            # Get my roster with player info (if available)
+            # Get my roster with player info and build starting lineup
             result = await session.execute(
                 select(Roster)
                 .options(selectinload(Roster.player))
@@ -268,26 +284,56 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             )
             roster_entries = result.scalars().all()
 
+            # Bulk-fetch PlayerPoints for all roster players
+            roster_player_ids = [
+                e.player.id for e in roster_entries if e.player
+            ]
+            pp_result = await session.execute(
+                select(PlayerPoints).where(
+                    PlayerPoints.player_id.in_(roster_player_ids),
+                    PlayerPoints.season == selected_season,
+                    PlayerPoints.period == "full_season",
+                )
+            )
+            pp_map = {pp.player_id: pp for pp in pp_result.scalars().all()}
+
             for entry in roster_entries:
                 player = entry.player
                 if not player:
                     continue
 
-                stat_result = await session.execute(
-                    select(Stat).where(Stat.player_id == player.id, Stat.source == "yahoo")
-                )
-                player_stats = {s.stat_name: s.value for s in stat_result.scalars().all()}
+                pp = pp_map.get(player.id)
+                player_data = {
+                    "player_id": player.id,
+                    "name": player.name,
+                    "team": player.team,
+                    "position": player.position or entry.roster_position,
+                    "roster_position": entry.roster_position,
+                    "actual_points": round(pp.actual_points, 1) if pp and pp.actual_points else 0,
+                    "projected_points": (
+                        round(pp.projected_ros_points, 1)
+                        if pp and pp.projected_ros_points
+                        else 0
+                    ),
+                }
 
-                my_roster.append(
-                    {
-                        "player_id": player.id,
-                        "name": player.name,
-                        "team": player.team,
-                        "position": player.position or entry.roster_position,
-                        "roster_position": entry.roster_position,
-                        "stats": player_stats,
-                    }
-                )
+                my_roster.append(player_data)
+
+                # Build starting lineup (active positions only)
+                if entry.roster_position not in BENCH_POSITIONS:
+                    if entry.roster_position in HITTER_POSITIONS:
+                        starting_lineup["hitters"].append(player_data)
+                    elif entry.roster_position in PITCHER_POSITIONS:
+                        starting_lineup["pitchers"].append(player_data)
+
+            starting_lineup["total_actual"] = sum(
+                p["actual_points"]
+                for p in starting_lineup["hitters"] + starting_lineup["pitchers"]
+            )
+            starting_lineup["total_projected"] = sum(
+                p["projected_points"]
+                for p in starting_lineup["hitters"] + starting_lineup["pitchers"]
+            )
 
             # Load analysis data (gracefully handle missing stats data)
             try:
@@ -322,6 +368,48 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             k_leaders = await _get_k_leaders(session, selected_season)
             stats_summary = await _get_stats_summary(session, selected_season)
 
+    # Fetch weekly matchup data in a separate session to avoid blocking
+    if not setup_needed:
+        try:
+            from app.services.weekly_matchup_service import (
+                build_matchup_display,
+                get_or_create_weekly_snapshot,
+            )
+
+            async with async_session() as matchup_session:
+                snapshot = await get_or_create_weekly_snapshot(
+                    matchup_session, selected_season
+                )
+                if snapshot:
+                    display = build_matchup_display(snapshot)
+                    matchup_data = {
+                        "opponent_name": snapshot.opponent_team_name,
+                        "my_team_name": snapshot.my_team_name,
+                        "week": snapshot.week,
+                        "my_actual": round(
+                            snapshot.my_actual_points or 0, 1
+                        ),
+                        "opp_actual": round(
+                            snapshot.opponent_actual_points or 0, 1
+                        ),
+                        "my_projected": display["my_proj_total"],
+                        "opp_projected": display["opp_proj_total"],
+                        "my_yahoo_projected": round(
+                            snapshot.my_projected_points or 0, 1
+                        ),
+                        "opp_yahoo_projected": round(
+                            snapshot.opponent_projected_points or 0, 1
+                        ),
+                        **display,
+                    }
+                await matchup_session.commit()
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"Matchup data fetch failed: {e}"
+            )
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -329,6 +417,8 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             "setup_needed": setup_needed,
             "standings": standings,
             "my_roster": my_roster,
+            "starting_lineup": starting_lineup,
+            "matchup_data": matchup_data,
             "last_sync": last_sync,
             "league_name": league_name,
             "streaming_picks": streaming_picks,
@@ -343,6 +433,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             "k_leaders": k_leaders,
             "selected_season": selected_season,
             "available_seasons": available_seasons,
+            "sync_seasons": list(range(default_season(), 2014, -1)),
             "stats_summary": stats_summary,
         },
     )

@@ -6,7 +6,23 @@
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
+<h2 class="text-2xl font-bold mb-2">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
+
+<!-- League Scoring Context -->
+<div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 mb-6">
+    <p class="text-sm text-gray-300 leading-relaxed">
+        All trade values are calculated using your league's <span class="text-blue-400 font-medium">H2H Points scoring</span>.
+        Unlike generic fantasy rankings, this analysis accounts for the specific point values that make your league unique.
+        Closers are worth far more here than in most formats (<span class="text-green-400">SV = 7 pts</span>), and
+        high-strikeout hitters carry a hidden penalty (<span class="text-red-400">K = -0.5 pts</span>).
+        A player's <span class="text-white font-medium">Projected Points</span> is their estimated rest-of-season fantasy point total,
+        while <span class="text-white font-medium">Surplus Value</span> shows how many points they're worth above a freely
+        available replacement at the same position — the number that actually matters for trades.
+    </p>
+    <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-500">
+        <span>Key values: <span class="text-green-400">SV=7</span> <span class="text-green-400">HLD=4</span> <span class="text-green-400">RW=4</span> OUT=1.5 <span class="text-red-400">ER=-4</span> <span class="text-red-400">K(bat)=-0.5</span> BB=1 HR=4</span>
+    </div>
+</div>
 
 <!-- Trade Evaluation Form -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
@@ -99,7 +115,18 @@
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
     <div class="p-4 border-b border-gray-700">
         <h3 class="text-lg font-semibold text-gray-200">Trade Value Rankings {{ page_info('trade-value-rankings') }}</h3>
-        <p class="text-gray-500 text-xs mt-1">Surplus value = z-score total minus position replacement level</p>
+        <p class="text-gray-400 text-sm mt-2 leading-relaxed">
+            Players ranked by <span class="text-white font-medium">Surplus Value</span> — the projected rest-of-season
+            fantasy points above what a replacement-level player at the same position would produce. This is the single
+            most important number for evaluating trades: a positive surplus means the player is worth more than what's
+            freely available on waivers, and the higher the number, the more you should demand in return.
+        </p>
+        <p class="text-gray-500 text-xs mt-2">
+            Note that relievers often rank surprisingly high because saves are worth 7 points each in this format.
+            An elite closer producing 35 saves generates 245 points from saves alone — that's hard to replace.
+            Similarly, innings-eating starters rank well because every IP generates 4.5 base points from outs.
+            Don't trade your closer for a middling bat just because traditional rankings say the hitter is "better."
+        </p>
     </div>
     {% if trade_values %}
     <div class="overflow-x-auto">
@@ -110,8 +137,8 @@
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap">Pos Rank {{ stat_info('Pos Rank') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Z-Score {{ stat_info('Z-Score') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Surplus {{ stat_info('Surplus') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Proj Pts {{ stat_info('projected_points') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Surplus {{ stat_info('surplus_value') }}</th>
                     <th class="text-center py-2 px-3">Add</th>
                 </tr>
             </thead>
@@ -124,11 +151,11 @@
                     </td>
                     <td class="py-2 px-1 text-gray-400 text-xs">{{ player.position }}</td>
                     <td class="py-2 px-3 text-right text-gray-400">{{ player.positional_rank }}</td>
-                    <td class="py-2 px-3 text-right {% if player.z_score_total > 0 %}text-green-400{% else %}text-red-400{% endif %}">
-                        {{ "%.2f"|format(player.z_score_total) }}
+                    <td class="py-2 px-3 text-right {% if player.get('projected_points', player.get('z_score_total', 0)) > 200 %}text-green-400{% elif player.get('projected_points', player.get('z_score_total', 0)) > 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                        {{ "%.1f"|format(player.get('projected_points', player.get('z_score_total', 0))) }}
                     </td>
                     <td class="py-2 px-3 text-right {% if player.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
-                        {{ "%.2f"|format(player.surplus_value) }}
+                        {{ "%.1f"|format(player.surplus_value) }}
                     </td>
                     <td class="py-2 px-3 text-center">
                         <div class="flex justify-center gap-1">

@@ -19,7 +19,7 @@ class TestPositionEligibility:
         assert _is_eligible(["SS"], "SS") is True
 
     def test_eligible_for_util(self):
-        assert _is_eligible(["3B"], "UTIL") is True
+        assert _is_eligible(["3B"], "Util") is True
 
     def test_not_eligible_wrong_position(self):
         assert _is_eligible(["SS"], "C") is False
@@ -31,7 +31,7 @@ class TestPositionEligibility:
         assert _is_eligible(["RF"], "OF") is True
 
     def test_pitcher_not_eligible_for_util(self):
-        assert _is_eligible(["SP"], "UTIL") is False
+        assert _is_eligible(["SP"], "Util") is False
 
     def test_pitcher_eligible_for_p_slot(self):
         assert _is_eligible(["SP"], "P") is True
@@ -40,4 +40,4 @@ class TestPositionEligibility:
     def test_multi_position_eligible(self):
         assert _is_eligible(["2B", "SS"], "SS") is True
         assert _is_eligible(["2B", "SS"], "2B") is True
-        assert _is_eligible(["2B", "SS"], "UTIL") is True
+        assert _is_eligible(["2B", "SS"], "Util") is True

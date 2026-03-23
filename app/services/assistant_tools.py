@@ -650,6 +650,86 @@ async def handle_evaluate_trade(
         "net_value": round(net, 2),
         "verdict": verdict,
         "fairness": result.fairness,
+        "scoring_type": result.scoring_type,
+        "points_analysis": result.points_analysis,
+    }
+
+
+async def handle_get_player_points(
+    session: AsyncSession,
+    player_name: str,
+) -> dict:
+    """Get a player's fantasy points data for this league's scoring system."""
+    from app.models.player_points import PlayerPoints
+
+    lookup = await find_player(session, player_name)
+    if not lookup["found"]:
+        return lookup
+    if lookup["multiple"]:
+        return {"multiple_matches": lookup["players"]}
+
+    player = lookup["player"]
+    season = date.today().year
+
+    pp_result = await session.execute(
+        select(PlayerPoints).where(
+            PlayerPoints.player_id == player.id,
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+        )
+    )
+    pp = pp_result.scalar_one_or_none()
+
+    if not pp:
+        return {
+            "player": player.name,
+            "error": "No points data available. Run the points calculation first.",
+        }
+
+    return {
+        "player": player.name,
+        "team": player.team,
+        "position": player.position,
+        "player_type": pp.player_type,
+        "actual_points": pp.actual_points,
+        "projected_ros_points": pp.projected_ros_points,
+        "points_per_pa": pp.points_per_pa,
+        "points_per_ip": pp.points_per_ip,
+        "points_per_start": pp.points_per_start,
+        "points_per_appearance": pp.points_per_appearance,
+        "positional_rank": pp.positional_rank,
+        "surplus_value": pp.surplus_value,
+        "scoring_note": (
+            "This league: SV=7, HLD=4, RW=4, OUT=1.5, K(pitcher)=0.5, "
+            "ER=-4, H(pitcher)=-0.75, BB(pitcher)=-0.75, "
+            "HR=4, 1B=1, 2B=2, 3B=3, R=1, RBI=1, SB=2, BB=1, K(batter)=-0.5"
+        ),
+    }
+
+
+async def handle_get_scoring_config(
+    session: AsyncSession,
+) -> dict:
+    """Return the league scoring configuration."""
+    from app.league_config import LEAGUE_CONFIG
+
+    return {
+        "league": LEAGUE_CONFIG["league_name"],
+        "scoring_type": LEAGUE_CONFIG["scoring_type"],
+        "teams": LEAGUE_CONFIG["teams"],
+        "keeper": LEAGUE_CONFIG["keeper"],
+        "batting_scoring": LEAGUE_CONFIG["batting_scoring"],
+        "pitching_scoring": LEAGUE_CONFIG["pitching_scoring"],
+        "roster_slots": LEAGUE_CONFIG["roster_slots"],
+        "key_insights": [
+            "Saves = 7 pts — elite closers are premium assets",
+            "Holds = 4 pts — setup men have real value",
+            "Each out = 1.5 pts (IP = 4.5) — innings eaters are gold",
+            "ER = -4 pts — blowups are devastating, avoid volatile starters",
+            "Batter K = -0.5 — contact hitters gain edge over TTO sluggers",
+            "BB = 1 pt — walks are free points, high-OBP hitters undervalued",
+            "4 flexible P slots — can load SP or RP based on matchups",
+        ],
     }
 
 
@@ -849,8 +929,10 @@ TOOL_DEFINITIONS: list[dict] = [
         "name": "evaluate_trade",
         "description": (
             "Evaluate a fantasy baseball trade by comparing the projected "
-            "surplus value of players on both sides. Use this when the user "
-            "asks about a specific trade or wants to know if a trade is fair."
+            "fantasy points surplus value of players on both sides. Returns "
+            "league-specific analysis including points breakdown, reliever "
+            "premium, and innings value. Use this when the user asks about "
+            "a specific trade or wants to know if a trade is fair."
         ),
         "input_schema": {
             "type": "object",
@@ -869,6 +951,40 @@ TOOL_DEFINITIONS: list[dict] = [
             "required": ["giving_away", "receiving"],
         },
     },
+    {
+        "name": "get_player_points",
+        "description": (
+            "Get a player's projected fantasy points breakdown for this "
+            "H2H Points league (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). "
+            "Returns actual points, projected ROS points, points per PA "
+            "(hitters) or points per IP/start/appearance (pitchers), and "
+            "surplus value above replacement. Use this when the user asks "
+            "about a player's fantasy points value or ranking."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "player_name": {
+                    "type": "string",
+                    "description": "Full or partial player name to search for",
+                },
+            },
+            "required": ["player_name"],
+        },
+    },
+    {
+        "name": "get_scoring_config",
+        "description": (
+            "Get the league's scoring rules and configuration including "
+            "point values for all stats, roster slots, and strategic "
+            "insights. Use this when the user asks about the scoring "
+            "system or how specific stats are valued."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
 ]
 
 # Handler registry: tool name → async handler function
@@ -882,4 +998,6 @@ TOOL_HANDLERS = {
     "get_waiver_recommendations": handle_get_waiver_recommendations,
     "get_team_schedule": handle_get_team_schedule,
     "evaluate_trade": handle_evaluate_trade,
+    "get_player_points": handle_get_player_points,
+    "get_scoring_config": handle_get_scoring_config,
 }

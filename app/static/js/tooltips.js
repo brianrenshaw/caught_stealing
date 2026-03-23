@@ -22,6 +22,14 @@ const TOOLTIP_DATA = {
       title: "My Team",
       description: "A quick snapshot of your Yahoo Fantasy roster showing your first 12 players with their current position assignments."
     },
+    "starting-lineup": {
+      title: "Starting Lineup",
+      description: "Your active roster players (excluding bench, IL, and NA) with their season-long actual and projected fantasy points. Actual = points earned so far. Projected = estimated rest-of-season total. Use this to spot underperformers who might need benching."
+    },
+    "matchup-analysis": {
+      title: "Weekly Matchup Analysis",
+      description: "Your current H2H matchup with player-by-player projected vs actual stats. Each category column shows P (projected) and A (actual). Three projection rows: Yahoo Projected (Yahoo's own estimate), My Projected (schedule-aware custom model), and Actual (live from Yahoo sync)."
+    },
     "buy-low": {
       title: "Buy Low",
       description: "Players whose expected performance (xwOBA from Statcast) exceeds their actual results. They're hitting the ball well but getting unlucky — their stats will likely improve. Target these players in trades while their perceived value is low."
@@ -47,18 +55,18 @@ const TOOLTIP_DATA = {
 
     // Trade Analyzer
     "trade-analyzer": {
-      title: "Trade Analyzer",
-      description: "Enter player IDs for each side of a trade to get an objective evaluation. The analyzer compares surplus value (how much better each player is than a free agent at the same position) to determine trade fairness."
+      title: "Trade Analyzer (H2H Points)",
+      description: "All trade values use your league's scoring system (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). Each player's value is their projected rest-of-season fantasy points above replacement. The analysis explains why a trade is good or bad in your specific format — highlighting reliever premium, innings value, and K-rate impact."
     },
     "trade-value-rankings": {
       title: "Trade Value Rankings",
-      description: "All players ranked by surplus value — their z-score total minus replacement level at their position. Green values are positive (worth more than a waiver pickup). Red values mean the player is below replacement level. Use this to identify who to target and who to sell."
+      description: "Players ranked by Surplus Value — projected fantasy points above what a replacement-level player at the same position would produce. Positive (green) = worth more than a waiver pickup. Negative (red) = below replacement. Closers and innings-eating starters often rank surprisingly high because SV=7 and IP=4.5 in this format."
     },
 
     // Waivers
     "waivers": {
-      title: "Waiver Wire Recommendations",
-      description: "Free agents scored 0–100 using a composite of projection value (30%), recent trend (30%), positional scarcity (20%), ownership (10%), and schedule (10%). Higher scores indicate stronger pickup candidates. The BUY LOW badge highlights players whose Statcast data suggests they're better than their surface stats show."
+      title: "Waiver Wire (H2H Points)",
+      description: "Recommendations optimized for your scoring system. Projected Points (35%) is the primary factor, with bonuses for players who fit this format: closers (SV=7), setup men (HLD=4), low-K hitters (K=-0.5), and innings eaters (IP=4.5). The Fit column flags players with extra value in your specific league that standard rankings miss."
     },
 
     // Stats Explorer
@@ -199,6 +207,31 @@ const TOOLTIP_DATA = {
     "compare-radar": {
       title: "Radar Chart",
       description: "Visual player profile overlay using percentile-based axes. Hitter axes: Power, Speed, Contact, Discipline, Batted Ball Quality, Hit Tool. Larger area = more well-rounded player. Useful for quickly identifying player archetypes and complementary strengths."
+    },
+    // League Points Dashboard sections
+    "league_scoring": {
+      title: "League Scoring System",
+      description: "Galactic Empire H2H Points league scoring. Every number on this dashboard is in fantasy points. Key: Saves=7 (premium!), Holds=4, each IP=4.5 pts from outs, ER=-4 (devastating), batter K=-0.5 (contact matters), BB=1 (free points)."
+    },
+    "top_hitters_points": {
+      title: "Top Hitters by Points",
+      description: "Hitters ranked by projected rest-of-season fantasy points in this scoring system. Points/PA is the key rate stat — it shows efficiency independent of playing time. Surplus value shows points above a replacement-level player at that position."
+    },
+    "innings_eaters": {
+      title: "Innings Eaters",
+      description: "Starting pitchers ranked by total projected points. In this scoring, each IP = 4.5 points just from outs (3 outs × 1.5). A starter who averages 6.5 IP = 29.25 points from outs alone. Volume starters with low ERAs are the most valuable arms."
+    },
+    "reliever_watch": {
+      title: "Reliever Watch",
+      description: "Relievers ranked by projected points. SV=7 makes elite closers premium — a clean save inning with 2K = 12.5 pts. HLD=4 makes setup men valuable too. The P-slot flexibility (4 slots can be SP or RP) makes this section critical for weekly optimization."
+    },
+    "contact_kings": {
+      title: "Contact Kings",
+      description: "Hitters with the best points/PA rate who strike out less than 20% of the time. With K=-0.5, a player who strikes out 150 times loses 75 points vs one who strikes out 80 (35 pt gap). These players are systematically undervalued on the waiver wire."
+    },
+    "points_calculator": {
+      title: "Points Calculator",
+      description: "Enter any stat line to see the exact fantasy points. Use the presets to internalize the scoring system. Key benchmarks: elite start = 24.5 pts, closer save = 12.5 pts, bad start can be -17+ pts."
     },
   },
 
@@ -529,6 +562,48 @@ const TOOLTIP_DATA = {
       description: "Key factors influencing the streaming or stack score — pitcher quality, park factor, opponent strength. Green notes are positive factors, red notes are concerns.",
       good: "—", avg: "—", bad: "—"
     },
+
+    // ── League Points Metrics ──
+    "projected_points": {
+      name: "Projected ROS Points",
+      description: "Projected rest-of-season fantasy points using this league's H2H Points scoring (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). Higher = more valuable. This is the primary ranking metric.",
+      good: "300+", avg: "150", bad: "<75"
+    },
+    "actual_points": {
+      name: "Actual Points",
+      description: "Fantasy points earned so far this season using the league's scoring rules. Compare to projected points — if actual is much lower, the player may be underperforming (buy low).",
+      good: "—", avg: "—", bad: "—"
+    },
+    "points_per_pa": {
+      name: "Points per Plate Appearance",
+      description: "Fantasy points per PA — the key efficiency metric for hitters. Accounts for positive (HR, BB, hits) and negative (K) contributions per trip to the plate. Higher is better. Contact hitters with high BB rates excel here.",
+      good: "1.5+", avg: "1.0", bad: "<0.7"
+    },
+    "points_per_ip": {
+      name: "Points per Inning Pitched",
+      description: "Fantasy points per inning — shows pitching efficiency. Accounts for outs (1.5/out), K (0.5), and penalties (ER=-4, H=-0.75, BB=-0.75). Higher means the pitcher generates more points per inning.",
+      good: "4.0+", avg: "2.5", bad: "<1.5"
+    },
+    "points_per_start": {
+      name: "Points per Start",
+      description: "Average fantasy points per game started. The single best metric for evaluating starting pitchers in this format. Elite aces average 20+. Streamers should project 8+ to be worth starting.",
+      good: "20+", avg: "12", bad: "<8"
+    },
+    "points_per_appearance": {
+      name: "Points per Appearance",
+      description: "Average fantasy points per relief appearance. Closers with saves average 8+ (clean save = 12.5 pts). Setup men with holds average 5-7. This is how you evaluate relievers in H2H Points.",
+      good: "8+", avg: "4", bad: "<2"
+    },
+    "surplus_value": {
+      name: "Surplus Value (Points)",
+      description: "Projected points above replacement level at the player's position. Replacement level = the projected points of the first player outside the roster-worthy pool at each position. The key metric for trade evaluation.",
+      good: "100+", avg: "25", bad: "<0"
+    },
+    "k_points_lost": {
+      name: "Points Lost to Strikeouts",
+      description: "Total points lost from batter strikeouts (K × -0.5). A 150K hitter loses 75 points from Ks alone vs an 80K hitter losing 40 — a 35 point gap. This column highlights the hidden cost of high strikeout rates in this scoring format.",
+      good: "<30", avg: "50", bad: ">70"
+    },
     "PF": {
       name: "Points For",
       description: "Total fantasy points scored in your league. Higher is better — even a team with a losing record but high PF is unlucky and likely to improve.",
@@ -543,6 +618,73 @@ const TOOLTIP_DATA = {
       name: "Recommendation Reasoning",
       description: "Brief explanation of why this player is recommended — which scoring components are strongest (trending up, scarce position, buy-low signal, high projection confidence).",
       good: "—", avg: "—", bad: "—"
+    },
+
+    // ── Advanced Analytics (Projections Page) ──
+    "HardHit%": {
+      name: "Hard Hit Rate",
+      description: "Percentage of batted balls at 95+ mph exit velocity. Early-season signal for contact quality — high hard-hit% with low AVG suggests imminent improvement.",
+      good: "45%+", avg: "38%", bad: "<30%"
+    },
+    "SB%": {
+      name: "Stolen Base Success Rate",
+      description: "Percentage of steal attempts that succeed. At SB=2/CS=-1 scoring, break-even is 33%. Players above 75% with speed are net positive to steal aggressively.",
+      good: "80%+", avg: "72%", bad: "<66%"
+    },
+    "xERA": {
+      name: "Expected ERA",
+      description: "ERA a pitcher 'should have' based on Statcast contact quality allowed. The best buy/sell signal for pitchers — when xERA is much lower than actual ERA, the pitcher has been unlucky.",
+      good: "<3.50", avg: "4.00", bad: ">4.50"
+    },
+    "K% Pitcher": {
+      name: "Strikeout Rate (Pitchers)",
+      description: "Percentage of batters faced who strike out. Each K earns +0.5 pts AND prevents a hit. High-K pitchers double-dip on value in this scoring system.",
+      good: "28%+", avg: "22%", bad: "<18%"
+    },
+    "BB% Pitcher": {
+      name: "Walk Rate (Pitchers)",
+      description: "Percentage of batters walked. Each BB costs -0.75 pts and often leads to ER (-4 pts). Low BB% is critical for pitcher value in H2H Points.",
+      good: "<6%", avg: "8%", bad: ">10%"
+    },
+    "GB%": {
+      name: "Ground Ball Rate",
+      description: "Percentage of batted balls hit on the ground. Ground balls rarely become HR (reducing ER at -4 pts) and generate more double plays. High GB% = safer pitcher floor.",
+      good: "50%+", avg: "44%", bad: "<38%"
+    },
+    "HR/FB%": {
+      name: "HR per Fly Ball Rate",
+      description: "Percentage of fly balls that become home runs. League average is ~10-12%. Pitchers below 8% are getting lucky (expect regression). Above 15% are unlucky (expect improvement).",
+      good: "<10%", avg: "11%", bad: ">15%"
+    },
+    "gmLI": {
+      name: "Game Leverage Index",
+      description: "Average leverage of situations when this reliever enters. 1.0 = average. Above 1.5 = high-leverage reliever trusted in close games. Key for identifying closers-in-waiting.",
+      good: "1.5+", avg: "1.0", bad: "<0.7"
+    },
+    "IP/G": {
+      name: "Innings per Game",
+      description: "Average innings pitched per appearance. Multi-inning relievers (1.1+ IP/G) earn more volume-based points (1.5 pts per out). Higher IP/G = more total points per appearance.",
+      good: "1.2+", avg: "1.0", bad: "<0.8"
+    },
+    "Adj FP": {
+      name: "Adjusted Fantasy Points (Hitters)",
+      description: "Projected ROS fantasy points adjusted using xwOBA vs wOBA divergence. Green arrow = underperforming contact quality (buy low). Red arrow = overperforming (sell high). Neutral dash = performance matches expectations.",
+      good: "▲ up", avg: "—", bad: "▼ down"
+    },
+    "matchup-yahoo-proj": {
+      name: "Yahoo Projected",
+      description: "Yahoo Fantasy's own weekly team projection. Based on Yahoo's internal models and the week's schedule. Frozen when the matchup first loads each week.",
+      good: "—", avg: "—", bad: "—"
+    },
+    "matchup-my-proj": {
+      name: "My Projected (Matchup-Adjusted)",
+      description: "Four-layer matchup-adjusted projections: (1) Opposing pitcher — hitter stats adjusted by SIERA + pitcher K%/BB%, dampened 50%. (2) Opposing lineup — pitcher H/ER adjusted by team wRC+, dampened 35%. (3) Park factors — base rates neutralized for home park, then venue-adjusted. (4) Platoon splits — when opposing starter handedness is known, uses regressed vs-LHP/RHP splits (per Tango's The Book: 2200 PA regression for RHH, 1000 for LHH). All metrics chosen to avoid double-counting with park factors (SIERA and wRC+ are park-adjusted). Frozen at start of each week.",
+      good: "—", avg: "—", bad: "—"
+    },
+    "Adj FP Pitcher": {
+      name: "Adjusted Fantasy Points (Pitchers)",
+      description: "Projected ROS fantasy points adjusted using xERA/SIERA vs actual ERA divergence. Green arrow = better than results show. Red arrow = regression risk. For relievers, also flags save opportunity upside when gmLI > 1.5.",
+      good: "▲ up", avg: "—", bad: "▼ down"
     },
   }
 };

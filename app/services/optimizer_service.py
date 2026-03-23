@@ -1,7 +1,7 @@
 """Lineup optimizer using PuLP Integer Linear Programming.
 
 Maximizes total projected fantasy points subject to position eligibility
-and roster slot constraints.
+and roster slot constraints. Uses H2H Points league scoring from league_config.
 """
 
 import logging
@@ -11,25 +11,27 @@ from pulp import LpMaximize, LpProblem, LpVariable, lpSum, value
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.league_config import ROSTER_SLOTS
 from app.models.player import Player
+from app.models.player_points import PlayerPoints
 from app.models.projection import Projection
 from app.models.roster import Roster
 
 logger = logging.getLogger(__name__)
 
-# Standard fantasy baseball roster slots
+# Use league config roster slots as default
 DEFAULT_SLOTS = {
-    "C": 1,
-    "1B": 1,
-    "2B": 1,
-    "3B": 1,
-    "SS": 1,
-    "OF": 3,
-    "UTIL": 2,
-    "SP": 2,
-    "RP": 2,
-    "P": 2,
-    "BN": 4,
+    "C": ROSTER_SLOTS["C"],
+    "1B": ROSTER_SLOTS["1B"],
+    "2B": ROSTER_SLOTS["2B"],
+    "3B": ROSTER_SLOTS["3B"],
+    "SS": ROSTER_SLOTS["SS"],
+    "OF": ROSTER_SLOTS["OF"],
+    "Util": ROSTER_SLOTS["Util"],
+    "SP": ROSTER_SLOTS["SP"],
+    "RP": ROSTER_SLOTS["RP"],
+    "P": ROSTER_SLOTS["P"],
+    "BN": ROSTER_SLOTS["BN"],
 }
 
 # Positions eligible for each slot
@@ -40,10 +42,10 @@ SLOT_ELIGIBILITY = {
     "3B": ["3B"],
     "SS": ["SS"],
     "OF": ["OF", "LF", "CF", "RF"],
-    "UTIL": ["C", "1B", "2B", "3B", "SS", "OF", "LF", "CF", "RF", "DH"],
+    "Util": ["C", "1B", "2B", "3B", "SS", "OF", "LF", "CF", "RF", "DH"],
     "SP": ["SP"],
     "RP": ["RP"],
-    "P": ["SP", "RP"],
+    "P": ["SP", "RP"],  # Flexible: can be SP or RP — key strategic lever
     "BN": ["C", "1B", "2B", "3B", "SS", "OF", "LF", "CF", "RF", "DH", "SP", "RP"],
 }
 
@@ -97,30 +99,41 @@ async def optimize_lineup(
         logger.warning("No roster found for optimization")
         return None
 
-    # Get projected points for each player
+    # Get projected points for each player from the player_points table
     players: list[dict] = []
     for roster, player in roster_entries:
-        # Sum all projected stat values as a simple points proxy
-        proj_result = await session.execute(
-            select(Projection).where(
-                Projection.player_id == player.id,
-                Projection.season == season,
-                Projection.system == "blended",
+        # Use pre-calculated fantasy points from points_service
+        pp_result = await session.execute(
+            select(PlayerPoints).where(
+                PlayerPoints.player_id == player.id,
+                PlayerPoints.season == season,
+                PlayerPoints.period == "full_season",
             )
         )
-        projections = proj_result.scalars().all()
+        pp = pp_result.scalar_one_or_none()
 
-        # Convert projections to fantasy points (simplified)
-        points = 0.0
-        for proj in projections:
-            if proj.stat_name in ("HR", "R", "RBI", "SB", "W", "SV", "K"):
-                points += proj.projected_value
-            elif proj.stat_name == "AVG":
-                points += proj.projected_value * 100  # scale batting average
-            elif proj.stat_name == "ERA":
-                points -= proj.projected_value * 5  # lower ERA = better
-            elif proj.stat_name == "WHIP":
-                points -= proj.projected_value * 10
+        if pp:
+            points = pp.projected_ros_points or 0.0
+        else:
+            # Fallback: use blended projections with simple conversion
+            proj_result = await session.execute(
+                select(Projection).where(
+                    Projection.player_id == player.id,
+                    Projection.season == season,
+                    Projection.system == "blended",
+                )
+            )
+            projections = proj_result.scalars().all()
+            points = 0.0
+            for proj in projections:
+                if proj.stat_name in ("HR", "R", "RBI", "SB", "W", "SV", "K"):
+                    points += proj.projected_value
+                elif proj.stat_name == "AVG":
+                    points += proj.projected_value * 100
+                elif proj.stat_name == "ERA":
+                    points -= proj.projected_value * 5
+                elif proj.stat_name == "WHIP":
+                    points -= proj.projected_value * 10
 
         positions = _get_player_positions(player.position)
 

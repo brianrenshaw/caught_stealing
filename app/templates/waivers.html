@@ -6,7 +6,55 @@
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Waiver Wire Recommendations {{ page_info('waivers') }}</h2>
+<h2 class="text-2xl font-bold mb-2">Waiver Wire Recommendations {{ page_info('waivers') }}</h2>
+
+<!-- Scoring Context -->
+<div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 mb-4">
+    <p class="text-sm text-gray-300 leading-relaxed">
+        These recommendations are tailored to your league's <span class="text-blue-400 font-medium">H2H Points scoring</span>.
+        The waiver wire is where you win your league, and in a points format the value landscape looks different than in roto.
+        Three types of players are especially valuable here that standard rankings often miss:
+    </p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+        <div class="bg-gray-900/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-green-400 mb-1">Closers & Setup Men</h4>
+            <p class="text-xs text-gray-400">
+                A save is worth <span class="text-white">7 points</span> and a hold is worth <span class="text-white">4</span>.
+                A closer who gets 3 save chances in a week and converts cleanly can generate 37+ points from a single roster
+                spot. Even a setup man with 2 holds per week quietly produces 20+ points. These players show a high
+                <span class="text-green-400">Fit</span> score.
+            </p>
+        </div>
+        <div class="bg-gray-900/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-blue-400 mb-1">Contact Hitters (Low K%)</h4>
+            <p class="text-xs text-gray-400">
+                Every strikeout costs <span class="text-white">-0.5 points</span>. Over a season, the difference
+                between a 15% K hitter and a 28% K hitter is roughly <span class="text-white">35 points</span> —
+                equivalent to 9 extra home runs. Players with high plate discipline and low K rates are
+                systematically undervalued on most waiver wires.
+            </p>
+        </div>
+        <div class="bg-gray-900/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-yellow-400 mb-1">Innings Eaters</h4>
+            <p class="text-xs text-gray-400">
+                Each inning pitched generates <span class="text-white">4.5 base points</span> from outs before anything
+                else. A starter averaging 6.5 IP/start collects 29 points from outs alone per start. Even a boring
+                5.50-ERA guy who eats innings can be worth a streaming spot if the matchup is right and the alternative
+                is an empty slot.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Column Legend -->
+<div class="bg-gray-800/40 rounded-lg border border-gray-700/50 p-3 mb-4">
+    <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-500">
+        <span><span class="text-blue-400 font-medium">Score</span> — Composite waiver score (0-100) combining all factors</span>
+        <span><span class="text-white font-medium">Proj Pts</span> — Projected rest-of-season fantasy points</span>
+        <span><span class="text-white font-medium">Pts/PA or Pts/IP</span> — Points earned per plate appearance (hitters) or per inning (pitchers)</span>
+        <span><span class="text-green-400 font-medium">Fit</span> — League scoring fit (75+ = premium value in this format)</span>
+    </div>
+</div>
 
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
     {% if recommendations %}
@@ -18,10 +66,18 @@
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap">Score {{ stat_info('Score') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">Proj {{ stat_info('Proj') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Proj Pts {{ stat_info('projected_points') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">
+                        {% if recommendations and recommendations[0].player_type == 'pitcher' %}
+                        Pts/IP {{ stat_info('points_per_ip') }}
+                        {% else %}
+                        Pts/PA {{ stat_info('points_per_pa') }}
+                        {% endif %}
+                    </th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Fit {{ stat_info('Score') }}</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap">Trend {{ stat_info('Trend') }}</th>
-                    <th class="text-center py-2 px-3 whitespace-nowrap">Status {{ stat_info('Status') }}</th>
-                    <th class="text-left py-2 px-3 whitespace-nowrap">Reasoning {{ stat_info('Reasoning') }}</th>
+                    <th class="text-center py-2 px-3 whitespace-nowrap">Status</th>
+                    <th class="text-left py-2 px-3 whitespace-nowrap">Reasoning</th>
                 </tr>
             </thead>
             <tbody>
@@ -33,7 +89,27 @@
                     </td>
                     <td class="py-2 px-1 text-gray-400 text-xs">{{ rec.position }}</td>
                     <td class="py-2 px-3 text-right font-medium text-blue-400">{{ "%.1f"|format(rec.waiver_score) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ "%.1f"|format(rec.projection_score) }}</td>
+                    <td class="py-2 px-3 text-right {% if rec.projected_points >= 200 %}text-green-400{% elif rec.projected_points >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                        {{ "%.0f"|format(rec.projected_points) if rec.projected_points else '—' }}
+                    </td>
+                    <td class="py-2 px-3 text-right text-gray-300">
+                        {% if rec.player_type == 'pitcher' and rec.points_per_ip %}
+                            {{ "%.2f"|format(rec.points_per_ip) }}
+                        {% elif rec.points_per_pa %}
+                            {{ "%.3f"|format(rec.points_per_pa) }}
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="py-2 px-3 text-right">
+                        {% if rec.scoring_fit_score >= 75 %}
+                        <span class="text-green-400 text-xs font-medium">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                        {% elif rec.scoring_fit_score >= 60 %}
+                        <span class="text-blue-400 text-xs">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                        {% else %}
+                        <span class="text-gray-500 text-xs">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                        {% endif %}
+                    </td>
                     <td class="py-2 px-3 text-right">
                         {% if rec.trend == 'hot' %}
                         <span class="text-green-400 text-xs">HOT</span>
@@ -48,7 +124,7 @@
                         <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY LOW</span>
                         {% endif %}
                     </td>
-                    <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate">{{ rec.reasoning }}</td>
+                    <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate" title="{{ rec.reasoning }}">{{ rec.reasoning }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

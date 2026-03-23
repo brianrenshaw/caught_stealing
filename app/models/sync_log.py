@@ -17,3 +17,6 @@ class SyncLog(Base):
     status: Mapped[str] = mapped_column(String, nullable=False, default="running")
     error_message: Mapped[str | None] = mapped_column(String, nullable=True)
     records_processed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    pipeline_type: Mapped[str | None] = mapped_column(
+        String, nullable=True, default="yahoo"
+    )  # "yahoo" or "stats"

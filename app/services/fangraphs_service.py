@@ -26,6 +26,7 @@ BATTING_COL_MAP = {
     "CS": "cs",
     "BB": "bb",
     "SO": "so",
+    "HBP": "hbp",
     "AVG": "avg",
     "OBP": "obp",
     "SLG": "slg",
@@ -55,6 +56,8 @@ PITCHING_COL_MAP = {
     "HR": "hr",
     "BB": "bb",
     "SO": "so",
+    "QS": "qs",
+    "HBP": "hbp",
     "ERA": "era",
     "WHIP": "whip",
     "K/9": "k_per_9",
@@ -64,6 +67,12 @@ PITCHING_COL_MAP = {
     "SIERA": "siera",
     "K-BB%": "k_bb_pct",
     "WAR": "war",
+    "K%": "k_pct",
+    "BB%": "bb_pct",
+    "GB%": "gb_pct",
+    "HR/FB": "hr_fb_pct",
+    "LOB%": "lob_pct",
+    "gmLI": "gmli",
 }
 
 MAX_RETRIES = 3

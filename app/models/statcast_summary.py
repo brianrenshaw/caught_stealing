@@ -38,6 +38,7 @@ class StatcastSummary(Base):
     sprint_speed: Mapped[float | None] = mapped_column(Float, nullable=True)
     whiff_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     chase_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    xera: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False

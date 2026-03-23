@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 
@@ -38,17 +38,86 @@ async def _retry(coro_func, *args, label: str = "operation", **kwargs):
             await asyncio.sleep(delay)
 
 
-async def check_cooldown() -> bool:
-    """Return True if enough time has passed since last sync."""
+async def check_cooldown(pipeline_type: str = "yahoo") -> bool:
+    """Return True if enough time has passed since last sync of this type.
+
+    Each pipeline type (yahoo, stats) has its own independent cooldown
+    so they don't block each other.
+    """
     async with async_session() as session:
-        result = await session.execute(select(SyncLog).order_by(SyncLog.id.desc()).limit(1))
+        query = (
+            select(SyncLog)
+            .where(SyncLog.pipeline_type == pipeline_type)
+            .order_by(SyncLog.id.desc())
+            .limit(1)
+        )
+        result = await session.execute(query)
         last_sync = result.scalar_one_or_none()
         if last_sync and last_sync.started_at:
-            elapsed = (datetime.now() - last_sync.started_at).total_seconds()
+            # SQLite CURRENT_TIMESTAMP is UTC; we must compare in UTC
+            now_utc = datetime.now(timezone.utc)
+            started_utc = last_sync.started_at.replace(tzinfo=timezone.utc)
+            elapsed = (now_utc - started_utc).total_seconds()
             if elapsed < SYNC_COOLDOWN and last_sync.status != "failed":
-                logger.info(f"Sync cooldown: {SYNC_COOLDOWN - elapsed:.0f}s remaining")
+                logger.info(
+                    f"Sync cooldown ({pipeline_type}): "
+                    f"{SYNC_COOLDOWN - elapsed:.0f}s remaining"
+                )
                 return False
     return True
+
+
+async def _update_player_ages(session) -> int:
+    """Fetch birth dates from MLB-StatsAPI for players missing age data."""
+    from datetime import date
+
+    import statsapi
+
+    from app.models.player import Player
+
+    result = await session.execute(
+        select(Player).where(
+            Player.mlbam_id.isnot(None),
+            Player.birth_date.is_(None),
+        )
+    )
+    players = result.scalars().all()
+    if not players:
+        return 0
+
+    count = 0
+    batch_size = 50
+    for i in range(0, len(players), batch_size):
+        batch = players[i : i + batch_size]
+        ids = ",".join(str(p.mlbam_id) for p in batch)
+        try:
+            data = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: statsapi.get("people", {"personIds": ids})
+            )
+            for person in data.get("people", []):
+                mlbam_id = str(person.get("id", ""))
+                birth_str = person.get("birthDate")
+                if not birth_str:
+                    continue
+                for p in batch:
+                    if str(p.mlbam_id) == mlbam_id:
+                        birth = date.fromisoformat(birth_str)
+                        p.birth_date = birth
+                        today = date.today()
+                        p.age = (
+                            today.year
+                            - birth.year
+                            - ((today.month, today.day) < (birth.month, birth.day))
+                        )
+                        count += 1
+                        break
+        except Exception as e:
+            logger.warning(f"MLB API batch age fetch failed: {e}")
+        await asyncio.sleep(0.5)
+
+    await session.flush()
+    logger.info(f"Updated ages for {count} players")
+    return count
 
 
 async def run_pipeline() -> dict:
@@ -62,7 +131,7 @@ async def run_pipeline() -> dict:
             "message": "Yahoo API credentials not set. Check your .env file.",
         }
 
-    if not await check_cooldown():
+    if not await check_cooldown(pipeline_type="yahoo"):
         return {
             "status": "cooldown",
             "message": "Please wait at least 5 minutes between syncs.",
@@ -73,7 +142,9 @@ async def run_pipeline() -> dict:
 
     async with async_session() as session:
         loader = DatabaseLoader(session)
-        sync_log = await loader.create_sync_log(status="running")
+        sync_log = await loader.create_sync_log(
+            status="running", pipeline_type="yahoo"
+        )
         await session.commit()
 
         try:
@@ -87,7 +158,16 @@ async def run_pipeline() -> dict:
             except Exception as e:
                 logger.warning(f"Stat categories extraction failed: {e}")
 
-            standings = await _retry(extractor.extract_standings, label="extract standings")
+            warnings = []
+
+            standings = []
+            try:
+                standings = await _retry(
+                    extractor.extract_standings, label="extract standings"
+                )
+            except Exception as e:
+                warnings.append(f"Standings: {e}")
+                logger.warning(f"Standings extraction failed: {e}")
 
             # Save standings immediately so they persist even if rosters fail
             standings_count = await loader.upsert_standings(standings, settings.yahoo_league_id)
@@ -96,11 +176,18 @@ async def run_pipeline() -> dict:
 
             roster_data = {}
             try:
-                roster_data = await _retry(extractor.extract_all_rosters, label="extract rosters")
+                roster_data = await _retry(
+                    extractor.extract_all_rosters, label="extract rosters"
+                )
             except Exception as e:
+                warnings.append(f"Rosters: {e}")
                 logger.warning(f"Roster extraction failed: {e}")
 
-            transactions = await extractor.extract_transactions(limit=5)
+            transactions = []
+            try:
+                transactions = await extractor.extract_transactions(limit=5)
+            except Exception as e:
+                logger.warning(f"Transactions extraction failed: {e}")
 
             # --- TRANSFORM ---
             logger.info("=== TRANSFORM PHASE ===")
@@ -120,21 +207,46 @@ async def run_pipeline() -> dict:
             stat_count = await loader.upsert_stats(stats)
             total_records += stat_count
 
+            # Determine status: partial if critical data is missing
+            if roster_count == 0 and standings_count == 0:
+                status = "partial"
+                if not warnings:
+                    warnings.append(
+                        "No rosters or standings loaded — Yahoo API may "
+                        "need re-authorization (restart server and check terminal)"
+                    )
+            elif roster_count == 0 or standings_count == 0:
+                status = "partial"
+            else:
+                status = "success"
+
             await loader.update_sync_log(
-                sync_log, status="success", records_processed=total_records
+                sync_log, status=status, records_processed=total_records
             )
             await session.commit()
 
+            # Update weekly matchup actuals after successful sync
+            try:
+                from app.services.weekly_matchup_service import (
+                    update_current_matchup_actuals,
+                )
+
+                await update_current_matchup_actuals(session, default_season())
+                await session.commit()
+            except Exception as e:
+                logger.warning(f"Matchup actuals update failed: {e}")
+
             duration = time.time() - start_time
             result = {
-                "status": "success",
+                "status": status,
                 "players": len(player_db_map),
                 "rosters": roster_count,
                 "stats": stat_count,
-                "standings": len(standings),
+                "standings": standings_count,
                 "transactions": len(transactions),
                 "total_records": total_records,
                 "duration_seconds": round(duration, 1),
+                "warnings": warnings,
             }
             logger.info(f"=== PIPELINE COMPLETE === {result}")
             return result
@@ -163,6 +275,12 @@ async def run_stats_pipeline(season: int | None = None) -> dict:
     from app.services import fangraphs_service, statcast_service
     from app.services.id_mapper import id_mapper
 
+    if not await check_cooldown(pipeline_type="stats"):
+        return {
+            "status": "cooldown",
+            "message": "Please wait at least 5 minutes between stats syncs.",
+        }
+
     start_time = time.time()
     if season is None:
         season = default_season()
@@ -170,7 +288,9 @@ async def run_stats_pipeline(season: int | None = None) -> dict:
 
     async with async_session() as session:
         loader = DatabaseLoader(session)
-        sync_log = await loader.create_sync_log(status="running")
+        sync_log = await loader.create_sync_log(
+            status="running", pipeline_type="stats"
+        )
         await session.commit()
 
         try:
@@ -226,6 +346,30 @@ async def run_stats_pipeline(season: int | None = None) -> dict:
             except Exception as e:
                 logger.error(f"Statcast pitcher fetch failed: {e}")
                 results["statcast_pitchers_error"] = str(e)
+
+            # Step 6: Fetch sprint speed and merge into batter Statcast data
+            logger.info("=== STATS PIPELINE: Fetching sprint speed data ===")
+            try:
+                sprint_df = await statcast_service.fetch_sprint_speed(season)
+                if not sprint_df.empty:
+                    sprint_count = await loader.upsert_sprint_speed(
+                        session, sprint_df, season
+                    )
+                    results["sprint_speed"] = sprint_count
+                else:
+                    results["sprint_speed"] = 0
+            except Exception as e:
+                logger.warning(f"Sprint speed fetch failed: {e}")
+                results["sprint_speed_error"] = str(e)
+
+            # Step 7: Fetch player birth dates and compute ages
+            logger.info("=== STATS PIPELINE: Updating player ages ===")
+            try:
+                age_count = await _update_player_ages(session)
+                results["player_ages"] = age_count
+            except Exception as e:
+                logger.warning(f"Player age update failed: {e}")
+                results["player_ages_error"] = str(e)
 
             total = sum(v for v in results.values() if isinstance(v, int))
             await loader.update_sync_log(sync_log, status="success", records_processed=total)

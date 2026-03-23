@@ -672,3 +672,201 @@ async def projections_buysell(
 
     async with async_session() as session:
         return await get_buy_sell_candidates(session, season, limit)
+
+
+# ── League Points API Endpoints ──
+
+
+@router.get("/league/config")
+async def league_config():
+    """Return the league configuration including roster slots and scoring rules."""
+    from app.league_config import LEAGUE_CONFIG
+
+    return LEAGUE_CONFIG
+
+
+@router.get("/points/calculator")
+async def points_calculator(
+    # Pitcher params
+    IP: float = Query(0),
+    K: float = Query(0),
+    ER: float = Query(0),
+    H: float = Query(0),
+    BB: float = Query(0),
+    QS: float = Query(0),
+    SV: float = Query(0),
+    HLD: float = Query(0),
+    HBP: float = Query(0),
+    # Batter params
+    R: float = Query(0),
+    singles: float = Query(0, alias="1B"),
+    doubles: float = Query(0, alias="2B"),
+    triples: float = Query(0, alias="3B"),
+    HR: float = Query(0),
+    RBI: float = Query(0),
+    SB: float = Query(0),
+    CS: float = Query(0),
+    bat_BB: float = Query(0, alias="bat_BB"),
+    bat_K: float = Query(0, alias="bat_K"),
+    bat_HBP: float = Query(0, alias="bat_HBP"),
+    # Mode
+    mode: str = Query("auto"),  # "pitcher", "batter", or "auto"
+):
+    """Calculate fantasy points for a stat line.
+
+    Example: /api/points/calculator?IP=7&K=8&ER=2&H=5&BB=1&QS=1
+    """
+    from app.services.points_service import get_points_breakdown
+
+    if mode == "pitcher" or (mode == "auto" and IP > 0):
+        stats = {"IP": IP, "K": K, "ER": ER, "H": H, "BB": BB, "QS": QS, "SV": SV, "HLD": HLD, "HBP": HBP}
+        breakdown = get_points_breakdown(stats, is_pitcher=True, is_reliever=(SV > 0 or HLD > 0))
+        return {"mode": "pitcher", "stats": stats, "points": breakdown["total"], "breakdown": breakdown}
+    else:
+        stats = {
+            "R": R, "1B": singles, "2B": doubles, "3B": triples, "HR": HR,
+            "RBI": RBI, "SB": SB, "CS": CS, "BB": bat_BB, "K": bat_K, "HBP": bat_HBP,
+        }
+        breakdown = get_points_breakdown(stats, is_pitcher=False)
+        return {"mode": "batter", "stats": stats, "points": breakdown["total"], "breakdown": breakdown}
+
+
+@router.get("/points/leaders")
+async def points_leaders(
+    season: int | None = Query(None),
+    player_type: str = Query("hitter"),
+    period: str = Query("full_season"),
+    limit: int = Query(20),
+):
+    """Points leaders for this scoring system."""
+    from app.models.player_points import PlayerPoints
+    from app.models.player import Player
+
+    if not season:
+        season = default_season()
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(PlayerPoints, Player)
+            .join(Player, PlayerPoints.player_id == Player.id)
+            .where(
+                PlayerPoints.season == season,
+                PlayerPoints.period == period,
+                PlayerPoints.player_type == player_type,
+            )
+            .order_by(PlayerPoints.actual_points.desc())
+            .limit(limit)
+        )
+
+        leaders = []
+        for pp, player in result.all():
+            leaders.append({
+                "player_id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "actual_points": pp.actual_points,
+                "projected_ros_points": pp.projected_ros_points,
+                "points_per_pa": pp.points_per_pa,
+                "points_per_ip": pp.points_per_ip,
+                "points_per_start": pp.points_per_start,
+                "points_per_appearance": pp.points_per_appearance,
+                "positional_rank": pp.positional_rank,
+                "surplus_value": pp.surplus_value,
+            })
+
+        return leaders
+
+
+@router.get("/points/per-start-leaders")
+async def per_start_leaders(
+    season: int | None = Query(None),
+    period: str = Query("full_season"),
+    limit: int = Query(20),
+):
+    """Starting pitchers ranked by average points per start."""
+    from app.models.player_points import PlayerPoints
+    from app.models.player import Player
+
+    if not season:
+        season = default_season()
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(PlayerPoints, Player)
+            .join(Player, PlayerPoints.player_id == Player.id)
+            .where(
+                PlayerPoints.season == season,
+                PlayerPoints.period == period,
+                PlayerPoints.player_type == "pitcher",
+                PlayerPoints.points_per_start.isnot(None),
+            )
+            .order_by(PlayerPoints.points_per_start.desc())
+            .limit(limit)
+        )
+
+        return [
+            {
+                "player_id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "points_per_start": pp.points_per_start,
+                "actual_points": pp.actual_points,
+                "projected_ros_points": pp.projected_ros_points,
+            }
+            for pp, player in result.all()
+        ]
+
+
+@router.get("/points/reliever-rankings")
+async def reliever_rankings(
+    season: int | None = Query(None),
+    limit: int = Query(30),
+):
+    """Relievers ranked by this scoring system's valuation."""
+    from app.models.player_points import PlayerPoints
+    from app.models.player import Player
+    from app.models.pitching_stats import PitchingStats
+
+    if not season:
+        season = default_season()
+
+    async with async_session() as session:
+        result = await session.execute(
+            select(PlayerPoints, Player, PitchingStats)
+            .join(Player, PlayerPoints.player_id == Player.id)
+            .join(
+                PitchingStats,
+                (PitchingStats.player_id == Player.id)
+                & (PitchingStats.season == PlayerPoints.season)
+                & (PitchingStats.period == "full_season"),
+            )
+            .where(
+                PlayerPoints.season == season,
+                PlayerPoints.period == "full_season",
+                PlayerPoints.player_type == "pitcher",
+                PlayerPoints.points_per_appearance.isnot(None),
+            )
+            .order_by(PlayerPoints.projected_ros_points.desc())
+            .limit(limit)
+        )
+
+        relievers = []
+        for pp, player, ps in result.all():
+            sv = int(ps.sv or 0)
+            hld = int(ps.hld or 0)
+            role = "closer" if sv > 0 else ("setup" if hld > 0 else "middle")
+            relievers.append({
+                "player_id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "role": role,
+                "sv": sv,
+                "hld": hld,
+                "actual_points": pp.actual_points,
+                "projected_ros_points": pp.projected_ros_points,
+                "points_per_appearance": pp.points_per_appearance,
+                "surplus_value": pp.surplus_value,
+            })
+
+        return relievers

@@ -208,5 +208,42 @@ class YahooService:
             logger.error(f"Failed to fetch matchup: {e}")
             raise
 
+    async def get_scoreboard(self, week: int | str = "current"):
+        """Get the league scoreboard for a given week."""
+        try:
+            query = self._get_query()
+            await self._delay()
+            scoreboard = await self._run_sync(query.get_league_scoreboard_by_week, week)
+            return scoreboard
+        except Exception as e:
+            logger.error(f"Failed to fetch scoreboard for week {week}: {e}")
+            raise
+
+    async def get_team_weekly_stats(self, team_id: str | int, week: int | str = "current"):
+        """Get a team's actual and projected points for a given week."""
+        try:
+            query = self._get_query()
+            await self._delay()
+            stats = await self._run_sync(query.get_team_stats_by_week, team_id, week)
+            return stats
+        except Exception as e:
+            logger.error(f"Failed to fetch weekly stats for team {team_id}: {e}")
+            raise
+
+    async def get_team_roster_weekly_stats(
+        self, team_id: str | int, week: int | str = "current"
+    ):
+        """Get per-player stats for a team's roster for a given week."""
+        try:
+            query = self._get_query()
+            await self._delay()
+            roster = await self._run_sync(
+                query.get_team_roster_player_stats_by_week, team_id, week
+            )
+            return roster
+        except Exception as e:
+            logger.error(f"Failed to fetch roster weekly stats for team {team_id}: {e}")
+            raise
+
 
 yahoo_service = YahooService()

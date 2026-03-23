@@ -10,13 +10,27 @@
             <h4 class="text-sm font-medium text-gray-300 mb-2">Side A Gives Up</h4>
             {% for p in trade.side_a_players %}
             <div class="flex justify-between text-sm py-1">
-                <span class="text-gray-200">{{ p.name }}</span>
-                <span class="text-gray-400">{{ "%.2f"|format(p.surplus_value) }}</span>
+                <span class="text-gray-200">
+                    {{ p.name }}
+                    {% if p.get('player_type') == 'pitcher' and p.get('is_reliever') %}
+                    <span class="text-xs text-yellow-400">(RP)</span>
+                    {% elif p.get('player_type') == 'pitcher' %}
+                    <span class="text-xs text-blue-400">(SP)</span>
+                    {% endif %}
+                </span>
+                <span class="flex gap-3">
+                    {% if p.get('projected_points') %}
+                    <span class="text-gray-500 text-xs">{{ "%.0f"|format(p.projected_points) }} pts</span>
+                    {% endif %}
+                    <span class="{% if p.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {{ "%.1f"|format(p.surplus_value) }}
+                    </span>
+                </span>
             </div>
             {% endfor %}
             <div class="border-t border-gray-600 mt-2 pt-2 flex justify-between text-sm font-medium">
-                <span class="text-gray-300">Total Value</span>
-                <span class="text-gray-200">{{ "%.2f"|format(trade.side_a_total_value) }}</span>
+                <span class="text-gray-300">Total Surplus Value</span>
+                <span class="text-gray-200">{{ "%.1f"|format(trade.side_a_total_value) }}</span>
             </div>
         </div>
         <!-- Side B -->
@@ -24,13 +38,27 @@
             <h4 class="text-sm font-medium text-gray-300 mb-2">Side B Gives Up</h4>
             {% for p in trade.side_b_players %}
             <div class="flex justify-between text-sm py-1">
-                <span class="text-gray-200">{{ p.name }}</span>
-                <span class="text-gray-400">{{ "%.2f"|format(p.surplus_value) }}</span>
+                <span class="text-gray-200">
+                    {{ p.name }}
+                    {% if p.get('player_type') == 'pitcher' and p.get('is_reliever') %}
+                    <span class="text-xs text-yellow-400">(RP)</span>
+                    {% elif p.get('player_type') == 'pitcher' %}
+                    <span class="text-xs text-blue-400">(SP)</span>
+                    {% endif %}
+                </span>
+                <span class="flex gap-3">
+                    {% if p.get('projected_points') %}
+                    <span class="text-gray-500 text-xs">{{ "%.0f"|format(p.projected_points) }} pts</span>
+                    {% endif %}
+                    <span class="{% if p.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        {{ "%.1f"|format(p.surplus_value) }}
+                    </span>
+                </span>
             </div>
             {% endfor %}
             <div class="border-t border-gray-600 mt-2 pt-2 flex justify-between text-sm font-medium">
-                <span class="text-gray-300">Total Value</span>
-                <span class="text-gray-200">{{ "%.2f"|format(trade.side_b_total_value) }}</span>
+                <span class="text-gray-300">Total Surplus Value</span>
+                <span class="text-gray-200">{{ "%.1f"|format(trade.side_b_total_value) }}</span>
             </div>
         </div>
     </div>
@@ -41,7 +69,8 @@
             {% if trade.fairness == 'fair' %}text-green-400
             {% elif 'slightly' in trade.fairness %}text-yellow-400
             {% else %}text-red-400{% endif %}">
-            {{ "%.2f"|format(trade.value_difference) }}
+            {{ "%.1f"|format(trade.value_difference) }}
+            <span class="text-sm font-normal text-gray-500">pts</span>
         </span>
         <p class="text-sm mt-1
             {% if trade.fairness == 'fair' %}text-green-400
@@ -55,6 +84,25 @@
             {% endif %}
         </p>
     </div>
+
+    <!-- League-Specific Scoring Analysis -->
+    {% if trade.points_analysis and trade.points_analysis.get('insights') %}
+    <div class="bg-gray-800/50 rounded-lg p-3 mt-2">
+        <h4 class="text-xs font-medium text-blue-400 mb-2">League Scoring Analysis (H2H Points)</h4>
+        <div class="flex justify-between text-xs text-gray-400 mb-2">
+            <span>Side A projected: {{ "%.0f"|format(trade.points_analysis.side_a_projected_total) }} ROS pts</span>
+            <span>Side B projected: {{ "%.0f"|format(trade.points_analysis.side_b_projected_total) }} ROS pts</span>
+        </div>
+        <ul class="space-y-1">
+            {% for insight in trade.points_analysis.insights %}
+            <li class="text-xs text-gray-400 flex items-start gap-1">
+                <span class="text-blue-400 mt-0.5">-</span>
+                <span>{{ insight }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
 </div>
 {% else %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">

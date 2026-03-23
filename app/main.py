@@ -13,6 +13,7 @@ from app.routes import (
     assistant,
     comparison,
     dashboard,
+    league_dashboard,
     matchups,
     player,
     projections,
@@ -94,4 +95,5 @@ app.include_router(player.router)
 app.include_router(stats_dashboard.router)
 app.include_router(assistant.router)
 app.include_router(comparison.router)
+app.include_router(league_dashboard.router)
 app.include_router(api.router)

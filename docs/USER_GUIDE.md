@@ -86,8 +86,9 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 
 | Section | Description |
 |---------|-------------|
+| **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week; actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
-| **My Team Summary** | The first 12 players on your Yahoo roster with position badges showing where each player is slotted. |
+| **Starting Lineup** | Your active roster (excluding bench, IL, NA) grouped into hitters and pitchers. Shows each player's actual season points and projected ROS points. The total row at the bottom shows combined actual and projected totals for your starting lineup. |
 | **Buy Low / Sell High Signals** | Cards highlighting players whose expected performance (xwOBA) significantly differs from their actual results (wOBA). These are trade opportunity alerts. |
 | **Category Leaders** | A 4-column grid showing the top players in HR, SB, AVG, and K — the marquee fantasy categories. |
 | **Top Hitters** | A sortable, filterable table of the best hitters. Columns: PA, HR, R, RBI, SB, AVG, OBP, SLG, OPS, wOBA, wRC+. Click any column header to sort. |
@@ -96,7 +97,99 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 
 **Interactive features:** Click any column header in the hitter/pitcher tables to sort ascending or descending (arrows indicate direction). Use the search/filter box above each table to quickly find a player. All player names are clickable.
 
-**Why it matters for fantasy:** The Dashboard lets you quickly see where you stand in your league, who the hottest players are right now, and which players are flagged as buy-low or sell-high opportunities. Checking this page regularly keeps you ahead of your leaguemates.
+**How the matchup analysis works:**
+
+The matchup card shows three projection rows side by side:
+
+| Row | Source | What It Means | When It Updates |
+|-----|--------|---------------|-----------------|
+| **Yahoo Projected** | Yahoo Fantasy API | Yahoo's own weekly projection. Uses Yahoo's internal models and schedule data. | Frozen when matchup first loads each week. |
+| **My Projected** | Custom matchup-adjusted model | Four-layer model using FanGraphs rates, MLB schedule, opponent quality, park factors, and platoon splits. See detailed methodology below. | Frozen when matchup first loads each week. |
+| **Actual** | Yahoo weekly stats | Real points scored so far this week from Yahoo's live scoring. | Updates every time you click "Sync Yahoo." |
+
+Below the summary, each team's full roster is shown player-by-player with per-category stats. Each player shows their fantasy roster position (C, 1B, SP, RP, BN, IL, etc.). Active players show projected and actual stats; bench/IL players are dimmed with zero projections. Each category column has **P** (projected) and **A** (actual). A totals row sums each column.
+
+#### My Projected — Detailed Methodology
+
+The "My Projected" model uses a four-layer approach to generate matchup-aware weekly projections. All methodology choices are sourced from FanGraphs research and Tom Tango's *The Book*.
+
+**Base Volume (Schedule-Aware):**
+
+| Player Type | Volume Estimation |
+|-------------|-------------------|
+| Hitters | `(season PA / 162) × team regular-season games this week` — uses actual game count from MLB API, filters out spring training |
+| Starting Pitchers | `IP/start × probable starts` (from MLB probable pitcher API). Falls back to `(season IP / 162) × team games` when probables aren't posted. |
+| Relievers | `(season IP / G) × (G / 162) × team games` — uses actual appearance rate (e.g., a closer appearing in 43% of team games), not a flat estimate |
+
+**Layer 1: Opposing Pitcher Quality (Hitter Adjustment)**
+
+For each game a hitter plays, the opposing probable starter's quality adjusts the projection:
+
+| Stat Category | Metric Used | Why This Metric |
+|---------------|-------------|-----------------|
+| R, H, 1B, 2B, 3B, HR, RBI, HBP | SIERA ratio vs league avg (~4.15) | SIERA is park-adjusted (confirmed by FanGraphs: *"SIERA is park-adjusted"*). Avoids double-counting with park factors. |
+| K | Pitcher's actual K% vs league avg (~22%) | K% is a pitcher-specific skill that varies independently of SIERA. Two pitchers with identical SIERA can have very different K rates. |
+| BB | Pitcher's actual BB% vs league avg (~8%) | Same reasoning — BB% is pitcher-controlled. |
+| SB, CS | No adjustment | Pitcher quality doesn't affect base-stealing. |
+
+All ratios are **dampened by 50%** (apply half the raw effect) and clamped to [0.80, 1.20]. Dampening is a modeling choice — single-game outcomes are dominated by randomness, so the full opponent ratio would overstate the effect. Games without a named probable starter use neutral (1.0) multipliers.
+
+**Layer 2: Opposing Team Offense (Pitcher Adjustment)**
+
+For each pitcher's start or appearance, the opposing team's offensive quality adjusts H and ER projections:
+
+| Stat | Metric | Dampening | Clamp |
+|------|--------|-----------|-------|
+| H allowed | Team wRC+ / 100 | 35% | [0.90, 1.15] |
+| ER allowed | Team wRC+ / 100 | 35% | [0.90, 1.15] |
+| K, BB | No adjustment | — | — |
+
+**Why wRC+**: It's park AND league adjusted (confirmed by FanGraphs). Using raw team AVG or wOBA with park factors would double-count park effects. **Why heavier dampening (35% vs 50%)**: wRC+ has weaker predictive validity (~0.3-0.4 correlation) for individual pitcher-vs-lineup matchups than SIERA does for pitcher quality (~0.7). **Why no K/BB adjustment**: Both are ~75-80% pitcher-controlled.
+
+**Layer 3: Park Factors**
+
+Each game's venue affects run-environment stats:
+
+1. **Neutralize**: Raw season stats include ~50% home park influence. Divide by `home_blend = 0.5 × home_park_factor + 0.5 × 1.0` to get park-neutral rates.
+2. **Apply venue**: Multiply by the average park factor of this week's actual game venues.
+3. **Result**: A Rockies hitter playing 3 away games at Oracle Park gets both the Coors inflation removed AND the Oracle Park suppression applied.
+
+Park factors apply to R, H, HR, 2B, 3B, RBI (hitters) and H, ER (pitchers). They do NOT apply to BB, K, SB, or CS (park-independent). Park factor data from FanGraphs 5-year regressed factors (Coors Field: 1.38, Oracle Park: 0.92, etc.).
+
+**Why full strength per game**: FanGraphs halves park factors for season-long stats because players split time home/away. But for per-game projections at a specific venue, the full factor is correct.
+
+**Layer 4: Platoon Splits (LHP/RHP)**
+
+When the opposing starter's handedness is known (from MLB Stats API), hitter projections use regressed platoon split rates instead of overall rates:
+
+1. Fetch the hitter's vs-LHP or vs-RHP split from the `player_splits` table (from Baseball Reference via pybaseball)
+2. **Regress toward league average** per Tom Tango's *The Book*:
+   - Right-handed hitters: regress toward **2,200 PA** of league-average split performance
+   - Left-handed hitters: regress toward **1,000 PA**
+   - Formula: `regressed = (observed × PA + league_avg × regression_PA) / (PA + regression_PA)`
+3. Compute per-stat ratios (wOBA, ISO, AVG, K%, BB%) vs overall rates
+4. **Replaces** Layer 1 for that game (since splits already capture the pitcher-type effect)
+5. Falls back to Layer 1 if split data unavailable or sample < 50 PA
+
+**Why regression is critical**: With only 200 PA vs LHP, the observed split is mostly noise. A RHH's observed vs-LHP wOBA carries only ~8% weight vs league average (200 / (200 + 2200)). This prevents overreacting to small-sample flukes.
+
+#### Double-Counting Prevention
+
+Every metric was chosen to avoid double-counting with park factors:
+
+| Metric | Park-Adjusted? | Source |
+|--------|---------------|--------|
+| SIERA | **Yes** | FanGraphs: *"SIERA is park-adjusted"* |
+| FIP, xFIP | No | FanGraphs: *"FIP is not league or park adjusted"* |
+| wRC+ | **Yes** | FanGraphs: park and league adjusted |
+| wOBA, AVG, ISO | No | Raw stats — park factors applied separately |
+| xwOBA, xBA, xERA | No | Statcast expected stats (not used in weekly matchup projections) |
+
+Raw counting stats (H, HR, R, etc.) from FanGraphs are NOT park-adjusted → applying park factors in Layer 3 is correct. SIERA (Layer 1) and wRC+ (Layer 2) are park-adjusted → they don't overlap with Layer 3.
+
+**Starting Lineup:** Shows your active roster players (all positions except BN, IL, NA) with their full-season actual points earned and projected ROS points. BN and IL players are shown dimmed. Use this to quickly spot which starters are producing and which are underperforming.
+
+**Why it matters for fantasy:** The matchup breakdown shows exactly which scoring categories are driving the point differential — so you know if you're losing because of a pitching collapse (ER at -4 pts each) or winning because your hitters are racking up HR (4 pts each). Comparing Yahoo's projection to your custom projection can reveal when Yahoo is over- or under-valuing your roster based on matchup context.
 
 ---
 
@@ -121,19 +214,23 @@ Every player name is clickable, opening either the Player Popup or the full Play
 
 **What it shows:**
 
+All trade analysis is powered by the league's H2H Points scoring system (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5). Every value on this page is expressed in projected fantasy points, not generic z-scores.
+
 Two sections:
 
-1. **Evaluate a Trade** — A form where you enter player IDs for Side A and Side B (comma-separated). Click "Analyze Trade" and the app returns:
-   - Total surplus value for each side
-   - The value difference between the two sides
-   - A fairness rating: **Fair** (difference < 0.5), **Slightly Favors** one side (0.5–2.0), or **Heavily Favors** one side (> 2.0)
+1. **Evaluate a Trade** — Search and add players to Side A and Side B, then click "Analyze Trade." The app returns:
+   - **Surplus value** for each player — their projected rest-of-season points above a replacement-level player at the same position
+   - **Projected points** for each player — estimated total ROS fantasy points in this scoring format
+   - **Total surplus** for each side and the **value difference** between them
+   - A **fairness rating**: Fair (< 20 pts), Slightly Favors (20–75 pts), or Heavily Favors (> 75 pts)
+   - **League-specific analysis** explaining why the trade is good or bad in this format — it highlights reliever premium (SV=7 means closers are irreplaceable), innings value (IP=4.5 pts from outs), and translates the point gap into tangible equivalents ("equivalent to ~5 saves or ~11 extra innings pitched")
 
-2. **Trade Value Rankings** — A table of all players ranked by surplus value, showing:
-   - **Pos Rank** — Their rank among players at the same position (e.g., SS #3 means the 3rd-best shortstop)
-   - **Z-Score Total** — Sum of z-scores across all fantasy categories (higher = more overall value)
-   - **Surplus Value** — How much better this player is than the best freely available player at the same position. Green numbers are positive (valuable); red numbers are negative (below replacement level)
+2. **Trade Value Rankings** — All players ranked by surplus value, showing:
+   - **Pos Rank** — Their rank among players at the same position (e.g., SS #3)
+   - **Proj Pts** — Projected rest-of-season fantasy points in your scoring system
+   - **Surplus** — Points above replacement at their position. This is the number that matters for trades — a positive surplus means the player produces more points than what you could freely acquire on waivers
 
-**Why it matters for fantasy:** Trades are won or lost based on understanding true player value. Raw stats can be deceiving — a player with 20 HR might seem great, but if they play outfield (where 20 HR is common), they provide less positional value than a shortstop with 15 HR. The z-score and surplus value system accounts for this, giving you an objective framework to evaluate any trade. See [Z-Scores and Trade Values](#z-scores-and-trade-values) and [VORP and Surplus Value](#vorp-and-surplus-value) for the full methodology.
+**Why it matters for your league:** In H2H Points with SV=7 and ER=-4, traditional fantasy rankings can be wildly misleading. A closer with 35 saves generates 245 points from saves alone — that's comparable to an entire season from a decent hitter. An innings-eating starter averaging 6.5 IP/start collects 29 points per outing just from outs. Meanwhile, a power hitter with 35 HR but 170 strikeouts loses 85 points to Ks. The surplus value on this page accounts for all of this, so you can evaluate trades with confidence that the numbers reflect your actual league. Don't trade your closer for a middling bat just because ESPN says the hitter is ranked higher — in this format, the closer might genuinely be more valuable. See [Fantasy Points and Surplus Value](#fantasy-points-and-surplus-value) for the full methodology.
 
 ---
 
@@ -141,18 +238,26 @@ Two sections:
 
 **What it shows:**
 
-A ranked table of waiver wire recommendations — free agents scored from 0 to 100 based on a composite of five factors. Columns include:
+A ranked table of waiver wire recommendations scored from 0 to 100, specifically tuned for your H2H Points league. The scoring formula weights five factors, with projected fantasy points as the dominant input:
 
 | Column | Description |
 |--------|-------------|
 | **Player** | Name, team, and position |
-| **Score** | Composite waiver score (0–100). Higher = stronger pickup. |
-| **Proj Score** | How well the player is projected to perform rest-of-season |
-| **Trend** | **HOT** (recent Statcast metrics improving), **COLD** (declining), or **--** (stable) |
-| **Status** | A **BUY LOW** badge appears when the player's expected stats significantly exceed their actual results |
-| **Reasoning** | A brief sentence explaining why this player is recommended |
+| **Score** | Composite waiver score (0–100), weighted: projected points (35%), trend (25%), position scarcity (15%), scoring fit (15%), ownership (10%) |
+| **Proj Pts** | Projected rest-of-season fantasy points in your league's scoring system. This is the raw projected output — look for players with high Proj Pts who aren't rostered. |
+| **Pts/PA or Pts/IP** | Points per plate appearance (hitters) or per inning pitched (pitchers). This rate stat shows efficiency regardless of playing time. A bench hitter with elite Pts/PA might be worth a roster spot if he earns more playing time. |
+| **Fit** | League scoring fit score (50=neutral, 75+=premium). Players who specifically excel in your format — closers, setup men, contact hitters, innings eaters — get a scoring fit bonus. A high Fit score means this player is even better than their raw stats suggest in your particular league. |
+| **Trend** | **HOT** (Statcast metrics improving), **COLD** (declining), or **--** (stable) |
+| **Status** | **BUY LOW** badge when expected stats significantly exceed actual results |
+| **Reasoning** | League-specific explanation — mentions point values (e.g., "Closer with 12 SV — saves = 7 pts each") |
 
-**Why it matters for fantasy:** The waiver wire is where leagues are won. This page surfaces the best available pickups by looking beyond surface-level stats. A player hitting .220 might rank highly because their Statcast metrics (exit velocity, barrel rate) suggest they're about to break out. The composite scoring ensures you're not just chasing hot streaks — it balances projection quality, recent trends, positional scarcity, and more. See [Waiver Wire Scoring](#waiver-wire-scoring) for the full breakdown.
+**Why it matters for your league:** In most fantasy formats, the waiver wire is about finding the next breakout hitter. In H2H Points with these scoring rules, the waiver wire is also about:
+
+- **Reliever hunting**: A closer sitting on waivers who gets 3 saves this week just produced 21 points from a single roster slot. Setup men with holds are worth 4 points per hold. The Fit column highlights these players.
+- **Contact hitter arbitrage**: A .275 hitter with 12% K rate is quietly producing more fantasy points per plate appearance than a .250 hitter with 30 HR and 28% K rate. The Pts/PA column reveals this, and these players often sit unclaimed because their traditional stats look boring.
+- **Streaming starters carefully**: In this format, a bad streaming start is catastrophic. A 5-ER outing costs -20 points from earned runs alone and can easily be net-negative for the whole start. The Proj Pts column helps you only grab starters who are genuinely projected to produce positive value.
+
+See [Waiver Wire Scoring](#waiver-wire-scoring) for the full formula breakdown.
 
 ---
 
@@ -199,9 +304,25 @@ Rest-of-season projections for all qualified players, generated by the app's cus
 |--------|-------------|
 | HR, R, RBI, SB | Projected rest-of-season counting stats |
 | AVG, OPS | Projected rate stats |
+| Adj FP | Analytics-adjusted fantasy points — adjusts baseline projection using xwOBA vs wOBA divergence. Green ▲ = underperforming contact quality (expect improvement). Red ▼ = overperforming (expect regression). |
 | Signal | **BUY** (green) or **SELL** (red) badge when xwOBA gap exceeds ±.030 |
 | xwOBA Delta | The gap between expected and actual performance |
 | Confidence | Visual bar showing how reliable the projection is (see [Confidence Scores](#confidence-scores)) |
+
+Click **Show Advanced** to reveal additional analytics columns:
+
+| Column | What It Measures | Why It Matters |
+|--------|-----------------|----------------|
+| xwOBA | Expected wOBA from Statcast contact quality | Primary buy/sell indicator — compares to actual wOBA |
+| wOBA | Actual weighted on-base average | Baseline offensive production measure |
+| ISO | Isolated power (SLG minus AVG) | Extra-base hit production — scores 2x-4x singles |
+| Barrel% | Optimal exit velocity + launch angle rate | Leading indicator for HR and XBH power |
+| HardHit% | 95+ mph exit velocity rate | Early-season contact quality signal |
+| BB% | Walk rate | Each walk = +1 pt in this scoring |
+| K% | Strikeout rate (green if <18%, red if >25%) | Each K = -0.5 pts — low-K hitters have a hidden edge |
+| Spd | Sprint speed in ft/s | Drives stolen base projection |
+| SB% | Stolen base success rate | Net SB value at 2/-1 scoring |
+| BABIP | Batting average on balls in play | Luck indicator — compare to career norm |
 
 **Pitcher Projection Table:**
 
@@ -209,8 +330,24 @@ Rest-of-season projections for all qualified players, generated by the app's cus
 |--------|-------------|
 | W, SV, K | Projected rest-of-season counting stats |
 | ERA, WHIP | Projected rate stats |
+| Adj FP | Analytics-adjusted fantasy points — adjusts using xERA/SIERA vs ERA divergence. Green ▲ = better than results show. Red ▼ = regression risk. |
 | Signal | BUY/SELL badge |
 | Confidence | Reliability indicator |
+
+Click **Show Advanced** to reveal pitcher analytics:
+
+| Column | What It Measures | Why It Matters |
+|--------|-----------------|----------------|
+| xERA | Expected ERA from Statcast | Best buy/sell signal for pitchers |
+| SIERA | Skill-interactive ERA | Most reliable future ERA predictor |
+| K% | Strikeout rate (green >25%) | Each K = +0.5 pts AND prevents hits |
+| BB% | Walk rate (red >10%) | Each BB = -0.75 pts, often leads to ER |
+| K-BB% | Single best composite pitching skill number | Green >18%, red <10% |
+| GB% | Ground ball rate (green >50%) | Reduces HR and ER exposure |
+| HR/FB% | HR per fly ball — regression indicator | <8% = lucky, >15% = unlucky |
+| Whiff% | Swinging strike rate (green >30%) | Fastest-stabilizing K predictor |
+| gmLI | Game leverage index | >1.5 = high-leverage reliever (closer-in-waiting) |
+| IP/G | Innings per appearance | Multi-inning relievers earn more volume points |
 
 Below the main table, two side-by-side panels show:
 - **Buy Low Candidates** — Players whose xwOBA exceeds their actual wOBA (they're underperforming their contact quality and likely to improve)
@@ -218,7 +355,7 @@ Below the main table, two side-by-side panels show:
 
 Each panel shows the player's actual wOBA, xwOBA, and the gap between them.
 
-**Why it matters for fantasy:** Projections are the foundation of every good fantasy decision. Should you start Player A or Player B? Who will produce more HR rest-of-season? This page answers those questions using a blend of traditional stats, recent performance, and Statcast expected stats — not just one data source. The Buy Low / Sell High panels are especially powerful early in the season when small samples create misleading batting averages but Statcast data already tells the real story.
+**Why it matters for fantasy:** Projections are the foundation of every good fantasy decision. Should you start Player A or Player B? Who will produce more HR rest-of-season? This page answers those questions using a blend of traditional stats, recent performance, and Statcast expected stats — not just one data source. The Adj FP column is the most actionable metric — it tells you whether a player's projected points should be adjusted up or down based on contact quality analytics. The Buy Low / Sell High panels are especially powerful early in the season when small samples create misleading batting averages but Statcast data already tells the real story.
 
 ---
 
@@ -585,77 +722,68 @@ Every projection includes a confidence score (displayed as a visual bar from emp
 
 ---
 
-### Z-Scores and Trade Values
+### Fantasy Points and Surplus Value
 
-**What is a z-score?** In plain terms, a z-score tells you how many standard deviations above or below average a player is in a specific category. If a player has a z-score of +2.0 in HR, it means they hit significantly more home runs than the average player. A z-score of -1.0 in SB means they steal fewer bases than most.
+The app's primary valuation method uses **projected fantasy points** based on the Galactic Empire league's specific scoring rules. Every player is valued by how many points they're expected to produce for the rest of the season.
 
-- **+2.0 or higher:** Elite (top ~2.5% of players)
-- **+1.0:** Good (top ~16%)
-- **0.0:** Exactly average
-- **-1.0:** Below average (bottom ~16%)
-- **-2.0 or lower:** Poor (bottom ~2.5%)
+**How projected points are calculated:**
 
-**The five hitting categories:** HR, R, RBI, SB, AVG (the standard 5x5 roto categories)
-**The five pitching categories:** W, SV, K, ERA, WHIP
+The app takes each player's actual stats and blended projections (weighted mix of full-season data, recent trends, and Statcast expected metrics), then applies the league scoring formula:
 
-For ERA and WHIP, the z-score is **inverted** — a lower ERA is better, so a pitcher with a 2.50 ERA gets a positive z-score.
+- **Hitters:** R×1 + 1B×1 + 2B×2 + 3B×3 + HR×4 + RBI×1 + SB×2 + CS×(-1) + BB×1 + HBP×1 + K×(-0.5)
+- **Pitchers:** OUT×1.5 + K×0.5 + SV×7 + HLD×4 + RW×4 + QS×2 + H×(-0.75) + ER×(-4) + BB×(-0.75) + HBP×(-0.75)
 
-**Z-Score Total** is the sum of z-scores across all five categories. It represents a player's total fantasy value across all categories. A z-score total of +8.0 means the player is elite across the board. A total near 0.0 means the player is roughly average in all categories combined.
+This produces a single number — projected rest-of-season fantasy points — that directly measures how much value each player is expected to generate.
 
----
+**Surplus Value** = Projected Points − Replacement-Level Points at that position.
 
-### VORP and Surplus Value
+Replacement level is the projected output of the first unrostered player at each position:
 
-**VORP (Value Over Replacement Player):** Not all positions are created equal. There are far more productive outfielders than productive catchers. VORP measures how much better a player is than the best freely available player at the same position — the "replacement player."
-
-**How the app defines replacement level:**
-
-In a standard 12-team league, the app assumes these many roster spots per position:
-
-| Position | Roster Spots (12 teams) | Implication |
-|----------|------------------------|-------------|
-| C | 12 | Only 12 catchers are "owned." The 13th-best catcher is the replacement level. |
-| 1B | 12 | Same concept. |
-| 2B | 12 | |
-| 3B | 12 | |
-| SS | 12 | |
-| OF | 60 | 5 OF slots × 12 teams. The 61st-best outfielder is replacement level. |
-| SP | 84 | ~7 SP × 12 teams. Deep position — replacement-level SP is still decent. |
-| RP | 36 | ~3 RP × 12 teams. |
-
-**Surplus Value** = Z-Score Total − Replacement-Level Z-Score Total at that position.
-
-Example: If the 13th-best shortstop has a z-score total of +1.5, then a shortstop with a z-score total of +5.0 has a surplus value of +3.5. That +3.5 represents how much better this player is than what you could get for free on waivers.
+| Position | Rostered (10 teams) | Replacement Level |
+|----------|--------------------|-------------------|
+| C | 10 | The 11th-best catcher |
+| 1B, 2B, 3B, SS | 10 each | The 11th-best at each position |
+| OF | 30 | 3 OF × 10 teams. The 31st-best outfielder. |
+| SP | 20 | 2 dedicated SP × 10 teams |
+| RP | 20 | 2 dedicated RP × 10 teams |
 
 **Why this matters for trades:**
-- A 1B with 30 HR and a z-score total of +4.0 might have a surplus value of only +1.0 (because first basemen are plentiful and the replacement is decent)
-- A SS with 20 HR and a z-score total of +3.0 might have a surplus value of +2.5 (because shortstops are scarce and the replacement is weak)
-- The shortstop is actually more valuable in a trade despite having lower raw stats
+- An elite closer projecting 450 ROS points with a replacement-level closer at 150 has a surplus of +300. That's massive — equivalent to 43 saves or 67 extra innings pitched.
+- A contact hitter projecting 350 points at SS with replacement at 200 has a surplus of +150.
+- The closer has nearly double the trade value despite being "just a reliever" in traditional rankings.
 
-When evaluating trades, add up the surplus value on each side. The side with the higher total is getting more fantasy value. The app rates trades as:
-- **Fair** — difference < 0.5
-- **Slightly favors** one side — difference 0.5 to 2.0
-- **Heavily favors** one side — difference > 2.0
+When evaluating trades, the app compares total surplus on each side:
+- **Fair** — difference < 20 points
+- **Slightly favors** one side — 20 to 75 points
+- **Heavily favors** one side — > 75 points
+
+The trade analysis also explains *why* in league-specific terms: how much reliever value is changing hands, how many innings of pitching volume you're trading, and what the point gap translates to in saves or IP.
+
+#### Z-Scores (Legacy)
+
+The app also retains a z-score methodology for roto analysis as a secondary view. Z-scores measure how many standard deviations above or below average a player is across the 5x5 categories (HR, R, RBI, SB, AVG for hitters; W, SV, K, ERA, WHIP for pitchers). However, the default view uses the points-based system described above, since it directly reflects your league's actual scoring.
 
 ---
 
 ### Waiver Wire Scoring
 
-Every waiver recommendation receives a composite score from 0 to 100, calculated from five weighted components:
+Every waiver recommendation receives a composite score from 0 to 100, calculated from five weighted components that are optimized for H2H Points scoring:
 
 | Component | Weight | What It Measures | How It's Scored |
 |-----------|--------|-----------------|-----------------|
-| **Projection** | 30% | Rest-of-season projected value from the blending engine | Confidence score × 50. A player with a high-confidence strong projection scores highest. |
-| **Trend** | 30% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). If it declined by .030+, score = 20 (COLD). Stable players score 50. |
-| **Positional Scarcity** | 20% | How hard is it to replace this player's position? | Scarce positions (C, 1B, 2B, 3B, SS — only 12 rostered each) score 70. Mid-depth positions (SP, RP) score 50. Deep positions (OF — 60 rostered) score 30. |
-| **Ownership** | 10% | How widely owned is the player? | Currently uses a neutral placeholder (50). Lower-owned players would score higher since they represent untapped upside. |
-| **Schedule** | 10% | Are upcoming matchups favorable? | Currently uses a neutral placeholder (50). Favorable upcoming opponents would boost this score. |
+| **Projected Points** | 35% | Rest-of-season projected fantasy points in your scoring system | Player's projected ROS points, normalized to a 0-100 scale relative to the top projection in the dataset. This is the most important factor. |
+| **Trend** | 25% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). If it declined by .030+, score = 20 (COLD). Stable players score 50. |
+| **Positional Scarcity** | 15% | How hard is it to replace this player's position? | Scarce positions in a 10-team league (C, 1B, 2B, 3B, SS — 10 rostered each) score 70. Mid-depth (SP, RP — 20 each) score 60. Deep (OF — 30) score 40. |
+| **Scoring Fit** | 15% | Does this player specifically excel in your scoring format? | **Closers** with saves score 85 (SV=7 is premium). **Setup men** with holds score 75 (HLD=4). **Low-K hitters** (K% < 18%) score 75 (K=-0.5 penalty matters). **High-BB hitters** (BB% > 10%) score 65 (BB=1 is free points). **Innings eaters** (6+ IP/start) score 70 (IP=4.5 per inning). |
+| **Ownership** | 10% | How widely owned is the player? | Currently uses a neutral placeholder (50). |
 
-**The "BUY LOW" badge** appears when the player's xwOBA significantly exceeds their actual wOBA — the same buy-low signal used throughout the app. A BUY LOW waiver wire player is someone who's hitting the ball well but getting unlucky, sitting on the wire because their surface-level stats look bad. These are the highest-upside pickups.
+**The Scoring Fit column** is what makes this waiver page unique to your league. In a standard roto league, a setup man with 20 holds isn't exciting. In your league, that's 80 points from holds alone — and the Fit score flags these players. Similarly, a .270 hitter with a 14% K rate doesn't jump off the page in traditional rankings, but in a format where strikeouts cost half a point each, that player's efficiency is genuinely valuable.
+
+**The "BUY LOW" badge** appears when a player's expected stats (xwOBA from Statcast) significantly exceed their actual results. These are the highest-upside pickups — players hitting the ball well but getting unlucky, sitting on the wire because their surface stats look poor.
 
 **The trend label:**
-- **HOT** — Last-14-day xwOBA is .015+ higher than full-season (the player's contact quality is improving)
-- **COLD** — Last-14-day xwOBA is .015+ lower than full-season (declining)
+- **HOT** — Last-14-day xwOBA is .015+ higher than full-season (contact quality improving)
+- **COLD** — Last-14-day xwOBA is .015+ lower (declining)
 - **--** — Stable (within .015 either direction)
 
 ---
@@ -772,3 +900,71 @@ Quick-reference for every abbreviation and concept used in the app, listed alpha
 - **The FIP vs ERA scatter plot on Stats Explorer is a cheat code for pitchers.** Find pitchers whose ERA is much higher than their FIP — they are almost certainly going to improve. Target them in trades before their ERA drops and their price goes up.
 
 - **The Chat Assistant knows your roster.** Don't just use it for general questions — ask it specifically about your team. "Should I drop [player X] for [player Y]?" will give you a personalized answer based on your actual roster composition and league context.
+
+---
+
+## League Points Dashboard
+
+The **League Points** page is designed specifically for the Galactic Empire H2H Points league. Every number on this dashboard is displayed in **fantasy points** — you never have to mentally convert stats.
+
+### Scoring System Quick Reference
+
+| Batting | Points | Pitching | Points |
+|---------|--------|----------|--------|
+| Run (R) | 1 | Per Out (OUT) | 1.5 |
+| Single (1B) | 1 | Strikeout (K) | 0.5 |
+| Double (2B) | 2 | Save (SV) | **7** |
+| Triple (3B) | 3 | Hold (HLD) | **4** |
+| Home Run (HR) | **4** | Relief Win (RW) | **4** |
+| RBI | 1 | Quality Start (QS) | 2 |
+| Stolen Base (SB) | 2 | Hit Allowed (H) | -0.75 |
+| Caught Stealing (CS) | -1 | Earned Run (ER) | **-4** |
+| Walk (BB) | 1 | Walk (BB) | -0.75 |
+| Hit By Pitch (HBP) | 1 | Hit By Pitch (HBP) | -0.75 |
+| Strikeout (K) | -0.5 | | |
+
+### Key Strategic Insights
+
+1. **Relievers are premium.** A save = 7 pts. An elite closer's clean save inning (1 IP, 2K, SV) = 12.5 points. Always roster closers and strong setup men.
+
+2. **Innings are gold.** Each IP = 4.5 pts from outs. A 7-IP quality start = 31.5 pts from outs alone. Prioritize innings-eating starters with low ERAs.
+
+3. **Earned runs are devastating.** ER = -4 points. A 5-ER blowup loses 20 pts from ER alone. Avoid volatile starters and only stream against weak offenses.
+
+4. **Contact hitters have an edge.** Batter K = -0.5. A 150-K player loses 75 pts from Ks vs an 80-K player losing 40 — a 35-point gap. Low-K hitters with moderate power can outscore TTO sluggers.
+
+5. **Walks are free points.** BB = 1 pt for hitters. High-OBP, low-K hitters are systematically undervalued.
+
+6. **Use the 4 P slots strategically.** They can be SP or RP. Load up on starters when you have aces with good matchups, or fill with relievers when few good starts are available.
+
+### How the Model Uses Scoring Weights
+
+The scoring weights directly drive which matchup adjustments matter most:
+
+| Scoring Feature | Weight | Model Implication |
+|----------------|--------|-------------------|
+| ER = -4 pts | Heaviest negative | Phase 2 (opponent offense) matters most for pitcher projections. A pitcher facing a 115 wRC+ team has ER projection boosted ~5%, costing ~0.8 extra pts per ER. |
+| SV = 7 pts | Highest positive | Closer identification is critical. Phase 1 doesn't adjust SV (pitcher-controlled), but volume estimation (appearance rate) directly drives closer value. |
+| OUT = 1.5 pts | High positive volume | Innings are the foundation of pitcher value. SP with 7 IP earn 31.5 pts from outs alone. The IP estimation (probable starts × IP/start) is the most impactful projection input. |
+| HR = 4 pts | High positive | Phase 1 (opposing pitcher SIERA) and Phase 3 (park factors) have outsized impact on HR projections. A Coors series can boost HR projection by 30%+. |
+| K (batter) = -0.5 | Moderate negative | Phase 1 uses the opposing pitcher's actual K% (not SIERA) because K rate is pitcher-specific. Facing a 30% K pitcher vs 15% K pitcher is a 10% swing in hitter K projection. |
+| BB (batter) = +1 | Moderate positive | Phase 1 uses opposing pitcher's BB% for the same reason. Wild pitchers = more free points for hitters. |
+
+### Benchmark Stats: What Typical Weeks Look Like
+
+| Scenario | Typical Weekly Points |
+|----------|----------------------|
+| Elite closer: 3 save opps, 2 clean innings | ~30-35 pts |
+| Ace SP: 2 quality starts (14 IP, 16K, 3ER) | ~35-40 pts |
+| Elite hitter: 30 PA, 2 HR, 5 R, 5 RBI, 1 SB | ~25-30 pts |
+| Average hitter: 25 PA, 0 HR, 3 R, 3 RBI | ~10-12 pts |
+| SP blowup: 4 IP, 7ER, 3BB | ~ -15 pts |
+| Full team (17 active): typical week | ~120-180 pts |
+
+### Dashboard Sections
+
+- **Top Hitters by Projected Points** — Hitters ranked by projected ROS fantasy points. The "Pts/PA" column shows efficiency.
+- **Top Starters** — Starting pitchers ranked by projected points. "Pts/Start" is the key metric for weekly decisions.
+- **Reliever Watch** — Closers and setup men ranked by projected points. Role badges show Closer/Setup/Middle.
+- **Contact Kings** — Low-K hitters with the best Pts/PA. The "Pts Lost to Ks" column shows the hidden cost of strikeouts.
+- **Points Calculator** — Enter any stat line to calculate fantasy points. Use presets to internalize the scoring system.

@@ -2,10 +2,34 @@
 <div class="bg-green-900/50 border border-green-700 rounded-lg p-4 mt-3">
     <p class="text-green-300 font-semibold">Sync complete</p>
     <p class="text-green-400 text-sm mt-1">
-        {{ result.players }} players, {{ result.rosters }} roster entries, {{ result.stats }} stats
+        {{ result.standings }} standings, {{ result.players }} players,
+        {{ result.rosters }} roster entries, {{ result.stats }} stats
         — {{ result.duration_seconds }}s
     </p>
     <script>setTimeout(() => location.reload(), 1500)</script>
+</div>
+{% elif result.status == "partial" %}
+<div class="bg-yellow-900/50 border border-yellow-700 rounded-lg p-4 mt-3">
+    <p class="text-yellow-300 font-semibold">Sync partially complete</p>
+    <p class="text-yellow-400 text-sm mt-1">
+        {{ result.standings or 0 }} standings, {{ result.players or 0 }} players,
+        {{ result.rosters or 0 }} roster entries, {{ result.stats or 0 }} stats
+        — {{ result.duration_seconds }}s
+    </p>
+    {% if result.warnings %}
+    <div class="mt-2 space-y-1">
+        {% for w in result.warnings %}
+        <p class="text-yellow-500 text-xs">&#9888; {{ w }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if result.rosters == 0 %}
+    <p class="text-yellow-500 text-xs mt-2">
+        Tip: If rosters aren't loading, the Yahoo OAuth token may have expired.
+        Restart the server — yfpy will open a browser window to re-authorize.
+    </p>
+    {% endif %}
+    <script>setTimeout(() => location.reload(), 2000)</script>
 </div>
 {% elif result.status == "cooldown" %}
 <div class="bg-yellow-900/50 border border-yellow-700 rounded-lg p-4 mt-3">

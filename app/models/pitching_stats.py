@@ -46,6 +46,10 @@ class PitchingStats(Base):
     bb: Mapped[float | None] = mapped_column(Float, nullable=True)
     so: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # League scoring stats
+    qs: Mapped[float | None] = mapped_column(Float, nullable=True)  # quality starts
+    hbp: Mapped[float | None] = mapped_column(Float, nullable=True)  # hit by pitch
+
     # Rate stats
     era: Mapped[float | None] = mapped_column(Float, nullable=True)
     whip: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -56,6 +60,14 @@ class PitchingStats(Base):
     siera: Mapped[float | None] = mapped_column(Float, nullable=True)
     k_bb_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
     war: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    # Advanced analytics
+    k_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    bb_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gb_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hr_fb_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lob_pct: Mapped[float | None] = mapped_column(Float, nullable=True)
+    gmli: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False

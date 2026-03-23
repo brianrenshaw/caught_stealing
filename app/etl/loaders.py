@@ -152,9 +152,11 @@ class DatabaseLoader:
         logger.info(f"Upserted {count} stat entries")
         return count
 
-    async def create_sync_log(self, status: str = "running") -> SyncLog:
+    async def create_sync_log(
+        self, status: str = "running", pipeline_type: str = "yahoo"
+    ) -> SyncLog:
         """Create a new sync log entry."""
-        sync_log = SyncLog(status=status)
+        sync_log = SyncLog(status=status, pipeline_type=pipeline_type)
         self.session.add(sync_log)
         await self.session.flush()
         return sync_log
@@ -223,12 +225,18 @@ class DatabaseLoader:
                 existing.cs = _safe_val(row.get("cs"))
                 existing.bb = _safe_val(row.get("bb"))
                 existing.so = _safe_val(row.get("so"))
+                existing.hbp = _safe_val(row.get("hbp"))
                 existing.avg = _safe_val(row.get("avg"))
                 existing.obp = _safe_val(row.get("obp"))
                 existing.slg = _safe_val(row.get("slg"))
                 existing.ops = _safe_val(row.get("ops"))
                 existing.woba = _safe_val(row.get("woba"))
                 existing.wrc_plus = _safe_val(row.get("wrc_plus"))
+                existing.iso = _safe_val(row.get("iso"))
+                existing.babip = _safe_val(row.get("babip"))
+                existing.k_pct = _safe_val(row.get("k_pct"))
+                existing.bb_pct = _safe_val(row.get("bb_pct"))
+                existing.war = _safe_val(row.get("war"))
                 existing.updated_at = datetime.now()
             else:
                 new_stat = BattingStats(
@@ -248,12 +256,18 @@ class DatabaseLoader:
                     cs=_safe_val(row.get("cs")),
                     bb=_safe_val(row.get("bb")),
                     so=_safe_val(row.get("so")),
+                    hbp=_safe_val(row.get("hbp")),
                     avg=_safe_val(row.get("avg")),
                     obp=_safe_val(row.get("obp")),
                     slg=_safe_val(row.get("slg")),
                     ops=_safe_val(row.get("ops")),
                     woba=_safe_val(row.get("woba")),
                     wrc_plus=_safe_val(row.get("wrc_plus")),
+                    iso=_safe_val(row.get("iso")),
+                    babip=_safe_val(row.get("babip")),
+                    k_pct=_safe_val(row.get("k_pct")),
+                    bb_pct=_safe_val(row.get("bb_pct")),
+                    war=_safe_val(row.get("war")),
                 )
                 session.add(new_stat)
             count += 1
@@ -314,6 +328,17 @@ class DatabaseLoader:
                 existing.bb_per_9 = _safe_val(row.get("bb_per_9"))
                 existing.fip = _safe_val(row.get("fip"))
                 existing.xfip = _safe_val(row.get("xfip"))
+                existing.siera = _safe_val(row.get("siera"))
+                existing.k_bb_pct = _safe_val(row.get("k_bb_pct"))
+                existing.war = _safe_val(row.get("war"))
+                existing.qs = _safe_val(row.get("qs"))
+                existing.hbp = _safe_val(row.get("hbp"))
+                existing.k_pct = _safe_val(row.get("k_pct"))
+                existing.bb_pct = _safe_val(row.get("bb_pct"))
+                existing.gb_pct = _safe_val(row.get("gb_pct"))
+                existing.hr_fb_pct = _safe_val(row.get("hr_fb_pct"))
+                existing.lob_pct = _safe_val(row.get("lob_pct"))
+                existing.gmli = _safe_val(row.get("gmli"))
                 existing.updated_at = datetime.now()
             else:
                 new_stat = PitchingStats(
@@ -339,6 +364,17 @@ class DatabaseLoader:
                     bb_per_9=_safe_val(row.get("bb_per_9")),
                     fip=_safe_val(row.get("fip")),
                     xfip=_safe_val(row.get("xfip")),
+                    siera=_safe_val(row.get("siera")),
+                    k_bb_pct=_safe_val(row.get("k_bb_pct")),
+                    war=_safe_val(row.get("war")),
+                    qs=_safe_val(row.get("qs")),
+                    hbp=_safe_val(row.get("hbp")),
+                    k_pct=_safe_val(row.get("k_pct")),
+                    bb_pct=_safe_val(row.get("bb_pct")),
+                    gb_pct=_safe_val(row.get("gb_pct")),
+                    hr_fb_pct=_safe_val(row.get("hr_fb_pct")),
+                    lob_pct=_safe_val(row.get("lob_pct")),
+                    gmli=_safe_val(row.get("gmli")),
                 )
                 session.add(new_stat)
             count += 1
@@ -404,6 +440,10 @@ class DatabaseLoader:
                 existing.xslg = _safe_val(row.get("xslg"))
                 existing.xwoba = _safe_val(row.get("xwoba"))
                 existing.sweet_spot_pct = _safe_val(row.get("sweet_spot_pct"))
+                existing.sprint_speed = _safe_val(row.get("sprint_speed"))
+                existing.whiff_pct = _safe_val(row.get("whiff_pct"))
+                existing.chase_pct = _safe_val(row.get("chase_pct"))
+                existing.xera = _safe_val(row.get("xera"))
                 existing.updated_at = datetime.now()
             else:
                 new_sc = StatcastSummary(
@@ -420,10 +460,57 @@ class DatabaseLoader:
                     xslg=_safe_val(row.get("xslg")),
                     xwoba=_safe_val(row.get("xwoba")),
                     sweet_spot_pct=_safe_val(row.get("sweet_spot_pct")),
+                    sprint_speed=_safe_val(row.get("sprint_speed")),
+                    whiff_pct=_safe_val(row.get("whiff_pct")),
+                    chase_pct=_safe_val(row.get("chase_pct")),
+                    xera=_safe_val(row.get("xera")),
                 )
                 session.add(new_sc)
             count += 1
 
         await session.flush()
         logger.info(f"Upserted {count} statcast summary rows ({player_type}/{period})")
+        return count
+
+    async def upsert_sprint_speed(
+        self,
+        session: AsyncSession,
+        df: pd.DataFrame,
+        season: int,
+    ) -> int:
+        """Merge sprint speed data into existing batter StatcastSummary records."""
+        if df.empty:
+            return 0
+
+        count = 0
+        for _, row in df.iterrows():
+            mlbam_id = str(row.get("mlbam_id", ""))
+            if not mlbam_id or mlbam_id == "nan":
+                continue
+            try:
+                mlbam_id = str(int(float(mlbam_id)))
+            except (ValueError, TypeError):
+                continue
+
+            result = await session.execute(select(Player).where(Player.mlbam_id == mlbam_id))
+            player = result.scalar_one_or_none()
+            if not player:
+                continue
+
+            result = await session.execute(
+                select(StatcastSummary).where(
+                    StatcastSummary.player_id == player.id,
+                    StatcastSummary.season == season,
+                    StatcastSummary.period == "full_season",
+                    StatcastSummary.player_type == "batter",
+                )
+            )
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.sprint_speed = _safe_val(row.get("sprint_speed"))
+                existing.updated_at = datetime.now()
+                count += 1
+
+        await session.flush()
+        logger.info(f"Updated sprint speed for {count} batter records")
         return count
