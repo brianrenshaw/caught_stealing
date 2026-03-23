@@ -4,15 +4,16 @@
 {% block nav_matchups %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-2">Daily Matchups</h2>
+<h2 class="text-2xl font-bold mb-2">Daily Matchups {{ page_info('matchups') }}</h2>
 <p class="text-gray-400 text-sm mb-6">{{ game_date }}</p>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Streaming Pitchers -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden lg:col-span-2">
         <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Streaming Pitchers</h3>
+            <h3 class="text-lg font-semibold text-gray-200">Streaming Pitchers {{ page_info('streaming-pitchers') }}</h3>
             <p class="text-gray-500 text-xs mt-1">Ranked by matchup quality (pitcher skill + opponent + park)</p>
         </div>
         {% if streaming_picks %}
@@ -24,10 +25,10 @@
                         <th class="text-left py-2 px-3">Pitcher</th>
                         <th class="text-left py-2 px-3">vs</th>
                         <th class="text-left py-2 px-3">Park</th>
-                        <th class="text-right py-2 px-3">Score</th>
-                        <th class="text-right py-2 px-3">Proj K</th>
-                        <th class="text-right py-2 px-3">ERA</th>
-                        <th class="text-left py-2 px-3">Notes</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">Score {{ stat_info('Score') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">Proj K {{ stat_info('Proj K') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">ERA {{ stat_info('ERA') }}</th>
+                        <th class="text-left py-2 px-3 whitespace-nowrap">Notes {{ stat_info('Notes') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -62,7 +63,7 @@
     <!-- Hitter Stacks -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Hitter Stacks</h3>
+            <h3 class="text-lg font-semibold text-gray-200">Hitter Stacks {{ page_info('hitter-stacks') }}</h3>
             <p class="text-gray-500 text-xs mt-1">Best offenses to target today</p>
         </div>
         {% if stacks %}
@@ -90,7 +91,7 @@
     <!-- Two-Start Pitchers -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
         <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Two-Start Pitchers</h3>
+            <h3 class="text-lg font-semibold text-gray-200">Two-Start Pitchers {{ page_info('two-start-pitchers') }}</h3>
             <p class="text-gray-500 text-xs mt-1">Pitchers with two starts this week</p>
         </div>
         {% if two_start %}

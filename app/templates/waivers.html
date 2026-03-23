@@ -4,8 +4,9 @@
 {% block nav_waivers %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Waiver Wire Recommendations</h2>
+<h2 class="text-2xl font-bold mb-6">Waiver Wire Recommendations {{ page_info('waivers') }}</h2>
 
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
     {% if recommendations %}
@@ -16,11 +17,11 @@
                     <th class="text-left py-2 px-3">#</th>
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3">Score</th>
-                    <th class="text-right py-2 px-3">Proj</th>
-                    <th class="text-right py-2 px-3">Trend</th>
-                    <th class="text-center py-2 px-3">Status</th>
-                    <th class="text-left py-2 px-3">Reasoning</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Score {{ stat_info('Score') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Proj {{ stat_info('Proj') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Trend {{ stat_info('Trend') }}</th>
+                    <th class="text-center py-2 px-3 whitespace-nowrap">Status {{ stat_info('Status') }}</th>
+                    <th class="text-left py-2 px-3 whitespace-nowrap">Reasoning {{ stat_info('Reasoning') }}</th>
                 </tr>
             </thead>
             <tbody>

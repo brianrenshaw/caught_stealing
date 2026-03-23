@@ -4,8 +4,9 @@
 {% block nav_trades %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">Trade Analyzer</h2>
+<h2 class="text-2xl font-bold mb-6">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
 
 <!-- Trade Evaluation Form -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
@@ -34,7 +35,7 @@
 <!-- Trade Value Rankings -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
     <div class="p-4 border-b border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-200">Trade Value Rankings</h3>
+        <h3 class="text-lg font-semibold text-gray-200">Trade Value Rankings {{ page_info('trade-value-rankings') }}</h3>
         <p class="text-gray-500 text-xs mt-1">Surplus value = z-score total minus position replacement level</p>
     </div>
     {% if trade_values %}
@@ -45,9 +46,9 @@
                     <th class="text-left py-2 px-3">#</th>
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3">Pos Rank</th>
-                    <th class="text-right py-2 px-3">Z-Score</th>
-                    <th class="text-right py-2 px-3">Surplus</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Pos Rank {{ stat_info('Pos Rank') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Z-Score {{ stat_info('Z-Score') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Surplus {{ stat_info('Surplus') }}</th>
                 </tr>
             </thead>
             <tbody>

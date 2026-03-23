@@ -4,8 +4,9 @@
 {% block nav_roster %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-6">My Roster</h2>
+<h2 class="text-2xl font-bold mb-6">My Roster {{ page_info('roster') }}</h2>
 
 {% if not has_data %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
@@ -37,7 +38,7 @@
                         {% endfor %}
                     {% endfor %}
                     {% for stat_name in batting_stats[:12] %}
-                    <th class="text-right py-3 px-3">{{ stat_name }}</th>
+                    <th class="text-right py-3 px-3 whitespace-nowrap">{{ stat_name }} {{ stat_info(stat_name) }}</th>
                     {% endfor %}
                 </tr>
             </thead>
@@ -87,7 +88,7 @@
                         {% endfor %}
                     {% endfor %}
                     {% for stat_name in pitching_stats[:12] %}
-                    <th class="text-right py-3 px-3">{{ stat_name }}</th>
+                    <th class="text-right py-3 px-3 whitespace-nowrap">{{ stat_name }} {{ stat_info(stat_name) }}</th>
                     {% endfor %}
                 </tr>
             </thead>

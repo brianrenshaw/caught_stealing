@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block title %}{{ player.name if player else "Player Not Found" }} — Fantasy Baseball{% endblock %}
 
 {% block content %}
@@ -85,21 +86,21 @@
 {# ── Standard Stats Tab ── #}
 <div id="tab-standard" class="tab-panel">
 {% if is_hitter %}
-<h3 class="text-lg font-semibold text-white mb-3">Batting Stats</h3>
+<h3 class="text-lg font-semibold text-white mb-3">Batting Stats {{ page_info('standard-stats') }}</h3>
 <div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">Period</th>
-            <th class="text-right py-2 px-3">PA</th>
-            <th class="text-right py-2 px-3">HR</th>
-            <th class="text-right py-2 px-3">R</th>
-            <th class="text-right py-2 px-3">RBI</th>
-            <th class="text-right py-2 px-3">SB</th>
-            <th class="text-right py-2 px-3">AVG</th>
-            <th class="text-right py-2 px-3">OBP</th>
-            <th class="text-right py-2 px-3">SLG</th>
-            <th class="text-right py-2 px-3">OPS</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">PA {{ stat_info('PA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">HR {{ stat_info('HR') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">R {{ stat_info('R') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">RBI {{ stat_info('RBI') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SB {{ stat_info('SB') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">AVG {{ stat_info('AVG') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">OBP {{ stat_info('OBP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SLG {{ stat_info('SLG') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">OPS {{ stat_info('OPS') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -126,20 +127,20 @@
 {% endif %}
 
 {% if is_pitcher %}
-<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Pitching Stats</h3>
+<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Pitching Stats {{ page_info('standard-stats') }}</h3>
 <div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">Period</th>
-            <th class="text-right py-2 px-3">IP</th>
-            <th class="text-right py-2 px-3">W</th>
-            <th class="text-right py-2 px-3">SV</th>
-            <th class="text-right py-2 px-3">SO</th>
-            <th class="text-right py-2 px-3">ERA</th>
-            <th class="text-right py-2 px-3">WHIP</th>
-            <th class="text-right py-2 px-3">K/9</th>
-            <th class="text-right py-2 px-3">BB/9</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">IP {{ stat_info('IP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">W {{ stat_info('W') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SV {{ stat_info('SV') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SO {{ stat_info('SO') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">ERA {{ stat_info('ERA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">WHIP {{ stat_info('WHIP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">K/9 {{ stat_info('K/9') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">BB/9 {{ stat_info('BB/9') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -168,19 +169,19 @@
 {# ── Advanced Stats Tab ── #}
 <div id="tab-advanced" class="tab-panel hidden">
 {% if is_hitter %}
-<h3 class="text-lg font-semibold text-white mb-3">Advanced Batting</h3>
+<h3 class="text-lg font-semibold text-white mb-3">Advanced Batting {{ page_info('advanced-stats') }}</h3>
 <div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">Period</th>
-            <th class="text-right py-2 px-3">wOBA</th>
-            <th class="text-right py-2 px-3">wRC+</th>
-            <th class="text-right py-2 px-3">ISO</th>
-            <th class="text-right py-2 px-3">BABIP</th>
-            <th class="text-right py-2 px-3">K%</th>
-            <th class="text-right py-2 px-3">BB%</th>
-            <th class="text-right py-2 px-3">WAR</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">wOBA {{ stat_info('wOBA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">wRC+ {{ stat_info('wRC+') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">ISO {{ stat_info('ISO') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">BABIP {{ stat_info('BABIP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">K% {{ stat_info('K%') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">BB% {{ stat_info('BB%') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">WAR {{ stat_info('WAR') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -207,17 +208,17 @@
 {% endif %}
 
 {% if is_pitcher %}
-<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Advanced Pitching</h3>
+<h3 class="text-lg font-semibold text-white mb-3 {% if is_hitter %}mt-8{% endif %}">Advanced Pitching {{ page_info('advanced-stats') }}</h3>
 <div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">Period</th>
-            <th class="text-right py-2 px-3">FIP</th>
-            <th class="text-right py-2 px-3">xFIP</th>
-            <th class="text-right py-2 px-3">SIERA</th>
-            <th class="text-right py-2 px-3">K-BB%</th>
-            <th class="text-right py-2 px-3">WAR</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">FIP {{ stat_info('FIP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">xFIP {{ stat_info('xFIP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SIERA {{ stat_info('SIERA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">K-BB% {{ stat_info('K-BB%') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">WAR {{ stat_info('WAR') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -244,7 +245,7 @@
 <div id="tab-statcast" class="tab-panel hidden">
 {% set sc = statcast_bat.get("full_season") or statcast_pitch.get("full_season") %}
 {% if sc %}
-<h3 class="text-lg font-semibold text-white mb-4">Statcast Metrics</h3>
+<h3 class="text-lg font-semibold text-white mb-4">Statcast Metrics {{ page_info('statcast-tab') }}</h3>
 <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
     {% for label, val, fmt, good_high in [
         ("Avg Exit Velo", sc.avg_exit_velo, "%.1f", true),
@@ -261,7 +262,7 @@
     ] %}
     {% if val is not none %}
     <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
-        <div class="text-gray-400 text-xs uppercase tracking-wider mb-1">{{ label }}</div>
+        <div class="text-gray-400 text-xs uppercase tracking-wider mb-1">{{ label }} {{ stat_info(label) }}</div>
         <div class="text-2xl font-bold text-white">{{ fmt|format(val) }}{% if "%" in label and val < 1 %}{% endif %}</div>
     </div>
     {% endif %}
@@ -275,12 +276,12 @@
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">Period</th>
-            <th class="text-right py-2 px-3">Avg EV</th>
-            <th class="text-right py-2 px-3">Barrel %</th>
-            <th class="text-right py-2 px-3">Hard Hit %</th>
-            <th class="text-right py-2 px-3">xBA</th>
-            <th class="text-right py-2 px-3">xSLG</th>
-            <th class="text-right py-2 px-3">xwOBA</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">Avg EV {{ stat_info('Avg Exit Velo') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">Barrel % {{ stat_info('Barrel %') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">Hard Hit % {{ stat_info('Hard Hit %') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">xBA {{ stat_info('xBA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">xSLG {{ stat_info('xSLG') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA {{ stat_info('xwOBA') }}</th>
         </tr>
     </thead>
     <tbody>
@@ -310,27 +311,27 @@
 {# ── Projections Tab ── #}
 <div id="tab-projections" class="tab-panel hidden">
 {% if projections %}
-<h3 class="text-lg font-semibold text-white mb-3">Rest-of-Season Projections</h3>
+<h3 class="text-lg font-semibold text-white mb-3">Rest-of-Season Projections {{ page_info('projections-tab') }}</h3>
 <div class="overflow-x-auto">
 <table class="w-full text-sm">
     <thead>
         <tr class="text-gray-400 border-b border-gray-700">
             <th class="text-left py-2 px-3">System</th>
             {% if is_hitter %}
-            <th class="text-right py-2 px-3">HR</th>
-            <th class="text-right py-2 px-3">R</th>
-            <th class="text-right py-2 px-3">RBI</th>
-            <th class="text-right py-2 px-3">SB</th>
-            <th class="text-right py-2 px-3">AVG</th>
-            <th class="text-right py-2 px-3">OBP</th>
-            <th class="text-right py-2 px-3">OPS</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">HR {{ stat_info('HR') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">R {{ stat_info('R') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">RBI {{ stat_info('RBI') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SB {{ stat_info('SB') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">AVG {{ stat_info('AVG') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">OBP {{ stat_info('OBP') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">OPS {{ stat_info('OPS') }}</th>
             {% endif %}
             {% if is_pitcher %}
-            <th class="text-right py-2 px-3">W</th>
-            <th class="text-right py-2 px-3">SV</th>
-            <th class="text-right py-2 px-3">K</th>
-            <th class="text-right py-2 px-3">ERA</th>
-            <th class="text-right py-2 px-3">WHIP</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">W {{ stat_info('W') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">SV {{ stat_info('SV') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">K {{ stat_info('K') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">ERA {{ stat_info('ERA') }}</th>
+            <th class="text-right py-2 px-3 whitespace-nowrap">WHIP {{ stat_info('WHIP') }}</th>
             {% endif %}
         </tr>
     </thead>
@@ -369,7 +370,7 @@
 {# ── Comparable Players Tab ── #}
 <div id="tab-comps" class="tab-panel hidden">
 {% if comps %}
-<h3 class="text-lg font-semibold text-white mb-3">Most Similar Players</h3>
+<h3 class="text-lg font-semibold text-white mb-3">Most Similar Players {{ page_info('comparables-tab') }}</h3>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
     {% for comp in comps %}
     <a href="/player/{{ comp.player_id }}"
@@ -402,7 +403,7 @@
 {# ── Rolling Trend Chart ── #}
 {% if is_hitter %}
 <div class="mt-8">
-    <h3 class="text-lg font-semibold text-white mb-3">Performance Trend</h3>
+    <h3 class="text-lg font-semibold text-white mb-3">Performance Trend {{ page_info('performance-trend') }}</h3>
     <div id="rolling-chart" class="bg-gray-800 rounded-lg border border-gray-700 p-4" style="height: 350px;"></div>
 </div>
 <script>

@@ -2,9 +2,10 @@
 {% block title %}Stats Explorer — Fantasy Baseball{% endblock %}
 {% block nav_stats %}bg-gray-700 text-white{% endblock %}
 
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-white">Stats Explorer</h1>
+    <h1 class="text-2xl font-bold text-white">Stats Explorer {{ page_info('stats-explorer') }}</h1>
     <div class="flex items-center gap-3">
         <label class="text-gray-400 text-sm">Season:</label>
         <select id="season-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
@@ -37,16 +38,16 @@
 <div id="view-statcast" class="stats-view">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Exit Velocity vs Barrel Rate</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Exit Velocity vs Barrel Rate {{ page_info('ev-vs-barrel') }}</h3>
             <div id="chart-ev-barrel" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
         </div>
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA vs Actual wOBA (Luck Chart)</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA vs Actual wOBA (Luck Chart) {{ page_info('xwoba-vs-woba') }}</h3>
             <div id="chart-luck" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
         </div>
     </div>
     <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA Distribution</h3>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA Distribution {{ page_info('xwoba-distribution') }}</h3>
         <div id="chart-xwoba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
     </div>
 </div>
@@ -55,16 +56,16 @@
 <div id="view-batting" class="stats-view hidden">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wRC+ Leaders</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wRC+ Leaders {{ page_info('wrc-plus-leaders') }}</h3>
             <div id="chart-wrc-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
         </div>
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K% vs BB% (Plate Discipline)</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K% vs BB% (Plate Discipline) {{ page_info('k-vs-bb') }}</h3>
             <div id="chart-kbb-scatter" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
         </div>
     </div>
     <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wOBA Distribution</h3>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wOBA Distribution {{ page_info('woba-distribution') }}</h3>
         <div id="chart-woba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
     </div>
 </div>
@@ -73,16 +74,16 @@
 <div id="view-pitching" class="stats-view hidden">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">FIP vs ERA</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">FIP vs ERA {{ page_info('fip-vs-era') }}</h3>
             <div id="chart-fip-era" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
         </div>
         <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K-BB% Leaders</h3>
+            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K-BB% Leaders {{ page_info('k-bb-leaders') }}</h3>
             <div id="chart-kbb-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
         </div>
     </div>
     <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ERA Distribution</h3>
+        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ERA Distribution {{ page_info('era-distribution') }}</h3>
         <div id="chart-era-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
     </div>
 </div>

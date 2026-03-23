@@ -4,9 +4,10 @@
 {% block nav_projections %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-    <h2 class="text-2xl font-bold">Projections</h2>
+    <h2 class="text-2xl font-bold">Projections {{ page_info('projections') }}</h2>
     <div class="flex items-center gap-4">
         {% if available_seasons %}
         <select onchange="window.location.href='/projections?player_type={{ selected_type }}&season=' + this.value"
@@ -50,15 +51,15 @@
                     <th class="text-left py-2 px-3">#</th>
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3">HR</th>
-                    <th class="text-right py-2 px-3">R</th>
-                    <th class="text-right py-2 px-3">RBI</th>
-                    <th class="text-right py-2 px-3">SB</th>
-                    <th class="text-right py-2 px-3">AVG</th>
-                    <th class="text-right py-2 px-3">OPS</th>
-                    <th class="text-center py-2 px-3">Signal</th>
-                    <th class="text-right py-2 px-3">xwOBA &Delta;</th>
-                    <th class="text-right py-2 px-3">Conf</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">HR {{ stat_info('HR') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">R {{ stat_info('R') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">RBI {{ stat_info('RBI') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">SB {{ stat_info('SB') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">AVG {{ stat_info('AVG') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">OPS {{ stat_info('OPS') }}</th>
+                    <th class="text-center py-2 px-3 whitespace-nowrap">Signal {{ stat_info('Signal') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA &Delta; {{ stat_info('xwOBA Δ') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Conf {{ stat_info('Conf') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -128,13 +129,13 @@
                     <th class="text-left py-2 px-3">#</th>
                     <th class="text-left py-2 px-3">Player</th>
                     <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3">W</th>
-                    <th class="text-right py-2 px-3">SV</th>
-                    <th class="text-right py-2 px-3">K</th>
-                    <th class="text-right py-2 px-3">ERA</th>
-                    <th class="text-right py-2 px-3">WHIP</th>
-                    <th class="text-center py-2 px-3">Signal</th>
-                    <th class="text-right py-2 px-3">Conf</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">W {{ stat_info('W') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">SV {{ stat_info('SV') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">K {{ stat_info('K') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">ERA {{ stat_info('ERA') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">WHIP {{ stat_info('WHIP') }}</th>
+                    <th class="text-center py-2 px-3 whitespace-nowrap">Signal {{ stat_info('Signal') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap">Conf {{ stat_info('Conf') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -188,7 +189,7 @@
     {% if buy_low %}
     <div class="bg-gray-800 rounded-lg border border-emerald-700/30 overflow-hidden">
         <div class="px-4 py-3 bg-emerald-900/20 border-b border-emerald-700/30">
-            <h3 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Buy Low Candidates</h3>
+            <h3 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Buy Low Candidates {{ page_info('buy-low-candidates') }}</h3>
             <p class="text-xs text-gray-500 mt-1">Expected performance exceeds actual — likely to improve</p>
         </div>
         <div class="overflow-x-auto">
@@ -196,9 +197,9 @@
                 <thead>
                     <tr class="text-gray-400 border-b border-gray-700">
                         <th class="text-left py-2 px-3">Player</th>
-                        <th class="text-right py-2 px-3">wOBA</th>
-                        <th class="text-right py-2 px-3">xwOBA</th>
-                        <th class="text-right py-2 px-3">Gap</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">wOBA {{ stat_info('wOBA') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA {{ stat_info('xwOBA') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">Gap {{ stat_info('Gap') }}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -222,7 +223,7 @@
     {% if sell_high %}
     <div class="bg-gray-800 rounded-lg border border-red-700/30 overflow-hidden">
         <div class="px-4 py-3 bg-red-900/20 border-b border-red-700/30">
-            <h3 class="text-sm font-semibold text-red-400 uppercase tracking-wider">Sell High Candidates</h3>
+            <h3 class="text-sm font-semibold text-red-400 uppercase tracking-wider">Sell High Candidates {{ page_info('sell-high-candidates') }}</h3>
             <p class="text-xs text-gray-500 mt-1">Actual performance exceeds expected — likely to regress</p>
         </div>
         <div class="overflow-x-auto">
@@ -230,9 +231,9 @@
                 <thead>
                     <tr class="text-gray-400 border-b border-gray-700">
                         <th class="text-left py-2 px-3">Player</th>
-                        <th class="text-right py-2 px-3">wOBA</th>
-                        <th class="text-right py-2 px-3">xwOBA</th>
-                        <th class="text-right py-2 px-3">Gap</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">wOBA {{ stat_info('wOBA') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA {{ stat_info('xwOBA') }}</th>
+                        <th class="text-right py-2 px-3 whitespace-nowrap">Gap {{ stat_info('Gap') }}</th>
                     </tr>
                 </thead>
                 <tbody>

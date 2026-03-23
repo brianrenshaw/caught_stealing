@@ -9,3 +9,21 @@
 .player-link:hover {
     border-bottom-color: #60a5fa;
 }
+
+/* Info tooltip icon button reset */
+.info-icon {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    line-height: 1;
+    vertical-align: middle;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Info tooltip container */
+#info-tooltip {
+    pointer-events: auto;
+    transition: opacity 0.15s ease;
+}

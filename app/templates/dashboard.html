@@ -4,10 +4,11 @@
 {% block nav_dashboard %}bg-gray-700 text-white{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
     <div class="flex items-center gap-4">
-        <h2 class="text-2xl font-bold">Dashboard</h2>
+        <h2 class="text-2xl font-bold">Dashboard {{ page_info('dashboard') }}</h2>
         {% if available_seasons %}
         <select onchange="window.location.href='/?season=' + this.value"
                 class="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none">
@@ -127,7 +128,7 @@
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
     <!-- League Standings -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-        <h3 class="text-lg font-semibold mb-3 text-gray-200">League Standings</h3>
+        <h3 class="text-lg font-semibold mb-3 text-gray-200">League Standings {{ page_info('league-standings') }}</h3>
         {% if standings %}
         <table class="w-full text-sm">
             <thead>
@@ -135,7 +136,7 @@
                     <th class="text-left py-2 w-8">#</th>
                     <th class="text-left py-2">Team</th>
                     <th class="text-right py-2">W-L-T</th>
-                    <th class="text-right py-2">PF</th>
+                    <th class="text-right py-2">PF {{ stat_info('PF') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -160,7 +161,7 @@
     <!-- My Team Summary -->
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
         <div class="flex justify-between items-center mb-3">
-            <h3 class="text-lg font-semibold text-gray-200">My Team</h3>
+            <h3 class="text-lg font-semibold text-gray-200">My Team {{ page_info('my-team') }}</h3>
             {% if my_roster %}<a href="/roster" class="text-blue-400 text-xs hover:text-blue-300">Full roster</a>{% endif %}
         </div>
         {% if my_roster %}
@@ -187,7 +188,7 @@
         <!-- Buy Low -->
         <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-base font-semibold text-gray-200">Buy Low</h3>
+                <h3 class="text-base font-semibold text-gray-200">Buy Low {{ page_info('buy-low') }}</h3>
                 <a href="/projections?season={{ selected_season }}" class="text-blue-400 text-xs hover:text-blue-300">View all</a>
             </div>
             {% if buy_low %}
@@ -209,7 +210,7 @@
         <!-- Sell High -->
         <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
             <div class="flex justify-between items-center mb-3">
-                <h3 class="text-base font-semibold text-gray-200">Sell High</h3>
+                <h3 class="text-base font-semibold text-gray-200">Sell High {{ page_info('sell-high') }}</h3>
                 <a href="/projections?season={{ selected_season }}" class="text-blue-400 text-xs hover:text-blue-300">View all</a>
             </div>
             {% if sell_high %}
@@ -278,7 +279,7 @@
 {% if top_hitters %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
     <div class="flex items-center justify-between p-4 border-b border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-200">Top Hitters</h3>
+        <h3 class="text-lg font-semibold text-gray-200">Top Hitters {{ page_info('top-hitters') }}</h3>
         <div class="flex gap-2">
             <input type="text" id="hitter-search" placeholder="Search hitters..."
                    oninput="filterTable('hitter-table', this.value)"
@@ -293,17 +294,17 @@
                     <th class="text-left py-2 px-3 w-8">#</th>
                     <th class="text-left py-2 px-3 sortable" data-sort="string" onclick="sortTable('hitter-table', 1, 'string')">Player</th>
                     <th class="text-left py-2 px-1 sortable" data-sort="string" onclick="sortTable('hitter-table', 2, 'string')">Pos</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 3, 'number')">PA</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 4, 'number')">HR</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 5, 'number')">R</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 6, 'number')">RBI</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 7, 'number')">SB</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 8, 'number')">AVG</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 9, 'number')">OBP</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 10, 'number')">SLG</th>
-                    <th class="text-right py-2 px-3 sortable sorted-desc" data-sort="number" onclick="sortTable('hitter-table', 11, 'number')">OPS</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 12, 'number')">wOBA</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('hitter-table', 13, 'number')">wRC+</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 3, 'number')">PA {{ stat_info('PA') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 4, 'number')">HR {{ stat_info('HR') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 5, 'number')">R {{ stat_info('R') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 6, 'number')">RBI {{ stat_info('RBI') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 7, 'number')">SB {{ stat_info('SB') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 8, 'number')">AVG {{ stat_info('AVG') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 9, 'number')">OBP {{ stat_info('OBP') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 10, 'number')">SLG {{ stat_info('SLG') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable sorted-desc" data-sort="number" onclick="sortTable('hitter-table', 11, 'number')">OPS {{ stat_info('OPS') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 12, 'number')">wOBA {{ stat_info('wOBA') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('hitter-table', 13, 'number')">wRC+ {{ stat_info('wRC+') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -337,7 +338,7 @@
 {% if top_pitchers %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
     <div class="flex items-center justify-between p-4 border-b border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-200">Top Pitchers</h3>
+        <h3 class="text-lg font-semibold text-gray-200">Top Pitchers {{ page_info('top-pitchers') }}</h3>
         <div class="flex gap-2">
             <input type="text" id="pitcher-search" placeholder="Search pitchers..."
                    oninput="filterTable('pitcher-table', this.value)"
@@ -352,16 +353,16 @@
                     <th class="text-left py-2 px-3 w-8">#</th>
                     <th class="text-left py-2 px-3 sortable" data-sort="string" onclick="sortTable('pitcher-table', 1, 'string')">Player</th>
                     <th class="text-left py-2 px-1 sortable" data-sort="string" onclick="sortTable('pitcher-table', 2, 'string')">Pos</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 3, 'number')">IP</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 4, 'number')">W</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 5, 'number')">L</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 6, 'number')">SV</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 7, 'number')">K</th>
-                    <th class="text-right py-2 px-3 sortable sorted-asc" data-sort="number" onclick="sortTable('pitcher-table', 8, 'number')">ERA</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 9, 'number')">WHIP</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 10, 'number')">K/9</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 11, 'number')">BB/9</th>
-                    <th class="text-right py-2 px-3 sortable" data-sort="number" onclick="sortTable('pitcher-table', 12, 'number')">FIP</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 3, 'number')">IP {{ stat_info('IP') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 4, 'number')">W {{ stat_info('W') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 5, 'number')">L {{ stat_info('L') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 6, 'number')">SV {{ stat_info('SV') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 7, 'number')">K {{ stat_info('K') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable sorted-asc" data-sort="number" onclick="sortTable('pitcher-table', 8, 'number')">ERA {{ stat_info('ERA') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 9, 'number')">WHIP {{ stat_info('WHIP') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 10, 'number')">K/9 {{ stat_info('K/9') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 11, 'number')">BB/9 {{ stat_info('BB/9') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap sortable" data-sort="number" onclick="sortTable('pitcher-table', 12, 'number')">FIP {{ stat_info('FIP') }}</th>
                 </tr>
             </thead>
             <tbody>
