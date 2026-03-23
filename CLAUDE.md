@@ -60,7 +60,9 @@ fantasy-baseball/
 │   │   ├── splits_service.py     # Player splits data
 │   │   ├── optimizer_service.py  # PuLP lineup optimizer
 │   │   ├── trade_service.py      # VORP-based trade analyzer
-│   │   ├── waiver_service.py     # Waiver wire scorer
+│   │   ├── waiver_service.py     # Waiver wire scorer + AI analysis
+│   │   ├── schedule_service.py   # MLB schedule, team games, weather data
+│   │   ├── weekly_lineup_service.py # Weekly lineup optimization + AI outlook
 │   │   ├── assistant.py          # Claude AI chat assistant
 │   │   ├── assistant_tools.py    # Tool functions for the assistant
 │   │   └── id_mapper.py          # Cross-platform player ID mapping

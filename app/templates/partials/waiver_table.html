@@ -1,0 +1,128 @@
+{% from "macros/player_link.html" import player_link %}
+{% from "macros/info_icon.html" import stat_info %}
+
+{% set is_weekly = period != 'ros' %}
+
+{% if recommendations %}
+<div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                <th class="text-left py-2 px-3">#</th>
+                <th class="text-left py-2 px-3">Player</th>
+                <th class="text-left py-2 px-1">Pos</th>
+                <th class="text-right py-2 px-3 whitespace-nowrap">Score</th>
+                <th class="text-right py-2 px-3 whitespace-nowrap">
+                    {% if is_weekly %}Week Pts{% else %}Proj Pts{% endif %}
+                </th>
+                <th class="text-right py-2 px-3 whitespace-nowrap">Rate</th>
+                {% if is_weekly %}
+                <th class="text-right py-2 px-2 whitespace-nowrap">Games</th>
+                {% endif %}
+                <th class="text-right py-2 px-3 whitespace-nowrap">Fit</th>
+                <th class="text-right py-2 px-3 whitespace-nowrap">Trend</th>
+                <th class="text-center py-2 px-3 whitespace-nowrap">Status</th>
+                <th class="text-left py-2 px-3 whitespace-nowrap">Reasoning</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rec in recommendations %}
+            <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                <td class="py-2 px-3">
+                    <div class="flex items-center gap-1.5">
+                        {{ player_link(rec.player_id, rec.name, rec.team) }}
+                        {% if rec.two_start %}
+                        <span class="text-[10px] font-bold bg-green-900/50 text-green-400 px-1.5 py-0.5 rounded whitespace-nowrap"
+                              title="{{ rec.start_opponents|join(', ') if rec.start_opponents else 'Two starts' }}">2-START</span>
+                        {% endif %}
+                        {% if rec.closer_vacancy %}
+                        <span class="text-[10px] font-bold bg-emerald-900/50 text-emerald-300 px-1.5 py-0.5 rounded whitespace-nowrap">CLOSER OPP</span>
+                        {% endif %}
+                        {% if rec.breakout_signal %}
+                        <span class="text-[10px] font-bold bg-orange-900/50 text-orange-400 px-1.5 py-0.5 rounded whitespace-nowrap"
+                              title="{{ rec.breakout_detail }}">BREAKOUT</span>
+                        {% endif %}
+                    </div>
+                </td>
+                <td class="py-2 px-1 text-xs">
+                    <span class="text-gray-400">{{ rec.position }}</span>
+                    {% if rec.reliever_role %}
+                    <span class="ml-0.5 text-[10px] font-medium {% if rec.reliever_role == 'closer' %}text-green-400{% elif rec.reliever_role == 'setup' %}text-blue-400{% else %}text-gray-500{% endif %}">
+                        {% if rec.reliever_role == 'closer' %}CL{% elif rec.reliever_role == 'setup' %}SU{% elif rec.reliever_role == 'middle' %}MR{% elif rec.reliever_role == 'long' %}LR{% endif %}
+                    </span>
+                    {% endif %}
+                </td>
+                <td class="py-2 px-3 text-right font-medium text-blue-400">{{ "%.1f"|format(rec.waiver_score) }}</td>
+                <td class="py-2 px-3 text-right
+                    {% if is_weekly %}
+                        {% if rec.weekly_points >= 40 %}text-green-400{% elif rec.weekly_points >= 20 %}text-blue-400{% else %}text-gray-300{% endif %}
+                    {% else %}
+                        {% if rec.projected_points >= 200 %}text-green-400{% elif rec.projected_points >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}
+                    {% endif %}">
+                    {% if is_weekly %}
+                        {{ "%.0f"|format(rec.weekly_points) if rec.weekly_points else '—' }}
+                    {% else %}
+                        {{ "%.0f"|format(rec.projected_points) if rec.projected_points else '—' }}
+                    {% endif %}
+                </td>
+                <td class="py-2 px-3 text-right text-gray-300">
+                    {% if rec.player_type == 'pitcher' and rec.points_per_ip %}
+                        {{ "%.2f"|format(rec.points_per_ip) }}
+                    {% elif rec.points_per_pa %}
+                        {{ "%.3f"|format(rec.points_per_pa) }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </td>
+                {% if is_weekly %}
+                <td class="py-2 px-2 text-right text-xs
+                    {% if rec.team_games >= 7 %}text-green-400{% elif rec.team_games >= 6 %}text-gray-300{% else %}text-yellow-400{% endif %}">
+                    {{ rec.team_games }}
+                    {% if rec.num_starts > 0 %}
+                    <span class="text-gray-500">({{ rec.num_starts }}S)</span>
+                    {% endif %}
+                </td>
+                {% endif %}
+                <td class="py-2 px-3 text-right">
+                    {% if rec.scoring_fit_score >= 75 %}
+                    <span class="text-green-400 text-xs font-medium">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                    {% elif rec.scoring_fit_score >= 60 %}
+                    <span class="text-blue-400 text-xs">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">{{ "%.0f"|format(rec.scoring_fit_score) }}</span>
+                    {% endif %}
+                </td>
+                <td class="py-2 px-3 text-right">
+                    {% if rec.trend == 'hot' %}
+                    <span class="text-green-400 text-xs">HOT</span>
+                    {% elif rec.trend == 'cold' %}
+                    <span class="text-red-400 text-xs">COLD</span>
+                    {% else %}
+                    <span class="text-gray-500 text-xs">--</span>
+                    {% endif %}
+                </td>
+                <td class="py-2 px-3 text-center space-x-1">
+                    {% if rec.buy_low %}
+                    <span class="text-green-400 text-[10px] font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY LOW</span>
+                    {% endif %}
+                    {% if rec.injury_status and 'DTD' in rec.injury_status %}
+                    <span class="text-yellow-400 text-[10px] font-medium bg-yellow-900/30 px-1.5 py-0.5 rounded"
+                          title="{{ rec.injury_status }} — Source: MLB Official Injury Report">DTD</span>
+                    {% elif rec.injury_status and 'IL' in rec.injury_status %}
+                    <span class="text-red-400 text-[10px] font-medium bg-red-900/30 px-1.5 py-0.5 rounded"
+                          title="{{ rec.injury_status }} — Source: MLB Official Injury Report">IL</span>
+                    {% endif %}
+                </td>
+                <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate" title="{{ rec.reasoning }}">{{ rec.reasoning }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="p-8 text-center">
+    <p class="text-gray-400">No waiver recommendations available.</p>
+    <p class="text-gray-500 text-sm mt-2">Run the stats sync first to populate data.</p>
+</div>
+{% endif %}

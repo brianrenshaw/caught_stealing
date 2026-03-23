@@ -285,9 +285,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             roster_entries = result.scalars().all()
 
             # Bulk-fetch PlayerPoints for all roster players
-            roster_player_ids = [
-                e.player.id for e in roster_entries if e.player
-            ]
+            roster_player_ids = [e.player.id for e in roster_entries if e.player]
             pp_result = await session.execute(
                 select(PlayerPoints).where(
                     PlayerPoints.player_id.in_(roster_player_ids),
@@ -311,9 +309,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
                     "roster_position": entry.roster_position,
                     "actual_points": round(pp.actual_points, 1) if pp and pp.actual_points else 0,
                     "projected_points": (
-                        round(pp.projected_ros_points, 1)
-                        if pp and pp.projected_ros_points
-                        else 0
+                        round(pp.projected_ros_points, 1) if pp and pp.projected_ros_points else 0
                     ),
                 }
 
@@ -327,8 +323,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
                         starting_lineup["pitchers"].append(player_data)
 
             starting_lineup["total_actual"] = sum(
-                p["actual_points"]
-                for p in starting_lineup["hitters"] + starting_lineup["pitchers"]
+                p["actual_points"] for p in starting_lineup["hitters"] + starting_lineup["pitchers"]
             )
             starting_lineup["total_projected"] = sum(
                 p["projected_points"]
@@ -368,6 +363,21 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             k_leaders = await _get_k_leaders(session, selected_season)
             stats_summary = await _get_stats_summary(session, selected_season)
 
+    # Fetch weekly lineup analysis
+    weekly_lineup = None
+    if not setup_needed and my_roster:
+        try:
+            from app.services.weekly_lineup_service import (
+                get_weekly_lineup_data,
+            )
+
+            async with async_session() as lineup_session:
+                weekly_lineup = await get_weekly_lineup_data(lineup_session, selected_season)
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).debug("Weekly lineup analysis unavailable")
+
     # Fetch weekly matchup data in a separate session to avoid blocking
     if not setup_needed:
         try:
@@ -377,38 +387,26 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             )
 
             async with async_session() as matchup_session:
-                snapshot = await get_or_create_weekly_snapshot(
-                    matchup_session, selected_season
-                )
+                snapshot = await get_or_create_weekly_snapshot(matchup_session, selected_season)
                 if snapshot:
                     display = build_matchup_display(snapshot)
                     matchup_data = {
                         "opponent_name": snapshot.opponent_team_name,
                         "my_team_name": snapshot.my_team_name,
                         "week": snapshot.week,
-                        "my_actual": round(
-                            snapshot.my_actual_points or 0, 1
-                        ),
-                        "opp_actual": round(
-                            snapshot.opponent_actual_points or 0, 1
-                        ),
+                        "my_actual": round(snapshot.my_actual_points or 0, 1),
+                        "opp_actual": round(snapshot.opponent_actual_points or 0, 1),
                         "my_projected": display["my_proj_total"],
                         "opp_projected": display["opp_proj_total"],
-                        "my_yahoo_projected": round(
-                            snapshot.my_projected_points or 0, 1
-                        ),
-                        "opp_yahoo_projected": round(
-                            snapshot.opponent_projected_points or 0, 1
-                        ),
+                        "my_yahoo_projected": round(snapshot.my_projected_points or 0, 1),
+                        "opp_yahoo_projected": round(snapshot.opponent_projected_points or 0, 1),
                         **display,
                     }
                 await matchup_session.commit()
         except Exception as e:
             import logging
 
-            logging.getLogger(__name__).warning(
-                f"Matchup data fetch failed: {e}"
-            )
+            logging.getLogger(__name__).warning(f"Matchup data fetch failed: {e}")
 
     return templates.TemplateResponse(
         request,
@@ -418,6 +416,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             "standings": standings,
             "my_roster": my_roster,
             "starting_lineup": starting_lineup,
+            "weekly_lineup": weekly_lineup,
             "matchup_data": matchup_data,
             "last_sync": last_sync,
             "league_name": league_name,
@@ -436,4 +435,55 @@ async def dashboard(request: Request, season: int | None = Query(None)):
             "sync_seasons": list(range(default_season(), 2014, -1)),
             "stats_summary": stats_summary,
         },
+    )
+
+
+@router.post("/api/lineup/analyze")
+async def analyze_lineup(request: Request):
+    """HTMX partial — returns AI-generated lineup analysis."""
+    season = default_season()
+    analysis_text = ""
+
+    try:
+        from app.services.weekly_lineup_service import (
+            analyze_weekly_lineup,
+            get_weekly_lineup_data,
+        )
+
+        async with async_session() as session:
+            data = await get_weekly_lineup_data(session, season)
+            if data:
+                analysis_text = await analyze_weekly_lineup(session, season, data)
+            else:
+                analysis_text = "**No lineup data available.** Sync your Yahoo roster first."
+    except Exception as e:
+        analysis_text = f"**Analysis failed:** {e}"
+
+    return templates.TemplateResponse(
+        request,
+        "partials/lineup_analysis.html",
+        {"analysis": analysis_text},
+    )
+
+
+@router.post("/api/weekly-outlook")
+async def weekly_outlook(request: Request):
+    """HTMX partial — returns AI-generated weekly matchup preview."""
+    season = default_season()
+    analysis_text = ""
+
+    try:
+        from app.services.weekly_lineup_service import (
+            generate_weekly_outlook,
+        )
+
+        async with async_session() as session:
+            analysis_text = await generate_weekly_outlook(session, season)
+    except Exception as e:
+        analysis_text = f"**Weekly outlook failed:** {e}"
+
+    return templates.TemplateResponse(
+        request,
+        "partials/weekly_outlook.html",
+        {"analysis": analysis_text},
     )

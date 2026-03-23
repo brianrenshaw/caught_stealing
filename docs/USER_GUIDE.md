@@ -88,7 +88,7 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 |---------|-------------|
 | **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week; actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
-| **Starting Lineup** | Your active roster (excluding bench, IL, NA) grouped into hitters and pitchers. Shows each player's actual season points and projected ROS points. The total row at the bottom shows combined actual and projected totals for your starting lineup. |
+| **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by 4-phase matchup adjustments. Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
 | **Buy Low / Sell High Signals** | Cards highlighting players whose expected performance (xwOBA) significantly differs from their actual results (wOBA). These are trade opportunity alerts. |
 | **Category Leaders** | A 4-column grid showing the top players in HR, SB, AVG, and K — the marquee fantasy categories. |
 | **Top Hitters** | A sortable, filterable table of the best hitters. Columns: PA, HR, R, RBI, SB, AVG, OBP, SLG, OPS, wOBA, wRC+. Click any column header to sort. |
@@ -238,24 +238,57 @@ Two sections:
 
 **What it shows:**
 
-A ranked table of waiver wire recommendations scored from 0 to 100, specifically tuned for your H2H Points league. The scoring formula weights five factors, with projected fantasy points as the dominant input:
+A ranked table of waiver wire recommendations scored from 0 to 100, specifically tuned for your H2H Points league. Use the **Projection Period dropdown** to switch between full-season (ROS) and weekly views.
+
+#### Projection Period Dropdown
+
+| Period | Description |
+|--------|-------------|
+| **Full Season (ROS)** | Ranks players by rest-of-season projected fantasy points. Best for long-term roster building. |
+| **This Week** | Ranks by projected points for the current Mon–Sun period. Factors in team schedule, two-start pitchers, reliever opportunities, and matchup quality. Excludes IL players; penalizes DTD players. |
+| **Next Week** | Same as This Week but for the following Mon–Sun period. Useful for planning ahead before Monday's waiver deadline. |
+
+#### Table Columns
 
 | Column | Description |
 |--------|-------------|
-| **Player** | Name, team, and position |
-| **Score** | Composite waiver score (0–100), weighted: projected points (35%), trend (25%), position scarcity (15%), scoring fit (15%), ownership (10%) |
-| **Proj Pts** | Projected rest-of-season fantasy points in your league's scoring system. This is the raw projected output — look for players with high Proj Pts who aren't rostered. |
-| **Pts/PA or Pts/IP** | Points per plate appearance (hitters) or per inning pitched (pitchers). This rate stat shows efficiency regardless of playing time. A bench hitter with elite Pts/PA might be worth a roster spot if he earns more playing time. |
-| **Fit** | League scoring fit score (50=neutral, 75+=premium). Players who specifically excel in your format — closers, setup men, contact hitters, innings eaters — get a scoring fit bonus. A high Fit score means this player is even better than their raw stats suggest in your particular league. |
-| **Trend** | **HOT** (Statcast metrics improving), **COLD** (declining), or **--** (stable) |
-| **Status** | **BUY LOW** badge when expected stats significantly exceed actual results |
-| **Reasoning** | League-specific explanation — mentions point values (e.g., "Closer with 12 SV — saves = 7 pts each") |
+| **Player** | Name, team, and position. May include badges: **2-START** (green, pitcher has two starts this week), **CLOSER OPP** (emerald, setup man on a team whose closer is injured), **BREAKOUT** (orange, Statcast metrics surging). |
+| **Pos** | Primary position. Relievers also show a role badge: **CL** (closer, green), **SU** (setup, blue), **MR** (middle), **LR** (long). |
+| **Score** | Composite waiver score (0–100), weighted: projected points (35%), trend (25%), position scarcity (15%), scoring fit (15%), schedule volume (10%). |
+| **Week Pts / Proj Pts** | Weekly: projected fantasy points for the selected week. ROS: projected rest-of-season points. |
+| **Rate** | Points per plate appearance (hitters) or per inning pitched (pitchers). |
+| **Games** | (Weekly only) Number of team games that week, with pitcher starts shown as "(2S)". |
+| **Fit** | League scoring fit (50=neutral, 75+=premium). Boosted for two-start pitchers (+20) and closer vacancy pickups (+25). |
+| **Trend** | **HOT** / **COLD** / **--** based on last-14 vs full-season Statcast xwOBA delta. |
+| **Status** | **BUY LOW** (xwOBA >> wOBA), **DTD** (day-to-day, yellow), **IL** (injured list, red). Injury tooltips show specific injury and source (MLB Official Injury Report). |
+| **Reasoning** | League-specific explanation with point values, matchup context, and injury flags. |
+
+#### AI Roster Analysis
+
+Click **Analyze My Roster** to get personalized pickup/drop recommendations from Claude AI. The analysis considers:
+- Your current roster by position with stats and weak spots
+- Top waiver targets with scores and projections
+- Current injury report (Source: MLB Official Injury Report)
+- Two-start pitchers and closer vacancies
+- Statcast breakout candidates
+- League scoring rules
+
+For weekly analysis, the AI specifically avoids recommending DTD/IL players and prioritizes schedule-favorable pickups.
+
+#### Key Features for Weekly Pickups
+
+- **Two-start pitchers**: SPs with two starts in the selected week get a "2-START" badge and a +20 scoring fit bonus. In a league where each IP = 4.5 base points, a second start adds 20-30+ raw points.
+- **Closer vacancy detection**: When a team's closer hits the IL, their setup man is flagged with "CLOSER OPP" — the highest-value weekly waiver pickup possible (SV = 7 points each).
+- **Reliever role context**: Role badges (CL/SU/MR/LR) with projected save/hold opportunities and point estimates from those opportunities.
+- **Statcast breakout detection**: Players meeting 2+ of these criteria get a "BREAKOUT" badge: barrel% up 3+%, hard-hit% up 5+%, or xwOBA up .030+ (last 14 days vs full season).
+- **Injury-aware filtering**: IL players are excluded from weekly views entirely. DTD players show a warning and have their weekly projection reduced by 50%.
 
 **Why it matters for your league:** In most fantasy formats, the waiver wire is about finding the next breakout hitter. In H2H Points with these scoring rules, the waiver wire is also about:
 
 - **Reliever hunting**: A closer sitting on waivers who gets 3 saves this week just produced 21 points from a single roster slot. Setup men with holds are worth 4 points per hold. The Fit column highlights these players.
 - **Contact hitter arbitrage**: A .275 hitter with 12% K rate is quietly producing more fantasy points per plate appearance than a .250 hitter with 30 HR and 28% K rate. The Pts/PA column reveals this, and these players often sit unclaimed because their traditional stats look boring.
-- **Streaming starters carefully**: In this format, a bad streaming start is catastrophic. A 5-ER outing costs -20 points from earned runs alone and can easily be net-negative for the whole start. The Proj Pts column helps you only grab starters who are genuinely projected to produce positive value.
+- **Streaming starters carefully**: In this format, a bad streaming start is catastrophic. A 5-ER outing costs -20 points from earned runs alone and can easily be net-negative for the whole start. The Week/Proj Pts column helps you only grab starters who are genuinely projected to produce positive value.
+- **Schedule exploitation**: Teams playing 7 games in a week give their hitters ~30% more PA than teams playing 5 games. The weekly view surfaces this automatically.
 
 See [Waiver Wire Scoring](#waiver-wire-scoring) for the full formula breakdown.
 
@@ -771,15 +804,31 @@ Every waiver recommendation receives a composite score from 0 to 100, calculated
 
 | Component | Weight | What It Measures | How It's Scored |
 |-----------|--------|-----------------|-----------------|
-| **Projected Points** | 35% | Rest-of-season projected fantasy points in your scoring system | Player's projected ROS points, normalized to a 0-100 scale relative to the top projection in the dataset. This is the most important factor. |
-| **Trend** | 25% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). If it declined by .030+, score = 20 (COLD). Stable players score 50. |
+| **Projected Points** | 35% | Projected fantasy points (ROS or weekly) | ROS: normalized to 0-100 vs top projection. Weekly: rate × games, using per-start projections for SP and per-appearance for RP. |
+| **Trend** | 25% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). Includes **BREAKOUT detection**: barrel% +3%, hard-hit% +5%, or xwOBA +.030 (any 2 of 3 = breakout bonus of +15). |
 | **Positional Scarcity** | 15% | How hard is it to replace this player's position? | Scarce positions in a 10-team league (C, 1B, 2B, 3B, SS — 10 rostered each) score 70. Mid-depth (SP, RP — 20 each) score 60. Deep (OF — 30) score 40. |
-| **Scoring Fit** | 15% | Does this player specifically excel in your scoring format? | **Closers** with saves score 85 (SV=7 is premium). **Setup men** with holds score 75 (HLD=4). **Low-K hitters** (K% < 18%) score 75 (K=-0.5 penalty matters). **High-BB hitters** (BB% > 10%) score 65 (BB=1 is free points). **Innings eaters** (6+ IP/start) score 70 (IP=4.5 per inning). |
-| **Ownership** | 10% | How widely owned is the player? | Currently uses a neutral placeholder (50). |
+| **Scoring Fit** | 15% | Does this player specifically excel in your scoring format? | **Closers** with saves score 85 (SV=7 is premium). **Setup men** with holds score 75 (HLD=4). **Low-K hitters** (K% < 18%) score 75. **Two-start pitchers** get +20 bonus. **Closer vacancy pickups** get +25 bonus. |
+| **Schedule Volume** | 10% | How many games does the team play this week? | 7 games = 90, 6 games = 60, 5 games = 35, fewer = 15. Replaces the previous ownership placeholder. ROS view uses neutral 50. |
+
+#### Weekly-Specific Enhancements
+
+| Feature | Description |
+|---------|-------------|
+| **Two-Start Detection** | SPs with 2+ confirmed starts show "2-START" badge with opponent details. Gets +20 scoring fit bonus because each IP = 4.5 base points. |
+| **Reliever Role & Opportunity** | Role badges (CL/SU/MR/LR) with projected save/hold opportunities per week and estimated points from those opportunities. |
+| **Closer Vacancy Detection** | When a closer is on the IL (from MLB injury report), the team's setup man gets "CLOSER OPP" badge and +25 scoring fit bonus. |
+| **Injury Filtering** | IL players excluded from weekly views. DTD players flagged with yellow badge and 50% projection reduction. |
+| **Breakout Detection** | "BREAKOUT" badge for players meeting 2+ Statcast improvement criteria (barrel%, hard-hit%, xwOBA). |
 
 **The Scoring Fit column** is what makes this waiver page unique to your league. In a standard roto league, a setup man with 20 holds isn't exciting. In your league, that's 80 points from holds alone — and the Fit score flags these players. Similarly, a .270 hitter with a 14% K rate doesn't jump off the page in traditional rankings, but in a format where strikeouts cost half a point each, that player's efficiency is genuinely valuable.
 
-**The "BUY LOW" badge** appears when a player's expected stats (xwOBA from Statcast) significantly exceed their actual results. These are the highest-upside pickups — players hitting the ball well but getting unlucky, sitting on the wire because their surface stats look poor.
+**The badges:**
+- **BUY LOW** — xwOBA significantly exceeds actual wOBA (underperforming quality of contact)
+- **2-START** — Pitcher has two starts this week (massive weekly value)
+- **CLOSER OPP** — Setup man on team with injured closer (save opportunity = 7 pts each)
+- **BREAKOUT** — Statcast metrics surging in last 14 days
+- **DTD** — Day-to-day injury (projection reduced 50% in weekly views)
+- **IL** — Injured list (excluded from weekly views)
 
 **The trend label:**
 - **HOT** — Last-14-day xwOBA is .015+ higher than full-season (contact quality improving)

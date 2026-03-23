@@ -1,0 +1,26 @@
+<div class="bg-gray-900/60 rounded border border-indigo-700/40 p-3 mt-1">
+    <div class="flex items-center justify-between mb-2">
+        <h4 class="text-[10px] font-semibold text-indigo-300 uppercase tracking-wider">AI Lineup Analysis</h4>
+        <span class="text-[9px] text-gray-600">Source: MLB Official Injury Report</span>
+    </div>
+
+    {% if analysis %}
+    <div class="prose prose-invert prose-xs max-w-none text-gray-300 text-xs leading-relaxed
+                [&_strong]:text-white [&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs
+                [&_ul]:my-1 [&_li]:my-0.5 [&_p]:my-1.5">
+        {{ analysis | replace('\n', '<br>') | safe }}
+    </div>
+    {% else %}
+    <p class="text-gray-500 text-xs">Analysis could not be generated.</p>
+    {% endif %}
+
+    <div class="mt-2 pt-2 border-t border-gray-700/50 text-right">
+        <button hx-post="/api/lineup/analyze"
+                hx-target="#lineup-analysis-container"
+                hx-swap="innerHTML"
+                hx-indicator="#lineup-spinner"
+                class="text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors">
+            Re-analyze
+        </button>
+    </div>
+</div>

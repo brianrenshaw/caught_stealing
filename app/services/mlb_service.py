@@ -7,7 +7,12 @@ from datetime import date
 
 import statsapi
 
+from app.cache import cache
+
 logger = logging.getLogger(__name__)
+
+# Cache TTL: 2 hours for injury data (status changes throughout the day)
+TTL_INJURIES = 2 * 60 * 60
 
 
 async def _run_sync(func, *args, **kwargs):
@@ -179,3 +184,54 @@ async def get_team_roster(team_id: int) -> list[dict]:
         )
 
     return players
+
+
+async def get_injuries() -> list[InjuryEntry]:
+    """Fetch current MLB injury report from the MLB Stats API.
+
+    Source: MLB Official Injury Report.
+    Returns all active injuries with status (10-Day IL, 60-Day IL, DTD, etc.).
+    """
+    cache_key = "mlb:injuries"
+    cached_val = cache.get(cache_key)
+    if cached_val is not None:
+        return cached_val
+
+    injuries: list[InjuryEntry] = []
+    try:
+        data = await _run_sync(statsapi.get, "injuries", {"sportId": 1})
+        for entry in data.get("injuries", []):
+            person = entry.get("person", {})
+            team = entry.get("team", {})
+            mlbam_id = person.get("id")
+            if not mlbam_id:
+                continue
+            injuries.append(
+                InjuryEntry(
+                    player_name=person.get("fullName", ""),
+                    mlbam_id=int(mlbam_id),
+                    team=team.get("abbreviation", team.get("name", "")),
+                    status=entry.get("status", "Unknown"),
+                    injury=entry.get("description", entry.get("note", "")),
+                )
+            )
+    except Exception as e:
+        logger.error(f"Failed to fetch injuries: {e}")
+
+    cache.set(cache_key, injuries, expire=TTL_INJURIES)
+    logger.info(f"Fetched {len(injuries)} injury entries from MLB API")
+    return injuries
+
+
+async def get_player_injury_status(mlbam_id: int) -> InjuryEntry | None:
+    """Look up injury status for a specific player by MLB AM ID."""
+    injuries = await get_injuries()
+    for entry in injuries:
+        if entry.mlbam_id == mlbam_id:
+            return entry
+    return None
+
+
+def build_injury_lookup(injuries: list[InjuryEntry]) -> dict[int, InjuryEntry]:
+    """Build a lookup dict from mlbam_id to InjuryEntry."""
+    return {entry.mlbam_id: entry for entry in injuries}

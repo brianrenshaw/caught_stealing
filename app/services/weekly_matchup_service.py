@@ -113,9 +113,7 @@ async def _get_probable_starters_for_week(
             date_str = current.strftime("%m/%d/%Y")
             schedule = await asyncio.get_event_loop().run_in_executor(
                 None,
-                lambda d=date_str: statsapi_module.schedule(
-                    date=d, sportId=1
-                ),
+                lambda d=date_str: statsapi_module.schedule(date=d, sportId=1),
             )
             for game in schedule:
                 # Only count regular season games
@@ -132,6 +130,7 @@ async def _get_probable_starters_for_week(
         logger.warning(f"Failed to get probable starters: {e}")
     return counts
 
+
 logger = logging.getLogger(__name__)
 
 # Yahoo stat_id → our scoring category name mapping
@@ -146,7 +145,7 @@ YAHOO_BATTING_STAT_MAP = {
     16: "SB",
     17: "CS",
     18: "BB",
-    21: "K",    # Batter strikeouts
+    21: "K",  # Batter strikeouts
     50: "HBP",
 }
 
@@ -157,7 +156,7 @@ YAHOO_PITCHING_STAT_MAP = {
     34: "H",
     35: "BB",
     37: "ER",
-    39: "K",    # Pitcher strikeouts
+    39: "K",  # Pitcher strikeouts
     42: "HLD",
     48: "QS",
     57: "CG",
@@ -236,12 +235,14 @@ def _parse_player_weekly_stats(players: list, stat_categories: dict | None = Non
             if any(p in ("SP", "RP", "P") for p in pos_list):
                 position = "P"
 
-        player_list.append({
-            "name": player_name,
-            "points": round(player_points, 1),
-            "position": position,
-            "stats": player_stat_dict,
-        })
+        player_list.append(
+            {
+                "name": player_name,
+                "points": round(player_points, 1),
+                "position": position,
+                "stats": player_stat_dict,
+            }
+        )
 
     # Derive singles for batting
     h = batting_totals.get("H", 0)
@@ -283,9 +284,7 @@ def _compute_category_points(stats: dict) -> dict:
     return result
 
 
-def _scale_players_to_target(
-    players: list[dict], target_total: float
-) -> None:
+def _scale_players_to_target(players: list[dict], target_total: float) -> None:
     """Scale player projected points/stats so they sum to a target total.
 
     Modifies players in place. Used to calibrate our rate-based projections
@@ -298,9 +297,7 @@ def _scale_players_to_target(
     for p in players:
         p["proj_pts"] = round(p["proj_pts"] * scale, 1)
         for cat in list(p["proj_stats"].keys()):
-            p["proj_stats"][cat] = round(
-                p["proj_stats"].get(cat, 0) * scale, 1
-            )
+            p["proj_stats"][cat] = round(p["proj_stats"].get(cat, 0) * scale, 1)
 
 
 def build_matchup_display(snapshot: WeeklyMatchupSnapshot) -> dict:
@@ -328,9 +325,7 @@ def build_matchup_display(snapshot: WeeklyMatchupSnapshot) -> dict:
     batting_cats = list(BATTING_SCORING.keys())
     pitching_cats = list(PITCHING_SCORING.keys())
 
-    def _build_player_rows(
-        proj_data: dict, actual_data: dict
-    ) -> tuple[list[dict], list[dict]]:
+    def _build_player_rows(proj_data: dict, actual_data: dict) -> tuple[list[dict], list[dict]]:
         proj_players = proj_data.get("players", [])
         actual_players = actual_data.get("players", [])
 
@@ -348,24 +343,16 @@ def build_matchup_display(snapshot: WeeklyMatchupSnapshot) -> dict:
             actual_stats = ap.get("stats", {})
 
             # Compute projected and actual total points
-            scoring = (
-                PITCHING_SCORING if pos == "P" else BATTING_SCORING
-            )
-            proj_pts = sum(
-                proj_stats.get(c, 0) * w for c, w in scoring.items()
-            )
-            actual_pts = sum(
-                actual_stats.get(c, 0) * w for c, w in scoring.items()
-            )
+            scoring = PITCHING_SCORING if pos == "P" else BATTING_SCORING
+            proj_pts = sum(proj_stats.get(c, 0) * w for c, w in scoring.items())
+            actual_pts = sum(actual_stats.get(c, 0) * w for c, w in scoring.items())
 
             row = {
                 "name": name,
                 "position": pos,
                 "roster_position": pp.get("roster_position", pos),
                 "proj_pts": round(proj_pts, 1),
-                "actual_pts": round(
-                    ap.get("points", 0) or actual_pts, 1
-                ),
+                "actual_pts": round(ap.get("points", 0) or actual_pts, 1),
                 "proj_stats": proj_stats,
                 "actual_stats": actual_stats,
             }
@@ -478,9 +465,7 @@ async def _find_best_stats_season(session: AsyncSession, season: int) -> int:
     """Find the best season for stats data — use requested season if available,
     otherwise fall back to the most recent season with data."""
     result = await session.execute(
-        select(BattingStats.season)
-        .distinct()
-        .order_by(BattingStats.season.desc())
+        select(BattingStats.season).distinct().order_by(BattingStats.season.desc())
     )
     available = [r[0] for r in result.fetchall()]
     if season in available:
@@ -488,12 +473,13 @@ async def _find_best_stats_season(session: AsyncSession, season: int) -> int:
     return available[0] if available else season
 
 
-async def _compute_team_projected_breakdown(
+async def compute_team_projected_breakdown(
     session: AsyncSession,
     team_id: str,
     season: int,
     week_start: str = "",
     week_end: str = "",
+    project_bench: bool = False,
 ) -> dict:
     """Compute projected weekly category stats from DB data.
 
@@ -517,9 +503,7 @@ async def _compute_team_projected_breakdown(
     game_details: list[GameDetail] = []
     if week_start and week_end:
         try:
-            game_details = await get_weekly_game_details(
-                week_start, week_end
-            )
+            game_details = await get_weekly_game_details(week_start, week_end)
             for gd in game_details:
                 if gd.home_pitcher_id:
                     pid = int(gd.home_pitcher_id)
@@ -531,11 +515,7 @@ async def _compute_team_projected_breakdown(
             pass
 
     # Get team roster
-    result = await session.execute(
-        select(Roster)
-        .where(Roster.team_id == team_id)
-        .options()
-    )
+    result = await session.execute(select(Roster).where(Roster.team_id == team_id).options())
     roster_entries = result.scalars().all()
 
     batting_totals: dict[str, float] = {}
@@ -548,9 +528,7 @@ async def _compute_team_projected_breakdown(
         is_bench = pos in bench_pos
 
         # Get player info
-        p_result = await session.execute(
-            select(Player).where(Player.id == player_id)
-        )
+        p_result = await session.execute(select(Player).where(Player.id == player_id))
         player = p_result.scalar_one_or_none()
         p_name = player.name if player else "Unknown"
         p_team = player.team if player else ""
@@ -558,29 +536,25 @@ async def _compute_team_projected_breakdown(
 
         # Get team's games this week (cached per team)
         if p_team and p_team not in team_game_cache and week_start:
-            team_game_cache[p_team] = await _get_team_week_games(
-                p_team, week_start, week_end
-            )
+            team_game_cache[p_team] = await _get_team_week_games(p_team, week_start, week_end)
         team_games = team_game_cache.get(p_team, 6)
 
         is_pitcher = pos in ("SP", "RP", "P") or (
-            is_bench
-            and player
-            and any(
-                p in (player.position or "")
-                for p in ["SP", "RP", "P"]
-            )
+            is_bench and player and any(p in (player.position or "") for p in ["SP", "RP", "P"])
         )
 
-        # Bench/IL/NA players: include with zero stats but tagged
-        if is_bench:
-            player_list.append({
-                "name": p_name,
-                "points": 0,
-                "position": "P" if is_pitcher else "B",
-                "roster_position": pos,
-                "stats": {},
-            })
+        # Bench/IL/NA players: zero stats unless project_bench is True
+        if is_bench and not project_bench:
+            player_list.append(
+                {
+                    "name": p_name,
+                    "points": 0,
+                    "position": "P" if is_pitcher else "B",
+                    "roster_position": pos,
+                    "stats": {},
+                    "player_id": player_id,
+                }
+            )
             continue
 
         if is_pitcher:
@@ -595,11 +569,16 @@ async def _compute_team_projected_breakdown(
             )
             ps = ps_result.scalar_one_or_none()
             if not ps or not ps.ip or ps.ip <= 0:
-                player_list.append({
-                    "name": p_name, "points": 0,
-                    "position": "P", "roster_position": pos,
-                    "stats": {},
-                })
+                player_list.append(
+                    {
+                        "name": p_name,
+                        "points": 0,
+                        "position": "P",
+                        "roster_position": pos,
+                        "stats": {},
+                        "player_id": player_id,
+                    }
+                )
                 continue
 
             ip = ps.ip
@@ -609,9 +588,7 @@ async def _compute_team_projected_breakdown(
 
             if is_sp:
                 # Use probable starter data if available
-                mlbam_int = (
-                    int(p_mlbam) if p_mlbam else None
-                )
+                mlbam_int = int(p_mlbam) if p_mlbam else None
                 starts = probable_starts.get(mlbam_int, 0)
                 ip_per_gs = ip / gs if gs > 0 else 5.5
                 if starts == 0:
@@ -631,9 +608,15 @@ async def _compute_team_projected_breakdown(
 
             proj_stats = {}
             for attr, cat in [
-                ("so", "K"), ("sv", "SV"), ("hld", "HLD"),
-                ("w", "RW"), ("qs", "QS"), ("h", "H"),
-                ("er", "ER"), ("bb", "BB"), ("hbp", "HBP"),
+                ("so", "K"),
+                ("sv", "SV"),
+                ("hld", "HLD"),
+                ("w", "RW"),
+                ("qs", "QS"),
+                ("h", "H"),
+                ("er", "ER"),
+                ("bb", "BB"),
+                ("hbp", "HBP"),
             ]:
                 val = getattr(ps, attr, 0) or 0
                 proj_stats[cat] = round(val * scale, 1)
@@ -648,22 +631,14 @@ async def _compute_team_projected_breakdown(
                     opp_full = get_opponent_team(p_team, gd)
                     opp_abbrev = get_team_abbrev(opp_full)
                     if opp_abbrev:
-                        opp_wrc = await get_team_wrc_plus(
-                            session, opp_abbrev, stats_season
-                        )
-                        opp_wrc_mults.append(
-                            compute_pitcher_offense_mults(opp_wrc)
-                        )
+                        opp_wrc = await get_team_wrc_plus(session, opp_abbrev, stats_season)
+                        opp_wrc_mults.append(compute_pitcher_offense_mults(opp_wrc))
 
                 if opp_wrc_mults:
                     for cat in ["H", "ER"]:
-                        cat_mults = [
-                            m.get(cat, 1.0) for m in opp_wrc_mults
-                        ]
+                        cat_mults = [m.get(cat, 1.0) for m in opp_wrc_mults]
                         avg_mult = sum(cat_mults) / len(cat_mults)
-                        proj_stats[cat] = round(
-                            proj_stats[cat] * avg_mult, 1
-                        )
+                        proj_stats[cat] = round(proj_stats[cat] * avg_mult, 1)
 
             # ── Phase 3: Park factor adjustment ──
             home_park = get_player_home_park(p_team)
@@ -672,23 +647,24 @@ async def _compute_team_projected_breakdown(
                 park_mult = compute_park_mult(home_park, venue_names)
                 for cat in ["H", "ER"]:
                     if cat in proj_stats:
-                        proj_stats[cat] = round(
-                            proj_stats[cat] * park_mult, 1
-                        )
+                        proj_stats[cat] = round(proj_stats[cat] * park_mult, 1)
 
             pts = 0
             for cat, weight in PITCHING_SCORING.items():
                 val = proj_stats.get(cat, 0)
-                pitching_totals[cat] = (
-                    pitching_totals.get(cat, 0) + val
-                )
+                pitching_totals[cat] = pitching_totals.get(cat, 0) + val
                 pts += val * weight
 
-            player_list.append({
-                "name": p_name, "points": round(pts, 1),
-                "position": "P", "roster_position": pos,
-                "stats": proj_stats,
-            })
+            player_list.append(
+                {
+                    "name": p_name,
+                    "points": round(pts, 1),
+                    "position": "P",
+                    "roster_position": pos,
+                    "stats": proj_stats,
+                    "player_id": player_id,
+                }
+            )
         else:
             # Fetch batting stats
             bs_result = await session.execute(
@@ -701,11 +677,16 @@ async def _compute_team_projected_breakdown(
             )
             bs = bs_result.scalar_one_or_none()
             if not bs or not bs.pa or bs.pa <= 0:
-                player_list.append({
-                    "name": p_name, "points": 0,
-                    "position": "B", "roster_position": pos,
-                    "stats": {},
-                })
+                player_list.append(
+                    {
+                        "name": p_name,
+                        "points": 0,
+                        "position": "B",
+                        "roster_position": pos,
+                        "stats": {},
+                        "player_id": player_id,
+                    }
+                )
                 continue
 
             pa = bs.pa
@@ -717,10 +698,17 @@ async def _compute_team_projected_breakdown(
 
             proj_stats = {}
             for attr, cat in [
-                ("r", "R"), ("doubles", "2B"), ("triples", "3B"),
-                ("hr", "HR"), ("rbi", "RBI"), ("sb", "SB"),
-                ("cs", "CS"), ("bb", "BB"), ("hbp", "HBP"),
-                ("so", "K"), ("h", "H"),
+                ("r", "R"),
+                ("doubles", "2B"),
+                ("triples", "3B"),
+                ("hr", "HR"),
+                ("rbi", "RBI"),
+                ("sb", "SB"),
+                ("cs", "CS"),
+                ("bb", "BB"),
+                ("hbp", "HBP"),
+                ("so", "K"),
+                ("h", "H"),
             ]:
                 val = getattr(bs, attr, 0) or 0
                 proj_stats[cat] = round(val * scale, 1)
@@ -744,17 +732,13 @@ async def _compute_team_projected_breakdown(
                     if opp_pid:
                         hand = await get_pitcher_handedness(opp_pid)
                         if hand:
-                            split_key = (
-                                "vs_lhp" if hand == "L" else "vs_rhp"
-                            )
+                            split_key = "vs_lhp" if hand == "L" else "vs_rhp"
                             try:
                                 from app.services.splits_service import (
                                     get_splits,
                                 )
 
-                                splits = await get_splits(
-                                    session, player_id, stats_season
-                                )
+                                splits = await get_splits(session, player_id, stats_season)
                                 split_data = splits.get(split_key)
                                 if split_data:
                                     overall = {
@@ -765,9 +749,7 @@ async def _compute_team_projected_breakdown(
                                         "bb_pct": bs.bb_pct,
                                     }
                                     bats_right = hand == "L"
-                                    ratios = compute_platoon_ratios(
-                                        split_data, overall, bats_right
-                                    )
+                                    ratios = compute_platoon_ratios(split_data, overall, bats_right)
                                     if ratios:
                                         game_mults.append(ratios)
                                         platoon_used = True
@@ -777,9 +759,7 @@ async def _compute_team_projected_breakdown(
                     # Phase 1: Fall back to pitcher quality if no platoon
                     if not platoon_used:
                         if opp_pid:
-                            quality = await get_pitcher_quality(
-                                session, opp_pid, stats_season
-                            )
+                            quality = await get_pitcher_quality(session, opp_pid, stats_season)
                             game_mults.append(
                                 compute_hitter_pitcher_mults(
                                     quality["siera"],
@@ -793,13 +773,9 @@ async def _compute_team_projected_breakdown(
                 # Average multipliers across games
                 if game_mults:
                     for cat in list(proj_stats.keys()):
-                        cat_mults = [
-                            m.get(cat, 1.0) for m in game_mults
-                        ]
+                        cat_mults = [m.get(cat, 1.0) for m in game_mults]
                         avg_mult = sum(cat_mults) / len(cat_mults)
-                        proj_stats[cat] = round(
-                            proj_stats[cat] * avg_mult, 1
-                        )
+                        proj_stats[cat] = round(proj_stats[cat] * avg_mult, 1)
 
             # ── Phase 3: Park factor adjustment ──
             home_park = get_player_home_park(p_team)
@@ -808,30 +784,33 @@ async def _compute_team_projected_breakdown(
                 park_mult = compute_park_mult(home_park, venue_names)
                 for cat in ["R", "H", "1B", "2B", "3B", "HR", "RBI"]:
                     if cat in proj_stats:
-                        proj_stats[cat] = round(
-                            proj_stats[cat] * park_mult, 1
-                        )
+                        proj_stats[cat] = round(proj_stats[cat] * park_mult, 1)
 
             # Clamp total adjustment (safety)
             pts = 0
             for cat, weight in BATTING_SCORING.items():
                 val = proj_stats.get(cat, 0)
-                batting_totals[cat] = (
-                    batting_totals.get(cat, 0) + val
-                )
+                batting_totals[cat] = batting_totals.get(cat, 0) + val
                 pts += val * weight
 
-            player_list.append({
-                "name": p_name, "points": round(pts, 1),
-                "position": "B", "roster_position": pos,
-                "stats": proj_stats,
-            })
+            player_list.append(
+                {
+                    "name": p_name,
+                    "points": round(pts, 1),
+                    "position": "B",
+                    "roster_position": pos,
+                    "stats": proj_stats,
+                    "player_id": player_id,
+                }
+            )
 
     # Build the breakdown
-    result_data = _compute_category_points({
-        "batting": batting_totals,
-        "pitching": pitching_totals,
-    })
+    result_data = _compute_category_points(
+        {
+            "batting": batting_totals,
+            "pitching": pitching_totals,
+        }
+    )
     result_data["players"] = player_list
     return result_data
 
@@ -876,17 +855,15 @@ async def get_or_create_weekly_snapshot(
     # Compute projected breakdowns from DB stats (frozen at creation)
     ws = matchup_info.get("week_start", "")
     we = matchup_info.get("week_end", "")
-    my_proj_breakdown = await _compute_team_projected_breakdown(
+    my_proj_breakdown = await compute_team_projected_breakdown(
         session, matchup_info["my_team_id"], season, ws, we
     )
-    opp_proj_breakdown = await _compute_team_projected_breakdown(
+    opp_proj_breakdown = await compute_team_projected_breakdown(
         session, matchup_info["opponent_team_id"], season, ws, we
     )
 
     # Fetch current actuals from Yahoo
-    my_actual_breakdown = await _fetch_team_player_breakdown(
-        matchup_info["my_team_id"], week
-    )
+    my_actual_breakdown = await _fetch_team_player_breakdown(matchup_info["my_team_id"], week)
     opp_actual_breakdown = await _fetch_team_player_breakdown(
         matchup_info["opponent_team_id"], week
     )
@@ -906,12 +883,8 @@ async def get_or_create_weekly_snapshot(
         opponent_projected_breakdown=json.dumps(opp_proj_breakdown),
         my_actual_breakdown=json.dumps(my_actual_breakdown),
         opponent_actual_breakdown=json.dumps(opp_actual_breakdown),
-        my_player_stats=json.dumps(
-            my_actual_breakdown.get("players", [])
-        ),
-        opponent_player_stats=json.dumps(
-            opp_actual_breakdown.get("players", [])
-        ),
+        my_player_stats=json.dumps(my_actual_breakdown.get("players", [])),
+        opponent_player_stats=json.dumps(opp_actual_breakdown.get("players", [])),
     )
     session.add(snapshot)
     await session.flush()
@@ -934,12 +907,8 @@ async def _update_snapshot_actuals(
 
     # Fetch actual per-player breakdowns
     try:
-        my_breakdown = await _fetch_team_player_breakdown(
-            snapshot.my_team_id, snapshot.week
-        )
-        opp_breakdown = await _fetch_team_player_breakdown(
-            snapshot.opponent_team_id, snapshot.week
-        )
+        my_breakdown = await _fetch_team_player_breakdown(snapshot.my_team_id, snapshot.week)
+        opp_breakdown = await _fetch_team_player_breakdown(snapshot.opponent_team_id, snapshot.week)
 
         snapshot.my_actual_breakdown = json.dumps(my_breakdown)
         snapshot.opponent_actual_breakdown = json.dumps(opp_breakdown)

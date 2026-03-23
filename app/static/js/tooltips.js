@@ -26,6 +26,14 @@ const TOOLTIP_DATA = {
       title: "Starting Lineup",
       description: "Your active roster players (excluding bench, IL, and NA) with their season-long actual and projected fantasy points. Actual = points earned so far. Projected = estimated rest-of-season total. Use this to spot underperformers who might need benching."
     },
+    "weekly-lineup": {
+      title: "Weekly Lineup",
+      description: "Your roster with projected fantasy points for the current week, powered by 4-phase matchup adjustments (opposing pitcher quality, team offense, park factors, platoon splits). Shows team games, two-start pitcher badges (2S), and injury flags. The optimizer suggests lineup changes to maximize weekly points. Click 'Analyze Lineup' for AI-powered start/sit recommendations. Bench players shown in a collapsible section with their projected points so you can evaluate whether they should start."
+    },
+    "weekly-outlook": {
+      title: "Weekly Outlook",
+      description: "AI-generated fantasy analyst column covering your H2H matchup, key players to watch, standings context, schedule and weather factors, injury alerts, and personalized sections (Cardinals Corner, Ithilien Watch). Written in the voice of an ESPN/The Athletic columnist. Click to generate — uses your matchup data, projected breakdowns, league standings, and MLB schedule."
+    },
     "matchup-analysis": {
       title: "Weekly Matchup Analysis",
       description: "Your current H2H matchup with player-by-player projected vs actual stats. Each category column shows P (projected) and A (actual). Three projection rows: Yahoo Projected (Yahoo's own estimate), My Projected (schedule-aware custom model), and Actual (live from Yahoo sync)."
@@ -66,7 +74,15 @@ const TOOLTIP_DATA = {
     // Waivers
     "waivers": {
       title: "Waiver Wire (H2H Points)",
-      description: "Recommendations optimized for your scoring system. Projected Points (35%) is the primary factor, with bonuses for players who fit this format: closers (SV=7), setup men (HLD=4), low-K hitters (K=-0.5), and innings eaters (IP=4.5). The Fit column flags players with extra value in your specific league that standard rankings miss."
+      description: "Recommendations optimized for your scoring system. Projected Points (35%) is the primary factor, with bonuses for players who fit this format: closers (SV=7), setup men (HLD=4), low-K hitters (K=-0.5), and innings eaters (IP=4.5). The Fit column flags players with extra value in your specific league that standard rankings miss. Use the dropdown to switch between full-season and weekly projections."
+    },
+    "waiver_period": {
+      title: "Projection Period",
+      description: "Full Season (ROS): ranks players by rest-of-season projected fantasy points. This Week / Next Week: ranks players by projected points for that specific week, factoring in team schedule (number of games), two-start pitchers, reliever opportunities, and matchup quality. Weekly mode excludes injured (IL) players and penalizes day-to-day (DTD) players."
+    },
+    "waiver_analysis": {
+      title: "AI Roster Analysis",
+      description: "Sends your current roster, the top waiver targets, injury report, and league scoring to Claude AI for personalized pickup/drop recommendations. The analysis considers your roster's weak spots, two-start pitchers, closer vacancies, Statcast breakout candidates, and injury status. Injury data is sourced from the MLB Official Injury Report."
     },
 
     // Stats Explorer

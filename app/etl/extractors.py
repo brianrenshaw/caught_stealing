@@ -228,14 +228,21 @@ class YahooExtractor:
                 elif hasattr(pos, "position"):
                     eligible_positions.append(_safe_str(pos.position))
 
+            # Use all eligible positions (comma-separated) for multi-position
+            # eligibility in the optimizer. Fall back to primary if unavailable.
+            if eligible_positions:
+                position_str = ",".join(eligible_positions)
+            else:
+                position_str = _safe_str(
+                    getattr(player, "primary_position", "")
+                    or getattr(player, "display_position", "")
+                )
+
             return {
                 "yahoo_id": str(getattr(player, "player_id", "") or ""),
                 "name": name,
                 "team": _safe_str(getattr(player, "editorial_team_abbr", "")),
-                "position": _safe_str(
-                    getattr(player, "primary_position", "")
-                    or getattr(player, "display_position", "")
-                ),
+                "position": position_str,
                 "selected_position": selected_position,
                 "eligible_positions": eligible_positions,
                 "status": _safe_str(getattr(player, "status", "")),
