@@ -77,9 +77,15 @@ Syncs can take a minute or two depending on how much data is being pulled. There
 
 ### Navigation
 
-- **Sidebar** (left side): Links to all major pages — Dashboard, Roster, Trades, Waivers, Stats Explorer, Projections, Matchups, and Intel.
-- **Player Search** (top of sidebar): Type any player name to search across the entire database. Results appear as a dropdown — click a name to open their full Player Detail page.
+- **Sidebar** (left side): Links to all major pages — Dashboard, Roster, Trades, Waivers, Stats Explorer, Projections, Matchups, Compare, League Points, Intel, and Proj Analysis.
+- **Player Search** (top of sidebar): Type any player name to search across the entire database. Results show the player's MLB team, position, and **fantasy team ownership** (team name abbreviation or "FA" for free agents). Use **arrow keys** to navigate results and **Enter** to select — no mouse needed.
 - **Chat Assistant** (bottom-right corner): A blue chat bubble that opens an AI-powered analysis panel. Ask questions about your roster, get trade advice, or request player comparisons.
+
+**Interactive features available on every page:**
+- **Sortable tables**: Click any column header to sort. Click again to reverse direction. An arrow (↑↓) shows the current sort.
+- **Table search**: Many tables have a search box that filters rows by player name, team, or position. On League Points tables, searching also fetches players not in the default top-N list from the full database.
+- **"Look for" guidance**: Blue text above every stat table and chart explains what to look for, what's good vs bad, and why it matters for your H2H Points league.
+- **Stat tooltips**: Click the ⓘ icon next to any stat to see a popup with the stat's definition, fantasy relevance, Good/Avg/Bad benchmarks, and whether higher or lower is better.
 
 ---
 
@@ -94,7 +100,7 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 | Section | Description |
 |---------|-------------|
 | **Weekly Outlook** | AI-generated professional analysis column (ESPN/Athletic style). Covers H2H matchup storyline with dual projections (Yahoo vs app), key players with fantasy team tags, schedule/weather, injuries, standings, Cardinals Corner, and Ithilien Watch. Rendered as rich markdown with **Copy** (clipboard as rich text) and **Email** (copies + opens mail client) buttons. |
-| **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week; actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
+| **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week (timestamp shown below "My Projected"); actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
 | **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by consensus rate stats (Steamer + ZiPS + ATC average) adjusted through 4-phase matchup modeling (opposing pitcher quality, opponent offense, park factors, platoon splits). Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
 | **Buy Low / Sell High Signals** | Cards highlighting players whose expected performance (xwOBA) significantly differs from their actual results (wOBA). These are trade opportunity alerts. |
@@ -362,9 +368,16 @@ An interactive charting dashboard with three tabbed views, each featuring Plotly
 - **K-BB% Leaders** bar chart — The gap between strikeout rate and walk rate. Bigger gap = more dominant pitcher.
 - **ERA Distribution** histogram — Visualizes the range of ERA across all qualified pitchers.
 
-**Interactive features:** Season selector dropdown, minimum PA filter (default 50), hover tooltips showing player name and exact values, and tab switching. Use the **Highlight player** search box to find a specific player — selecting them marks their position on all charts in the current tab with a red diamond and label (scatter plots) or red bar highlight (bar charts), plus a vertical line on distribution histograms. Click "x Clear" to remove the highlight. Chart data points for players on your roster appear as gold stars; other rostered players are blue circles; free agents are green X marks. Click any data point to navigate to that player's detail page.
+**Interactive features:**
+- **Dropdown stat selectors**: Each chart has dropdowns to swap which stats are displayed. Change the scatter plot axes, bar chart ranking stat, or distribution metric without leaving the page.
+- **Roster filter**: "Show" dropdown filters all charts by roster status — Free Agents (default, great for waiver hunting), Rostered, My Team, or All Players.
+- **Player highlight**: Search for any player and they'll be marked with a red diamond on scatter charts, red bar on bar charts, and a vertical line on distributions. Click any chart data point to highlight that player (triggers the spotlight panel instead of navigating away).
+- **Player Spotlight panel**: When you highlight a player, a full analysis panel appears at the top showing: a plain-English summary (e.g., "Elite hitter, 156 wRC+, trending up, available as free agent"), key stat cards (color-coded green/red vs league average), rolling trend chart (Full Season → Last 30 → Last 14 → Last 7), percentile bars vs the league, and a radar profile chart.
+- **Distribution comparison**: Each distribution chart has a "Compare to" dropdown — overlay two stats (e.g., xwOBA vs actual wOBA) to see where they diverge.
+- **Top 10 tables**: Below every chart, a sortable table shows the top 10 players for the displayed stat with color-coded values (green = good, red = bad).
+- **Stat descriptions**: Every chart shows an auto-updating description of the selected stat: what it measures, why it matters for fantasy, Good/Avg/Bad benchmarks, and a "Look for" hint explaining where to find the best players.
 
-**Why it matters for fantasy:** Charts reveal patterns that tables can't. The FIP vs ERA scatter instantly shows you which pitchers are due for regression. The K% vs BB% plot highlights hitters with elite plate discipline (a strong predictor of sustained success). The Statcast charts bypass traditional stats entirely, showing you which players are making the best contact regardless of their batting average.
+**Why it matters for fantasy:** Charts reveal patterns that tables can't. The FIP vs ERA scatter instantly shows you which pitchers are due for regression. The K% vs BB% plot highlights hitters with elite plate discipline. The roster filter lets you focus on free agents to find waiver targets who lead the league in key metrics. The spotlight panel gives you a complete player evaluation without leaving the page.
 
 ---
 

@@ -41,6 +41,9 @@ fantasy-baseball/
 │   │   ├── projection.py         # Projection systems (Steamer, ZiPS, ATC, etc.)
 │   │   ├── roster.py             # Yahoo league rosters
 │   │   ├── league_team.py        # League team standings
+│   │   ├── league_week_snapshot.py # League-wide weekly standings + scoreboard snapshots
+│   │   ├── player_points.py      # Computed fantasy points by period (ROS, weekly)
+│   │   ├── weekly_matchup.py     # H2H matchup snapshots (projected vs actual)
 │   │   ├── trade_value.py        # Computed trade values
 │   │   ├── conversation.py       # Chat assistant conversation history
 │   │   └── sync_log.py           # ETL sync history/status
@@ -63,6 +66,10 @@ fantasy-baseball/
 │   │   ├── waiver_service.py     # Waiver wire scorer + AI analysis
 │   │   ├── schedule_service.py   # MLB schedule, team games, weather data
 │   │   ├── weekly_lineup_service.py # Weekly lineup optimization + AI outlook
+│   │   ├── weekly_matchup_service.py # H2H matchup snapshots, league scoreboard, projection breakdowns
+│   │   ├── points_service.py     # Fantasy points calculation using league scoring weights
+│   │   ├── matchup_quality_service.py # Park factors, platoon splits, opposing pitcher adjustments
+│   │   ├── projection_accuracy_service.py # Weekly + season accuracy reports (markdown)
 │   │   ├── assistant.py          # Claude AI chat assistant
 │   │   ├── assistant_tools.py    # Tool functions for the assistant
 │   │   └── id_mapper.py          # Cross-platform player ID mapping
@@ -78,6 +85,8 @@ fantasy-baseball/
 │   │   ├── comparison.py         # Player comparison tool
 │   │   ├── matchups.py           # Head-to-head matchup views
 │   │   ├── intel.py              # Intel tab — daily analysis reports
+│   │   ├── projection_analysis.py # Projection accuracy tracking (Yahoo vs app)
+│   │   ├── league_dashboard.py   # League Points dashboard (H2H scoring focus)
 │   │   ├── assistant.py          # AI chat assistant routes
 │   │   └── api.py                # JSON API endpoints for HTMX
 │   ├── templates/                # Jinja2 HTML templates
@@ -90,6 +99,9 @@ fantasy-baseball/
 │   │   ├── stats_dashboard.html
 │   │   ├── compare.html
 │   │   ├── matchups.html
+│   │   ├── projection_analysis.html # Projection accuracy tracker
+│   │   ├── league_dashboard.html # League Points dashboard
+│   │   ├── intel.html            # Intel reports viewer
 │   │   └── partials/             # HTMX partial templates
 │   ├── etl/                      # Data pipeline
 │   │   ├── __init__.py
@@ -101,18 +113,20 @@ fantasy-baseball/
 │       ├── css/
 │       │   └── custom.css
 │       └── js/
-│           ├── charts.js         # Plotly chart builders (scatter, bar, histogram, radar)
+│           ├── charts.js         # Plotly chart builders (scatter, bar, histogram, radar, rolling)
 │           ├── comparison.js     # Player comparison tool logic
-│           └── tooltips.js       # Info tooltip system
+│           ├── table-sort.js     # Sortable tables with search, filter, and fetch-append
+│           ├── markdown-actions.js # Markdown rendering + Obsidian directive cleanup
+│           └── tooltips.js       # Info tooltip system with fantasy context
 ├── scripts/                      # Standalone backtesting & content tools
 │   ├── data_pipeline.py          # Historical data download (2015-2025)
 │   ├── backtest_harness.py       # Walk-forward projection testing
 │   ├── optimize_parameters.py    # scipy parameter tuning (April 30 hold)
-│   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List)
-│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder
+│   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List, RotoWire)
+│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder (CBS, FantasyPros, Locked On, In This League)
 │   ├── transcript_collector.py   # Collects MacWhisper output → formatted markdown
-│   ├── daily_analysis.py         # Claude-powered analysis of content + league data
-│   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM)
+│   ├── daily_analysis.py         # Claude-powered analysis of content + league data → MD + PDF
+│   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM); generates PDFs with Cardinals CSS, moves to sync folder for mobile
 │   └── analysis/                 # Analysis scripts → Excel reports
 ├── data/                         # Backtesting data (raw CSVs, results, optimization)
 │   └── content/                  # Ingested blogs + podcast transcripts
@@ -197,6 +211,35 @@ feedparser             # RSS feed parsing for blog ingestion
 - player_id (FK → players)
 - roster_position (text) — "C", "1B", "OF", "BN", "SP", "RP", etc.
 - is_my_team (boolean)
+- updated_at (datetime)
+
+### weekly_matchup_snapshots
+- id (PK)
+- season (integer), week (integer) — unique constraint
+- my_team_id, my_team_name, opponent_team_id, opponent_team_name
+- my_projected_points, opponent_projected_points (float) — Yahoo projections (frozen)
+- my_app_projected_points, opponent_app_projected_points (float) — App projections (frozen)
+- my_actual_points, opponent_actual_points (float) — live actuals
+- my_projected_breakdown, opponent_projected_breakdown (JSON) — per-player stats
+- my_actual_breakdown, opponent_actual_breakdown (JSON)
+- created_at, updated_at (datetime)
+
+### league_week_snapshots
+- id (PK)
+- season (integer), week (integer), team_id (text) — unique constraint
+- team_name, is_my_team
+- rank, wins, losses, ties, points_for, points_against — standings snapshot
+- opponent_team_id, opponent_team_name
+- yahoo_projected_points, actual_points, opponent_actual_points (float)
+- app_projected_points (float) — only for my team
+- created_at, updated_at (datetime)
+
+### player_points
+- id (PK)
+- player_id (FK → players), season, period, player_type
+- actual_points, projected_ros_points, steamer_ros_points (float)
+- points_per_pa, points_per_ip, points_per_start, points_per_appearance (float)
+- positional_rank (integer), surplus_value (float)
 - updated_at (datetime)
 
 ### trade_values

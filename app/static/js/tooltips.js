@@ -446,7 +446,7 @@ const TOOLTIP_DATA = {
       name: "Strikeouts per 9 Innings",
       description: "Rate-based strikeout measure — better than raw K totals for comparing pitchers with different workloads.",
       fantasy: "Pitcher K = 0.5pts. High K/9 racks up points per inning. 10+ K/9 is elite.",
-      good: "10.0+", avg: "8.5", bad: "<6.5"
+      good: "10.0+", avg: "8.5", bad: "<6.5", dir: "higher"
     },
     "BB/9": {
       name: "Walks per 9 Innings",
@@ -600,62 +600,71 @@ const TOOLTIP_DATA = {
     // ── App-Specific Columns ──
     "Score": {
       name: "Composite Score",
-      description: "Weighted composite score (0–100) combining projection value, recent trend, positional scarcity, ownership, and schedule. Higher = stronger pickup or matchup.",
-      good: "70+", avg: "50", bad: "<35"
+      description: "Weighted composite score (0–100) combining projection value, recent trend, positional scarcity, ownership, and schedule.",
+      fantasy: "Higher score = stronger waiver pickup. 70+ is a must-add in your format.",
+      good: "70+", avg: "50", bad: "<35", dir: "higher"
     },
     "Proj": {
       name: "Projection Score",
-      description: "The projection component of the composite score, based on rest-of-season projected output and confidence level. Higher means the player projects for stronger production.",
-      good: "—", avg: "—", bad: "—"
+      description: "The projection component of the composite score, based on rest-of-season projected output and confidence level.",
+      fantasy: "Higher projection component = more long-term value. Short-term streamers may have lower Proj but high Score.",
+      good: "—", avg: "—", bad: "—", dir: "higher"
     },
     "Trend": {
       name: "Performance Trend",
-      description: "Compares last-14-day Statcast xwOBA to full-season xwOBA. HOT = contact quality improving (xwOBA up .015+). COLD = declining. Stable = within .015 either direction.",
+      description: "Compares last-14-day Statcast xwOBA to full-season xwOBA. HOT = contact quality improving. COLD = declining.",
+      fantasy: "HOT players are making better contact recently — their stats should follow. COLD = slump alert.",
       good: "HOT", avg: "—", bad: "COLD"
     },
     "Pos Rank": {
       name: "Positional Rank",
-      description: "This player's rank among all players at the same position, based on z-score total. SS #3 means the 3rd-best fantasy shortstop. Lower rank = more valuable.",
-      good: "Top 5", avg: "6–12", bad: ">12"
+      description: "This player's rank among all players at the same position. SS #3 = 3rd-best fantasy shortstop.",
+      fantasy: "Lower rank = more valuable. Top-5 at thin positions (SS, C) are premium assets.",
+      good: "Top 5", avg: "6–12", bad: ">12", dir: "lower"
     },
     "Z-Score": {
       name: "Z-Score Total",
-      description: "Sum of z-scores across all 5 fantasy categories (HR, R, RBI, SB, AVG for hitters; W, SV, K, ERA, WHIP for pitchers). Higher = more overall fantasy value. Each z-score measures standard deviations above/below average.",
-      good: "5.0+", avg: "0", bad: "<-2.0"
+      description: "Sum of z-scores across fantasy categories. Higher = more overall fantasy value.",
+      fantasy: "Measures total fantasy contribution across all scoring categories. Higher = better.",
+      good: "5.0+", avg: "0", bad: "<-2.0", dir: "higher"
     },
     "Surplus": {
       name: "Surplus Value",
-      description: "Z-Score Total minus the replacement level at this player's position. Positive means the player is worth more than the best free agent at the same position. The key number for evaluating trades.",
-      good: "3.0+", avg: "0.5", bad: "<0"
+      description: "Z-Score Total minus replacement level at this position. The key number for trade evaluation.",
+      fantasy: "Positive = worth more than a free agent. Negative = replaceable. Drives trade logic.",
+      good: "3.0+", avg: "0.5", bad: "<0", dir: "higher"
     },
     "Signal": {
       name: "Buy/Sell Signal",
-      description: "BUY (green) = xwOBA exceeds actual wOBA by .030+, the player is underperforming and likely to improve. SELL (red) = actual wOBA exceeds xwOBA by .030+, the player is overperforming and likely to regress.",
-      good: "BUY", avg: "—", bad: "SELL"
+      description: "BUY = xwOBA exceeds wOBA by .030+ (underperforming, likely to improve). SELL = overperforming, likely to regress.",
+      fantasy: "BUY targets are your best waiver/trade acquisitions. SELL targets should be traded while value is high."
     },
     "xwOBA Δ": {
       name: "xwOBA Delta",
-      description: "The gap between expected wOBA (xwOBA) and actual wOBA. Positive values mean the player is underperforming their contact quality (buy low). Negative values mean overperformance (sell high).",
+      description: "Gap between expected wOBA and actual wOBA. Positive = underperforming (buy low). Negative = overperforming (sell high).",
+      fantasy: "The larger the positive gap, the stronger the buy-low signal. Negative gaps are sell-high alerts.",
       good: "+.030+", avg: "±.015", bad: "-.030+"
     },
     "Conf": {
       name: "Confidence Score",
-      description: "How reliable this projection is (0–100%). Based on sample size (60%), Statcast data availability (20%), and season progress (20%). Small bars mean limited data — treat the projection cautiously.",
-      good: "80%+", avg: "50%", bad: "<30%"
+      description: "How reliable this projection is (0–100%). Based on sample size, Statcast data availability, and season progress.",
+      fantasy: "Low confidence = treat projection cautiously. High confidence = more reliable for roster decisions.",
+      good: "80%+", avg: "50%", bad: "<30%", dir: "higher"
     },
     "Gap": {
       name: "xwOBA Gap",
-      description: "The difference between xwOBA and actual wOBA. In the Buy Low panel, positive gaps mean the player deserves better results. In Sell High, negative gaps mean results will likely decline.",
-      good: "+.040+", avg: "±.015", bad: "-.040+"
+      description: "Difference between xwOBA and actual wOBA. Positive = deserves better results. Negative = results will likely decline.",
+      fantasy: "Bigger positive gap = stronger buy-low opportunity. Bigger negative = stronger sell-high."
     },
     "Proj K": {
       name: "Projected Strikeouts",
-      description: "Estimated strikeouts for this start based on the pitcher's K/9 rate and an average of ~5.5 innings pitched. Higher projected K = more fantasy value from this start.",
-      good: "7+", avg: "5", bad: "<4"
+      description: "Estimated strikeouts for this start based on K/9 rate and ~5.5 innings pitched.",
+      fantasy: "Pitcher K = 0.5pts. Higher projected K = more fantasy value from this streaming start.",
+      good: "7+", avg: "5", bad: "<4", dir: "higher"
     },
     "Notes": {
       name: "Matchup Notes",
-      description: "Key factors influencing the streaming or stack score — pitcher quality, park factor, opponent strength. Green notes are positive factors, red notes are concerns.",
+      description: "Key factors influencing the streaming or stack score. Green notes are positive, red are concerns.",
       good: "—", avg: "—", bad: "—"
     },
 
@@ -703,105 +712,119 @@ const TOOLTIP_DATA = {
     },
     "trade-app-proj": {
       name: "App Projected",
-      description: "Our custom ROS projection blending actual stats (traditional + Statcast expected metrics). Weights recent performance and expected stat regression based on quality of contact.",
-      good: ">200", avg: "100–200", bad: "<100"
+      description: "Custom ROS projection blending actual stats with Statcast expected metrics. Weights recent performance and quality of contact.",
+      fantasy: "Our best estimate of remaining fantasy points. Compare to Steamer — when they agree, the projection is strong.",
+      good: ">200", avg: "100–200", bad: "<100", dir: "higher"
     },
     "trade-steamer": {
       name: "Steamer ROS",
-      description: "FanGraphs Steamer rest-of-season projection system — an industry-standard baseline using multi-year track record weighted toward recent performance. Converted to league-specific fantasy points.",
-      good: ">200", avg: "100–200", bad: "<100"
+      description: "FanGraphs Steamer rest-of-season projection — industry-standard baseline converted to your league's fantasy points.",
+      fantasy: "Independent professional projection. When App Proj and Steamer disagree, investigate why.",
+      good: ">200", avg: "100–200", bad: "<100", dir: "higher"
     },
     "trade-actual": {
       name: "Actual Points",
-      description: "Fantasy points actually scored this season using league scoring rules. Compare to projections to identify over/underperformers.",
-      good: ">200", avg: "100–200", bad: "<100"
+      description: "Fantasy points actually scored this season. Compare to projections to identify over/underperformers.",
+      fantasy: "If Actual << Projected, the player may be underperforming (buy low). If Actual >> Projected, sell high.",
+      good: ">200", avg: "100–200", bad: "<100", dir: "higher"
     },
     "k_points_lost": {
       name: "Points Lost to Strikeouts",
-      description: "Total points lost from batter strikeouts (K × -0.5). A 150K hitter loses 75 points from Ks alone vs an 80K hitter losing 40 — a 35 point gap. This column highlights the hidden cost of high strikeout rates in this scoring format.",
-      good: "<30", avg: "50", bad: ">70"
+      description: "Total points lost from batter strikeouts (K × -0.5). A 150K hitter loses 75 pts vs an 80K hitter losing 40 — a 35 pt gap.",
+      fantasy: "Highlights the hidden cost of high-K hitters. Low-K contact hitters are undervalued in this format.",
+      good: "<30", avg: "50", bad: ">70", dir: "lower"
     },
     "PF": {
       name: "Points For",
-      description: "Total fantasy points scored in your league. Higher is better — even a team with a losing record but high PF is unlucky and likely to improve.",
-      good: "—", avg: "—", bad: "—"
+      description: "Total fantasy points scored in your league. Higher is better — even a losing record with high PF means bad luck.",
+      fantasy: "High PF + losing record = unlucky team, likely to bounce back. Low PF + winning = regression coming.",
+      good: "—", avg: "—", bad: "—", dir: "higher"
     },
     "Status": {
       name: "Waiver Status",
-      description: "BUY LOW badge appears when a player's Statcast expected stats significantly exceed their actual results — they're hitting the ball well but getting unlucky. These are the highest-upside waiver pickups.",
-      good: "BUY LOW", avg: "—", bad: "—"
+      description: "BUY LOW badge = Statcast expected stats exceed actual results. These are the highest-upside waiver pickups.",
+      fantasy: "BUY LOW players are making great contact but getting unlucky — their stats should improve."
     },
     "Reasoning": {
       name: "Recommendation Reasoning",
-      description: "Brief explanation of why this player is recommended — which scoring components are strongest (trending up, scarce position, buy-low signal, high projection confidence).",
+      description: "Brief explanation of why this player is recommended — trending up, scarce position, buy-low signal, or high projection confidence.",
       good: "—", avg: "—", bad: "—"
     },
 
     // ── Advanced Analytics (Projections Page) ──
     "HardHit%": {
       name: "Hard Hit Rate",
-      description: "Percentage of batted balls at 95+ mph exit velocity. Early-season signal for contact quality — high hard-hit% with low AVG suggests imminent improvement.",
-      good: "45%+", avg: "38%", bad: "<30%"
+      description: "% of batted balls at 95+ mph. High hard-hit% with low AVG suggests imminent improvement.",
+      fantasy: "Broader quality metric. High hard hit% sustains batting average and drives extra-base hits.",
+      good: "45%+", avg: "38%", bad: "<30%", dir: "higher"
     },
     "SB%": {
       name: "Stolen Base Success Rate",
-      description: "Percentage of steal attempts that succeed. At SB=2/CS=-1 scoring, break-even is 33%. Players above 75% with speed are net positive to steal aggressively.",
-      good: "80%+", avg: "72%", bad: "<66%"
+      description: "% of steal attempts that succeed. At SB=2/CS=-1, break-even is 33%.",
+      fantasy: "Players above 75% with speed are net positive to steal aggressively. Below 60% hurts.",
+      good: "80%+", avg: "72%", bad: "<66%", dir: "higher"
     },
     "xERA": {
       name: "Expected ERA",
-      description: "ERA a pitcher 'should have' based on Statcast contact quality allowed. The best buy/sell signal for pitchers — when xERA is much lower than actual ERA, the pitcher has been unlucky.",
-      good: "<3.50", avg: "4.00", bad: ">4.50"
+      description: "ERA a pitcher 'should have' based on Statcast contact quality allowed. Best buy/sell signal for pitchers.",
+      fantasy: "If xERA << actual ERA, the pitcher has been unlucky — buy low. If xERA >> ERA, sell high.",
+      good: "<3.50", avg: "4.00", bad: ">4.50", dir: "lower"
     },
     "K% Pitcher": {
       name: "Strikeout Rate (Pitchers)",
-      description: "Percentage of batters faced who strike out. Each K earns +0.5 pts AND prevents a hit. High-K pitchers double-dip on value in this scoring system.",
-      good: "28%+", avg: "22%", bad: "<18%"
+      description: "% of batters faced who strike out. Each K earns +0.5 pts AND prevents a hit.",
+      fantasy: "High-K pitchers double-dip: +0.5 per K and fewer H (-0.75 each). Premium in this format.",
+      good: "28%+", avg: "22%", bad: "<18%", dir: "higher"
     },
     "BB% Pitcher": {
       name: "Walk Rate (Pitchers)",
-      description: "Percentage of batters walked. Each BB costs -0.75 pts and often leads to ER (-4 pts). Low BB% is critical for pitcher value in H2H Points.",
-      good: "<6%", avg: "8%", bad: ">10%"
+      description: "% of batters walked. Each BB costs -0.75 pts and often leads to ER (-4 pts).",
+      fantasy: "Low BB% is critical. Every walk costs -0.75 directly and often leads to earned runs.",
+      good: "<6%", avg: "8%", bad: ">10%", dir: "lower"
     },
     "GB%": {
       name: "Ground Ball Rate",
-      description: "Percentage of batted balls hit on the ground. Ground balls rarely become HR (reducing ER at -4 pts) and generate more double plays. High GB% = safer pitcher floor.",
-      good: "50%+", avg: "44%", bad: "<38%"
+      description: "% of batted balls hit on the ground. Ground balls rarely become HR and generate more double plays.",
+      fantasy: "High GB% reduces HR allowed (ER = -4pts each) and creates safer pitcher floor.",
+      good: "50%+", avg: "44%", bad: "<38%", dir: "higher"
     },
     "HR/FB%": {
       name: "HR per Fly Ball Rate",
-      description: "Percentage of fly balls that become home runs. League average is ~10-12%. Pitchers below 8% are getting lucky (expect regression). Above 15% are unlucky (expect improvement).",
-      good: "<10%", avg: "11%", bad: ">15%"
+      description: "% of fly balls that become HR. League average ~11%. Below 8% = getting lucky. Above 15% = unlucky.",
+      fantasy: "Luck indicator. Very high HR/FB% should regress down (buy low). Very low will regress up (sell high).",
+      good: "<10%", avg: "11%", bad: ">15%", dir: "lower"
     },
     "gmLI": {
       name: "Game Leverage Index",
-      description: "Average leverage of situations when this reliever enters. 1.0 = average. Above 1.5 = high-leverage reliever trusted in close games. Key for identifying closers-in-waiting.",
-      good: "1.5+", avg: "1.0", bad: "<0.7"
+      description: "Average leverage of situations when this reliever enters. 1.0 = average. Above 1.5 = high-leverage trusted in close games.",
+      fantasy: "High gmLI = closer-in-waiting. If the current closer is injured, the highest gmLI reliever usually takes over (SV = 7pts).",
+      good: "1.5+", avg: "1.0", bad: "<0.7", dir: "higher"
     },
     "IP/G": {
       name: "Innings per Game",
-      description: "Average innings pitched per appearance. Multi-inning relievers (1.1+ IP/G) earn more volume-based points (1.5 pts per out). Higher IP/G = more total points per appearance.",
-      good: "1.2+", avg: "1.0", bad: "<0.8"
+      description: "Average innings pitched per appearance. Multi-inning relievers earn more volume-based points.",
+      fantasy: "Higher IP/G = more outs (1.5pts each) per appearance. Multi-inning relievers are undervalued.",
+      good: "1.2+", avg: "1.0", bad: "<0.8", dir: "higher"
     },
     "Adj FP": {
       name: "Adjusted Fantasy Points (Hitters)",
-      description: "Projected ROS fantasy points adjusted using xwOBA vs wOBA divergence. Green arrow = underperforming contact quality (buy low). Red arrow = overperforming (sell high). Neutral dash = performance matches expectations.",
-      good: "▲ up", avg: "—", bad: "▼ down"
+      description: "Projected ROS points adjusted by xwOBA vs wOBA gap. ▲ = underperforming (buy low). ▼ = overperforming (sell high).",
+      fantasy: "The adjustment arrow is your action signal. Green ▲ = acquire. Red ▼ = trade away."
     },
     "matchup-yahoo-proj": {
       name: "Yahoo Projected",
-      description: "Yahoo Fantasy's own weekly team projection. Based on Yahoo's internal models and the week's schedule. Frozen when the matchup first loads each week.",
-      good: "—", avg: "—", bad: "—"
+      description: "Yahoo Fantasy's own weekly team projection. Frozen when the matchup first loads each week.",
+      fantasy: "Compare to 'My Projected' — when they disagree, check the Projection Analysis tab to see which has been more accurate."
     },
     "matchup-my-proj": {
       name: "My Projected (Matchup-Adjusted)",
-      description: "Four-layer matchup-adjusted projections: (1) Opposing pitcher — hitter stats adjusted by SIERA + pitcher K%/BB%, dampened 50%. (2) Opposing lineup — pitcher H/ER adjusted by team wRC+, dampened 35%. (3) Park factors — base rates neutralized for home park, then venue-adjusted. (4) Platoon splits — when opposing starter handedness is known, uses regressed vs-LHP/RHP splits (per Tango's The Book: 2200 PA regression for RHH, 1000 for LHH). All metrics chosen to avoid double-counting with park factors (SIERA and wRC+ are park-adjusted). Frozen at start of each week.",
-      good: "—", avg: "—", bad: "—"
+      description: "Four-layer matchup-adjusted projection using opposing pitcher quality, opposing lineup strength, park factors, and platoon splits. Frozen at start of each week.",
+      fantasy: "More granular than Yahoo's projection. The Projection Analysis tab tracks which system has been more accurate over time."
     },
     "Adj FP Pitcher": {
       name: "Adjusted Fantasy Points (Pitchers)",
-      description: "Projected ROS fantasy points adjusted using xERA/SIERA vs actual ERA divergence. Green arrow = better than results show. Red arrow = regression risk. For relievers, also flags save opportunity upside when gmLI > 1.5.",
-      good: "▲ up", avg: "—", bad: "▼ down"
+      description: "Projected ROS points adjusted by xERA/SIERA vs actual ERA gap. ▲ = better stuff than results show. ▼ = regression risk.",
+      fantasy: "Green ▲ pitchers are streaming gold — their underlying metrics are better than their ERA."
     },
   }
 };
