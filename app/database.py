@@ -27,6 +27,8 @@ _MIGRATIONS = [
     ("statcast_summary", "xera", "FLOAT"),
     ("players", "birth_date", "DATE"),
     ("players", "age", "INTEGER"),
+    ("weekly_matchup_snapshots", "my_app_projected_points", "FLOAT"),
+    ("weekly_matchup_snapshots", "opponent_app_projected_points", "FLOAT"),
 ]
 
 

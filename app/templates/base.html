@@ -9,6 +9,7 @@
     <script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/static/css/custom.css">
+    <script src="/static/js/table-sort.js" defer></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -22,7 +23,8 @@
             <div class="p-4 border-b border-gray-700">
                 <h1 class="text-xl font-bold text-white">Fantasy Baseball</h1>
                 <div class="mt-3 relative">
-                    <input type="search" name="q" placeholder="Search players..."
+                    <input type="search" name="q" id="sidebar-search-input"
+                           placeholder="Search players..."
                            autocomplete="off"
                            hx-get="/api/players/search"
                            hx-trigger="keyup changed delay:300ms"
@@ -32,6 +34,50 @@
                                   text-sm text-gray-200 placeholder-gray-500
                                   focus:outline-none focus:border-blue-500">
                     <div id="search-dropdown" class="relative"></div>
+                    <script>
+                    (function() {
+                        let selectedIdx = -1;
+                        const input = document.getElementById('sidebar-search-input');
+                        const dropdown = document.getElementById('search-dropdown');
+                        if (!input) return;
+
+                        input.addEventListener('keydown', function(e) {
+                            const items = dropdown.querySelectorAll('li a');
+                            if (!items.length) return;
+
+                            if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                selectedIdx = Math.min(selectedIdx + 1, items.length - 1);
+                                highlightItem(items);
+                            } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                selectedIdx = Math.max(selectedIdx - 1, -1);
+                                highlightItem(items);
+                            } else if (e.key === 'Enter' && selectedIdx >= 0) {
+                                e.preventDefault();
+                                items[selectedIdx].click();
+                                window.location.href = items[selectedIdx].href;
+                            } else if (e.key === 'Escape') {
+                                dropdown.innerHTML = '';
+                                selectedIdx = -1;
+                            }
+                        });
+
+                        // Reset index when new results arrive
+                        new MutationObserver(() => { selectedIdx = -1; }).observe(dropdown, { childList: true });
+
+                        function highlightItem(items) {
+                            items.forEach((a, i) => {
+                                if (i === selectedIdx) {
+                                    a.classList.add('bg-gray-600');
+                                    a.scrollIntoView({ block: 'nearest' });
+                                } else {
+                                    a.classList.remove('bg-gray-600');
+                                }
+                            });
+                        }
+                    })();
+                    </script>
                 </div>
             </div>
             <nav class="flex-1 p-4 space-y-1">
@@ -65,6 +111,9 @@
                 </a>
                 <a href="/intel" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_intel %}{% endblock %}">
                     <span class="mr-3">🔍</span> Intel
+                </a>
+                <a href="/projection-analysis" class="flex items-center px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors {% block nav_projection_analysis %}{% endblock %}">
+                    <span class="mr-3">📐</span> Proj Analysis
                 </a>
             </nav>
             <div class="p-4 border-t border-gray-700 text-xs text-gray-500">

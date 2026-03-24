@@ -1,6 +1,7 @@
 from app.models.batting_stats import BattingStats
 from app.models.conversation import Conversation, UsageLog
 from app.models.league_team import LeagueTeam
+from app.models.league_week_snapshot import LeagueWeekSnapshot
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
 from app.models.player_points import PlayerPoints
@@ -17,6 +18,7 @@ __all__ = [
     "BattingStats",
     "Conversation",
     "LeagueTeam",
+    "LeagueWeekSnapshot",
     "PitchingStats",
     "Player",
     "PlayerPoints",

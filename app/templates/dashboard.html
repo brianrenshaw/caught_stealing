@@ -182,7 +182,14 @@
                     <td class="py-1.5 px-3 text-center font-semibold {% if diff_yahoo > 0 %}text-green-400{% elif diff_yahoo < 0 %}text-red-400{% else %}text-gray-400{% endif %}">{{ "%+.1f"|format(diff_yahoo) }}</td>
                 </tr>
                 <tr class="border-b border-gray-700/50">
-                    <td class="py-1.5 px-3 text-gray-400">My Projected {{ stat_info('matchup-my-proj') }}</td>
+                    <td class="py-1.5 px-3 text-gray-400">
+                        My Projected {{ stat_info('matchup-my-proj') }}
+                        {% if matchup_data.snapshot_created_at %}
+                        <span class="block text-[10px] text-gray-600">
+                            Snapshot: {{ matchup_data.snapshot_created_at.strftime('%b %d, %-I:%M %p') }}
+                        </span>
+                        {% endif %}
+                    </td>
                     <td class="py-1.5 px-3 text-center text-blue-200 font-semibold text-lg">{{ "%.1f"|format(matchup_data.my_projected) }}</td>
                     <td class="py-1.5 px-3 text-center text-red-200 font-semibold text-lg">{{ "%.1f"|format(matchup_data.opp_projected) }}</td>
                     {% set diff_proj = matchup_data.my_projected - matchup_data.opp_projected %}
@@ -382,6 +389,9 @@
             {{ weekly_lineup.week_start.strftime('%b %d') }}–{{ weekly_lineup.week_end.strftime('%b %d') }} projected points
         </p>
         {% endif %}
+        <p class="text-[10px] text-gray-500/70 mb-2 italic">
+            Points computed live — may differ slightly from the Matchup page, which uses a saved snapshot. Values rounded to whole numbers.
+        </p>
 
         {# Optimizer suggestion bar #}
         {% if weekly_lineup.improvement > 0 and weekly_lineup.swaps %}
@@ -634,6 +644,7 @@
 {% endif %}
 
 <!-- Category Leaders -->
+<p class="text-sm text-blue-400 font-medium mb-2">Look for: Free agents appearing in any category top 10 — they're producing at a starter level and should be rostered immediately.</p>
 {% if hr_leaders %}
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
@@ -676,6 +687,7 @@
 {% endif %}
 
 <!-- Top Hitters Table -->
+<p class="text-sm text-blue-400 font-medium mb-2">Look for: Players with high wRC+ and OPS who are still available on waivers. Sort by wOBA for the most complete picture of offensive value.</p>
 {% if top_hitters %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
     <div class="flex items-center justify-between p-4 border-b border-gray-700">
@@ -735,6 +747,7 @@
 {% endif %}
 
 <!-- Top Pitchers Table -->
+<p class="text-sm text-blue-400 font-medium mb-2">Look for: Low ERA + high K/9 pitchers. Cross-reference ERA vs FIP — if ERA >> FIP, the pitcher has been unlucky and is a buy-low target.</p>
 {% if top_pitchers %}
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
     <div class="flex items-center justify-between p-4 border-b border-gray-700">

@@ -48,20 +48,25 @@
 
 <!-- Hitter Projections Table -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <p class="text-sm text-blue-400 font-medium px-3 pt-3">Look for: The Adj FP column — green arrows (▲) flag buy-low candidates whose contact quality (xwOBA) exceeds actual results. Red arrows (▼) are sell-high. The Signal column is your action trigger.</p>
     {% if hitter_projs %}
+    <input type="text" data-table-search="hitter-projections"
+           placeholder="Search hitters..."
+           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="sortable-table w-full text-sm" id="hitter-projections"
+               data-default-sort="projected_hr" data-default-dir="desc">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
-                    <th class="text-left py-2 px-3">#</th>
-                    <th class="text-left py-2 px-3">Player</th>
-                    <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">HR {{ stat_info('HR') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">R {{ stat_info('R') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">RBI {{ stat_info('RBI') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">SB {{ stat_info('SB') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">AVG {{ stat_info('AVG') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">OPS {{ stat_info('OPS') }}</th>
+                    <th class="text-left py-2 px-3 row-number">#</th>
+                    <th class="text-left py-2 px-3" data-sort="name">Player</th>
+                    <th class="text-left py-2 px-1" data-sort="position">Pos</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_hr">HR {{ stat_info('HR') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_r">R {{ stat_info('R') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_rbi">RBI {{ stat_info('RBI') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_sb">SB {{ stat_info('SB') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_avg">AVG {{ stat_info('AVG') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_ops">OPS {{ stat_info('OPS') }}</th>
                     <!-- Advanced stats columns (hidden by default) -->
                     <th class="text-right py-2 px-3 whitespace-nowrap hitter-adv-col hidden">xwOBA {{ stat_info('xwOBA') }}</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap hitter-adv-col hidden">wOBA {{ stat_info('wOBA') }}</th>
@@ -84,8 +89,12 @@
                 {% for proj in hitter_projs %}
                 {% set adv = hitter_advanced.get(proj.player_id) %}
                 {% set adj = hitter_adj_fp.get(proj.player_id) %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    data-name="{{ proj.player_name }}" data-team="{{ proj.team }}" data-position="{{ proj.position }}"
+                    data-projected_hr="{{ proj.projected_hr }}" data-projected_r="{{ proj.projected_r }}"
+                    data-projected_rbi="{{ proj.projected_rbi }}" data-projected_sb="{{ proj.projected_sb }}"
+                    data-projected_avg="{{ proj.projected_avg }}" data-projected_ops="{{ proj.projected_ops }}">
+                    <td class="py-2 px-3 text-gray-500 row-number">{{ loop.index }}</td>
                     <td class="py-2 px-3">
                         {{ player_link(proj.player_id, proj.player_name, proj.team) }}
                     </td>
@@ -169,19 +178,24 @@
 
 <!-- Pitcher Projections Table -->
 <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+    <p class="text-sm text-blue-400 font-medium px-3 pt-3">Look for: High K projections with low ERA/WHIP. Pitchers with ▲ signals have better underlying stuff than their ERA shows — stream or acquire them.</p>
     {% if pitcher_projs %}
+    <input type="text" data-table-search="pitcher-projections"
+           placeholder="Search pitchers..."
+           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="sortable-table w-full text-sm" id="pitcher-projections"
+               data-default-sort="projected_k" data-default-dir="desc">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
-                    <th class="text-left py-2 px-3">#</th>
-                    <th class="text-left py-2 px-3">Player</th>
-                    <th class="text-left py-2 px-1">Pos</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">W {{ stat_info('W') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">SV {{ stat_info('SV') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">K {{ stat_info('K') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">ERA {{ stat_info('ERA') }}</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap">WHIP {{ stat_info('WHIP') }}</th>
+                    <th class="text-left py-2 px-3 row-number">#</th>
+                    <th class="text-left py-2 px-3" data-sort="name">Player</th>
+                    <th class="text-left py-2 px-1" data-sort="position">Pos</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_w">W {{ stat_info('W') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_sv">SV {{ stat_info('SV') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_k">K {{ stat_info('K') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_era">ERA {{ stat_info('ERA') }}</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_whip">WHIP {{ stat_info('WHIP') }}</th>
                     <!-- Advanced stats columns (hidden by default) -->
                     <th class="text-right py-2 px-3 whitespace-nowrap pitcher-adv-col hidden">xERA {{ stat_info('xERA') }}</th>
                     <th class="text-right py-2 px-3 whitespace-nowrap pitcher-adv-col hidden">SIERA {{ stat_info('SIERA') }}</th>
@@ -203,8 +217,12 @@
                 {% for proj in pitcher_projs %}
                 {% set adv = pitcher_advanced.get(proj.player_id) %}
                 {% set adj = pitcher_adj_fp.get(proj.player_id) %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    data-name="{{ proj.player_name }}" data-team="{{ proj.team }}" data-position="{{ proj.position }}"
+                    data-projected_w="{{ proj.projected_w }}" data-projected_sv="{{ proj.projected_sv }}"
+                    data-projected_k="{{ proj.projected_k }}" data-projected_era="{{ proj.projected_era }}"
+                    data-projected_whip="{{ proj.projected_whip }}">
+                    <td class="py-2 px-3 text-gray-500 row-number">{{ loop.index }}</td>
                     <td class="py-2 px-3">
                         {{ player_link(proj.player_id, proj.player_name, proj.team) }}
                     </td>

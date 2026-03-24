@@ -26,6 +26,10 @@ class WeeklyMatchupSnapshot(Base):
     my_projected_points: Mapped[float | None] = mapped_column(Float, nullable=True)
     opponent_projected_points: Mapped[float | None] = mapped_column(Float, nullable=True)
 
+    # App's custom projection totals (frozen at creation alongside Yahoo's)
+    my_app_projected_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+    opponent_app_projected_points: Mapped[float | None] = mapped_column(Float, nullable=True)
+
     # Live actuals (updated each sync)
     my_actual_points: Mapped[float | None] = mapped_column(Float, nullable=True)
     opponent_actual_points: Mapped[float | None] = mapped_column(Float, nullable=True)

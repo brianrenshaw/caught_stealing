@@ -20,15 +20,20 @@
 <!-- Batters -->
 {% if batters %}
 <div class="mb-8">
-    <h3 class="text-lg font-semibold text-gray-200 mb-3">Batters</h3>
+    <h3 class="text-lg font-semibold text-gray-200 mb-1">Batters</h3>
+    <p class="text-sm text-blue-400 font-medium mb-3">Look for: Compare recent stats (Last 14, Last 7) to Full Season — declining numbers signal a slump worth benching through. Rising stats = hot streak to ride.</p>
+    <input type="text" data-table-search="roster-batters"
+           placeholder="Search batters..."
+           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
     <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="sortable-table w-full text-sm" id="roster-batters"
+               data-default-sort="roster_position" data-default-dir="asc">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-3 px-4">Pos</th>
-                    <th class="text-left py-3 px-4">Player</th>
-                    <th class="text-left py-3 px-4">Team</th>
-                    <th class="text-left py-3 px-4">Eligible</th>
+                    <th class="text-left py-3 px-4" data-sort="roster_position">Pos</th>
+                    <th class="text-left py-3 px-4" data-sort="name">Player</th>
+                    <th class="text-left py-3 px-4" data-sort="team">Team</th>
+                    <th class="text-left py-3 px-4" data-sort="position">Eligible</th>
                     {% set batting_stats = [] %}
                     {% for player in batters %}
                         {% for stat_name in player.stats.keys() %}
@@ -44,7 +49,9 @@
             </thead>
             <tbody>
                 {% for player in batters %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    data-name="{{ player.name }}" data-team="{{ player.team }}"
+                    data-position="{{ player.position }}" data-roster_position="{{ player.roster_position }}">
                     <td class="py-2 px-4 text-gray-400 font-mono text-xs">{{ player.roster_position }}</td>
                     <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
                     <td class="py-2 px-4 text-gray-400">{{ player.team }}</td>
@@ -70,15 +77,20 @@
 <!-- Pitchers -->
 {% if pitchers %}
 <div>
-    <h3 class="text-lg font-semibold text-gray-200 mb-3">Pitchers</h3>
+    <h3 class="text-lg font-semibold text-gray-200 mb-1">Pitchers</h3>
+    <p class="text-sm text-blue-400 font-medium mb-3">Look for: ERA vs FIP gap — if ERA >> FIP, the pitcher has been unlucky and should improve. Rising K/9 is a positive sign. Falling WHIP = fewer baserunners.</p>
+    <input type="text" data-table-search="roster-pitchers"
+           placeholder="Search pitchers..."
+           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
     <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="sortable-table w-full text-sm" id="roster-pitchers"
+               data-default-sort="roster_position" data-default-dir="asc">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-3 px-4">Pos</th>
-                    <th class="text-left py-3 px-4">Player</th>
-                    <th class="text-left py-3 px-4">Team</th>
-                    <th class="text-left py-3 px-4">Eligible</th>
+                    <th class="text-left py-3 px-4" data-sort="roster_position">Pos</th>
+                    <th class="text-left py-3 px-4" data-sort="name">Player</th>
+                    <th class="text-left py-3 px-4" data-sort="team">Team</th>
+                    <th class="text-left py-3 px-4" data-sort="position">Eligible</th>
                     {% set pitching_stats = [] %}
                     {% for player in pitchers %}
                         {% for stat_name in player.stats.keys() %}
@@ -94,7 +106,9 @@
             </thead>
             <tbody>
                 {% for player in pitchers %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    data-name="{{ player.name }}" data-team="{{ player.team }}"
+                    data-position="{{ player.position }}" data-roster_position="{{ player.roster_position }}">
                     <td class="py-2 px-4 text-gray-400 font-mono text-xs">{{ player.roster_position }}</td>
                     <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
                     <td class="py-2 px-4 text-gray-400">{{ player.team }}</td>

@@ -7,15 +7,14 @@
 <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold text-white">Stats Explorer {{ page_info('stats-explorer') }}</h1>
     <div class="flex items-center gap-3">
-        <div class="relative">
-            <label for="highlight-search" class="sr-only">Highlight player on charts</label>
+        {# ── Player Highlight Search ── #}
+        <div class="relative" id="highlight-search-container">
             <input type="search" id="highlight-search" placeholder="Highlight player..."
                    autocomplete="off"
-                   aria-label="Search for a player to highlight on charts"
-                   class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-48
+                   class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-52
                           focus:outline-none focus:border-blue-500"
                    oninput="onPlayerSearch(this.value)">
-            <div id="highlight-dropdown" class="absolute z-50 w-full"></div>
+            <div id="highlight-dropdown" class="absolute z-50 w-64 mt-1"></div>
         </div>
         <button id="clear-highlight-btn" class="hidden text-xs text-gray-400 hover:text-white px-1"
                 onclick="clearHighlight()">&times; Clear</button>
@@ -31,6 +30,52 @@
         <input type="number" id="min-pa" value="50" min="0" step="10"
                class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-20"
                onchange="reloadCharts()">
+        <div class="w-px h-5 bg-gray-600"></div>
+        <label class="text-gray-400 text-sm">Show:</label>
+        <select id="roster-filter" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+                onchange="reloadCharts()">
+            <option value="free_agents" selected>Free Agents</option>
+            <option value="rostered">Rostered</option>
+            <option value="my_team">My Team</option>
+            <option value="all">All Players</option>
+        </select>
+    </div>
+</div>
+
+{# ── Player Spotlight Panel (hidden until player highlighted) ── #}
+<div id="player-spotlight" class="hidden mb-6">
+    <div class="bg-gray-800 rounded-lg border border-blue-600/40 p-5">
+        {# Summary Card #}
+        <div class="flex flex-wrap items-center justify-between mb-2 gap-2">
+            <div class="flex flex-wrap items-center gap-3">
+                <h3 id="spotlight-name" class="text-xl md:text-2xl font-bold text-white"></h3>
+                <span id="spotlight-meta" class="text-sm md:text-base text-gray-400"></span>
+                <span id="spotlight-owner" class="text-xs md:text-sm px-2 py-0.5 rounded bg-gray-700 text-gray-400"></span>
+            </div>
+            <span class="text-xs md:text-sm text-gray-600">Player Spotlight</span>
+        </div>
+        <p id="spotlight-summary-text" class="text-sm md:text-base text-gray-400 mb-4"></p>
+        {# Key Stats Row #}
+        <p class="text-xs md:text-sm text-gray-500 mb-1">Key stats — <span class="text-green-400">green</span> = above average, <span class="text-red-400">red</span> = below average</p>
+        <div id="spotlight-stats" class="grid grid-cols-5 md:grid-cols-10 gap-2 mb-5"></div>
+        {# Rolling Trends + Percentiles + Radar #}
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="xl:col-span-1">
+                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Trend (Full Season → Last 7 Days)</h4>
+                <p class="text-xs md:text-sm text-gray-500 mb-2">Rising lines = hot streak. Falling = cold streak. Compare full-season baseline to recent windows to spot momentum.</p>
+                <div id="spotlight-rolling" class="bg-gray-900/50 rounded border border-gray-700 p-2" style="height: 280px;"></div>
+            </div>
+            <div class="xl:col-span-1">
+                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Percentiles vs League</h4>
+                <p class="text-xs md:text-sm text-gray-500 mb-2">Where this player ranks vs all qualified players. <span class="text-green-400">75th+</span> elite · <span class="text-blue-400">50-74th</span> above avg · <span class="text-yellow-400">25-49th</span> below avg · <span class="text-red-400">&lt;25th</span> poor</p>
+                <div id="spotlight-percentiles" class="bg-gray-900/50 rounded border border-gray-700 p-3 overflow-y-auto" style="height: 280px;"></div>
+            </div>
+            <div class="xl:col-span-1">
+                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Player Profile</h4>
+                <p class="text-xs md:text-sm text-gray-500 mb-2">Blue = this player, orange = league avg. Bigger shape = better. Spikes = strengths, dips = weaknesses.</p>
+                <div id="spotlight-radar" class="bg-gray-900/50 rounded border border-gray-700 p-2" style="height: 280px;"></div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -49,57 +94,148 @@
     </nav>
 </div>
 
+{% macro stat_select(id, options, default, onchange) %}
+<select id="{{ id }}" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300" onchange="{{ onchange }}">
+    {% for val, label in options %}
+    <option value="{{ val }}" {% if val == default %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+</select>
+{% endmacro %}
+
+{% set sc_stats = [("avg_exit_velo","Avg Exit Velo"),("max_exit_velo","Max Exit Velo"),("barrel_pct","Barrel %"),("hard_hit_pct","Hard Hit %"),("xwoba","xwOBA"),("xba","xBA"),("xslg","xSLG"),("sweet_spot_pct","Sweet Spot %"),("sprint_speed","Sprint Speed"),("whiff_pct","Whiff %"),("chase_pct","Chase %")] %}
+{% set bat_stats = [("wrc_plus","wRC+"),("woba","wOBA"),("iso","ISO"),("ops","OPS"),("avg","AVG"),("babip","BABIP"),("war","WAR"),("hr","HR"),("sb","SB"),("bb_pct","BB%"),("k_pct","K%")] %}
+{% set pit_stats = [("era","ERA"),("fip","FIP"),("xfip","xFIP"),("siera","SIERA"),("whip","WHIP"),("k_per_9","K/9"),("bb_per_9","BB/9")] %}
+{% set pit_bar_stats = [("k_bb_pct","K-BB%"),("k_per_9","K/9"),("bb_per_9","BB/9"),("whip","WHIP"),("era","ERA"),("fip","FIP"),("war","WAR")] %}
+{% set sc_dist_stats = [("xwoba","xwOBA"),("xba","xBA"),("xslg","xSLG"),("barrel_pct","Barrel %"),("hard_hit_pct","Hard Hit %"),("avg_exit_velo","Avg Exit Velo"),("whiff_pct","Whiff %"),("chase_pct","Chase %")] %}
+{% set bat_dist_stats = [("woba","wOBA"),("wrc_plus","wRC+"),("iso","ISO"),("ops","OPS"),("avg","AVG"),("babip","BABIP")] %}
+{% set pit_dist_stats = [("era","ERA"),("fip","FIP"),("xfip","xFIP"),("siera","SIERA"),("whip","WHIP"),("k_per_9","K/9")] %}
+
 {# ── Statcast View ── #}
 <div id="view-statcast" class="stats-view">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">Exit Velocity vs Barrel Rate {{ page_info('ev-vs-barrel') }}</h3>
-            <div id="chart-ev-barrel" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {# Card: Statcast Scatter #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                {{ stat_select("sc-scatter-x", sc_stats, "avg_exit_velo", "loadStatcastCharts()") }}
+                <span class="text-gray-600 text-sm font-medium">vs</span>
+                {{ stat_select("sc-scatter-y", sc_stats, "barrel_pct", "loadStatcastCharts()") }}
+            </div>
+            <div id="desc-sc-scatter" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="chart-ev-barrel" class="flex-shrink-0" style="height: 400px;"></div>
+            <div id="top10-sc-scatter" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA vs Actual wOBA (Luck Chart) {{ page_info('xwoba-vs-woba') }}</h3>
-            <div id="chart-luck" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        {# Card: Luck Chart #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">xwOBA vs wOBA (Luck Chart)</h3>
+            </div>
+            <div class="text-sm text-gray-500 mb-2 leading-relaxed">
+                <div><strong class="text-gray-300">xwOBA:</strong> Expected performance based on contact quality. <strong class="text-gray-300">wOBA:</strong> Actual results.</div>
+                <div class="text-gray-400 italic">Above the diagonal = overperforming (lucky). Below = underperforming (unlucky). Best way to find trade regression candidates.</div>
+                <div class="flex gap-4 mt-1">
+                    <span class="text-green-400">Good: xwOBA .370+</span>
+                    <span class="text-gray-500">Avg: .310-.369</span>
+                    <span class="text-red-400">Bad: &lt; .310</span>
+                </div>
+                <div class="text-blue-400 font-medium mt-1">Look for: Players <strong>below</strong> the diagonal — they're underperforming their expected stats and are buy-low targets. Players above are sell-high candidates.</div>
+            </div>
+            <div id="chart-luck" class="flex-shrink-0" style="height: 400px;"></div>
+            <div id="top10-luck" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
     </div>
-    <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">xwOBA Distribution {{ page_info('xwoba-distribution') }}</h3>
-        <div id="chart-xwoba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    {# Card: Statcast Distribution #}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+        <div class="flex items-center gap-2 mb-2 h-8">
+            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            {{ stat_select("sc-dist-stat", sc_dist_stats, "xwoba", "loadStatcastCharts()") }}
+            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            {{ stat_select("sc-dist-compare", [("none","None")] + sc_dist_stats, "none", "loadStatcastCharts()") }}
+        </div>
+        <div id="desc-sc-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="chart-sc-dist" style="height: 300px;"></div>
     </div>
 </div>
 
 {# ── Batting View ── #}
 <div id="view-batting" class="stats-view hidden">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wRC+ Leaders {{ page_info('wrc-plus-leaders') }}</h3>
-            <div id="chart-wrc-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {# Card: Batting Leaders #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Leaders:</span>
+                {{ stat_select("bat-bar-stat", bat_stats, "wrc_plus", "loadBattingCharts()") }}
+            </div>
+            <div id="desc-bat-leaders" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="chart-bat-leaders" class="flex-shrink-0" style="min-height: 500px;"></div>
+            <div id="top10-bat-leaders" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K% vs BB% (Plate Discipline) {{ page_info('k-vs-bb') }}</h3>
-            <div id="chart-kbb-scatter" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+        {# Card: K% vs BB% #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">K% vs BB% (Plate Discipline)</h3>
+            </div>
+            <div class="text-sm text-gray-500 mb-2 leading-relaxed">
+                <div><strong class="text-gray-300">K%:</strong> Strikeout rate — K = -0.5 pts. Lower is better. <strong class="text-gray-300">BB%:</strong> Walk rate — BB = +1 pt. Higher is better.</div>
+                <div class="text-gray-400 italic">Discipline is worth ~1.5 pts per plate appearance event in your league.</div>
+                <div class="flex gap-4 mt-1">
+                    <span class="text-green-400">Good: K% &lt; 15%, BB% &gt; 12%</span>
+                    <span class="text-gray-500">Avg: K% 15-22%, BB% 8-11%</span>
+                    <span class="text-red-400">Bad: K% &gt; 22%, BB% &lt; 7%</span>
+                </div>
+                <div class="text-blue-400 font-medium mt-1">Look for: Players in the <strong>top-left</strong> corner (low K% + high BB%) have the best discipline and earn the most free fantasy points.</div>
+            </div>
+            <div id="chart-kbb-scatter" class="flex-shrink-0" style="height: 400px;"></div>
+            <div id="top10-kbb" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
     </div>
-    <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">wOBA Distribution {{ page_info('woba-distribution') }}</h3>
-        <div id="chart-woba-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    {# Card: Batting Distribution #}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+        <div class="flex items-center gap-2 mb-2 h-8">
+            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            {{ stat_select("bat-dist-stat", bat_dist_stats, "woba", "loadBattingCharts()") }}
+            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            {{ stat_select("bat-dist-compare", [("none","None")] + bat_dist_stats, "none", "loadBattingCharts()") }}
+        </div>
+        <div id="desc-bat-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="chart-bat-dist" style="height: 300px;"></div>
     </div>
 </div>
 
 {# ── Pitching View ── #}
 <div id="view-pitching" class="stats-view hidden">
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">FIP vs ERA {{ page_info('fip-vs-era') }}</h3>
-            <div id="chart-fip-era" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 420px;"></div>
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        {# Card: Pitching Scatter #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                {{ stat_select("pit-scatter-x", pit_stats, "era", "loadPitchingCharts()") }}
+                <span class="text-gray-600 text-sm font-medium">vs</span>
+                {{ stat_select("pit-scatter-y", pit_stats, "fip", "loadPitchingCharts()") }}
+            </div>
+            <div id="desc-pit-scatter" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="chart-pit-scatter" class="flex-shrink-0" style="height: 400px;"></div>
+            <div id="top10-pit-scatter" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
-        <div>
-            <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">K-BB% Leaders {{ page_info('k-bb-leaders') }}</h3>
-            <div id="chart-kbb-leaders" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="min-height: 500px;"></div>
+        {# Card: Pitching Leaders #}
+        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+            <div class="flex items-center gap-2 mb-2 h-8">
+                <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Leaders:</span>
+                {{ stat_select("pit-bar-stat", pit_bar_stats, "k_bb_pct", "loadPitchingCharts()") }}
+            </div>
+            <div id="desc-pit-leaders" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="chart-pit-leaders" class="flex-shrink-0" style="min-height: 500px;"></div>
+            <div id="top10-pit-leaders" class="mt-3 border-t border-gray-700 pt-2"></div>
         </div>
     </div>
-    <div class="mt-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">ERA Distribution {{ page_info('era-distribution') }}</h3>
-        <div id="chart-era-dist" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 350px;"></div>
+    {# Card: Pitching Distribution #}
+    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+        <div class="flex items-center gap-2 mb-2 h-8">
+            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            {{ stat_select("pit-dist-stat", pit_dist_stats, "era", "loadPitchingCharts()") }}
+            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            {{ stat_select("pit-dist-compare", [("none","None")] + pit_dist_stats, "none", "loadPitchingCharts()") }}
+        </div>
+        <div id="desc-pit-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="chart-pit-dist" style="height: 300px;"></div>
     </div>
 </div>
 
@@ -109,43 +245,282 @@ const currentView = '{{ view }}';
 let highlightPlayerId = null;
 let highlightPlayerName = null;
 let searchTimeout = null;
+let statsSearchIdx = -1;
 
 function getSeason() { return document.getElementById('season-select').value; }
 function getMinPA() { return document.getElementById('min-pa').value; }
 
+function filterByRoster(data) {
+    const filter = document.getElementById('roster-filter').value;
+    if (filter === 'all') return data;
+    // Always keep the highlighted player regardless of filter
+    return data.filter(d => {
+        if (highlightPlayerId && d.player_id === highlightPlayerId) return true;
+        if (filter === 'free_agents') return !d.is_rostered;
+        if (filter === 'rostered') return d.is_rostered;
+        if (filter === 'my_team') return d.is_my_team;
+        return true;
+    });
+}
+
+// ── Click-to-spotlight callback (charts.js calls this instead of navigating) ──
+window.onChartPlayerClick = function(playerId, name) {
+    selectHighlightPlayer(playerId, name);
+};
+
+// ── Stat descriptions dictionary ──
+const STAT_INFO = {
+    // Statcast — dir: "higher" or "lower" (which direction is better)
+    avg_exit_velo:  { name: "Avg Exit Velocity", desc: "Average speed of batted balls off the bat (mph).", fantasy: "Higher EV = harder contact = more extra-base hits and HR. Core Statcast quality metric.", good: "90+ mph", avg: "87-89 mph", bad: "< 87 mph", dir: "higher" },
+    max_exit_velo:  { name: "Max Exit Velocity", desc: "Hardest single batted ball of the season.", fantasy: "Shows raw power ceiling. High maxEV + low barrel% = unrealized power upside.", good: "112+ mph", avg: "108-111 mph", bad: "< 108 mph", dir: "higher" },
+    barrel_pct:     { name: "Barrel %", desc: "% of batted balls with ideal launch angle + exit velo for extra-base hits.", fantasy: "Best predictor of HR and SLG. Barrels become HR ~70% of the time.", good: "12%+", avg: "6-11%", bad: "< 6%", dir: "higher" },
+    hard_hit_pct:   { name: "Hard Hit %", desc: "% of batted balls at 95+ mph exit velocity.", fantasy: "Broader quality-of-contact metric. High hard hit% sustains batting average.", good: "45%+", avg: "35-44%", bad: "< 35%", dir: "higher" },
+    xwoba:          { name: "xwOBA", desc: "Expected wOBA based on exit velocity and launch angle (ignores defense/luck).", fantasy: "Best single metric for true offensive ability. Compare to actual wOBA to find buy-low/sell-high.", good: ".370+", avg: ".310-.369", bad: "< .310", dir: "higher" },
+    xba:            { name: "xBA", desc: "Expected batting average based on quality of contact.", fantasy: "If xBA >> actual AVG, the player is unlucky and due for regression up.", good: ".280+", avg: ".240-.279", bad: "< .240", dir: "higher" },
+    xslg:           { name: "xSLG", desc: "Expected slugging % based on exit velocity and launch angle.", fantasy: "Measures true power production independent of luck. Drives HR and RBI projections.", good: ".500+", avg: ".400-.499", bad: "< .400", dir: "higher" },
+    sweet_spot_pct: { name: "Sweet Spot %", desc: "% of batted balls in the 8-32 degree launch angle range.", fantasy: "Sweet spot = line drives and fly balls that become hits. Sustains AVG and BABIP.", good: "38%+", avg: "30-37%", bad: "< 30%", dir: "higher" },
+    sprint_speed:   { name: "Sprint Speed", desc: "Feet per second in fastest 1-second window of a sprint effort.", fantasy: "Drives SB, triples, and infield hits. Key for stolen base projections (SB = 2 pts).", good: "28+ ft/s", avg: "26-27 ft/s", bad: "< 26 ft/s", dir: "higher" },
+    whiff_pct:      { name: "Whiff %", desc: "% of swings that miss entirely.", fantasy: "Lower is better. High whiff% = high K% = losing 0.5 pts per strikeout.", good: "< 20%", avg: "20-28%", bad: "28%+", dir: "lower" },
+    chase_pct:      { name: "Chase %", desc: "% of pitches outside the zone that the batter swings at.", fantasy: "Lower is better. Low chase = better plate discipline = more walks (BB = 1 pt).", good: "< 22%", avg: "22-30%", bad: "30%+", dir: "lower" },
+    // Batting
+    wrc_plus:   { name: "wRC+", desc: "Weighted Runs Created+. Offense relative to league average (100 = average), park-adjusted.", fantasy: "Single best rate stat for overall offensive value. 130+ is elite, 80- is replacement.", good: "120+", avg: "90-119", bad: "< 90", dir: "higher" },
+    woba:       { name: "wOBA", desc: "Weighted On-Base Average. Values each hit type by its actual run value.", fantasy: "Better than AVG or OPS for measuring true offensive contribution. Compares directly to xwOBA for luck analysis.", good: ".370+", avg: ".310-.369", bad: "< .310", dir: "higher" },
+    iso:        { name: "ISO", desc: "Isolated Power = SLG - AVG. Measures raw extra-base hit ability.", fantasy: "Pure power metric. High ISO = more HR (4 pts) and 2B/3B. Ignores singles entirely.", good: ".200+", avg: ".130-.199", bad: "< .130", dir: "higher" },
+    ops:        { name: "OPS", desc: "On-base + Slugging. Quick-and-dirty offensive metric.", fantasy: "Good shorthand for fantasy value. .900+ is elite. Overweights SLG vs OBP.", good: ".850+", avg: ".720-.849", bad: "< .720", dir: "higher" },
+    avg:        { name: "AVG", desc: "Batting Average. Hits per at-bat.", fantasy: "In H2H points, AVG itself doesn't score — but higher AVG means more 1B (1 pt each).", good: ".280+", avg: ".250-.279", bad: "< .240", dir: "higher" },
+    babip:      { name: "BABIP", desc: "Batting Average on Balls In Play. Luck + skill indicator.", fantasy: "Extremely high BABIP (.360+) often regresses. Low BABIP (.260-) suggests bad luck — buy low.", good: ".330+", avg: ".290-.329", bad: "< .280", dir: "higher" },
+    war:        { name: "WAR", desc: "Wins Above Replacement. Total value including batting, baserunning, defense.", fantasy: "Includes defense which doesn't matter for fantasy. Better as a tiebreaker than a primary metric.", good: "5+", avg: "2-4", bad: "< 1", dir: "higher" },
+    hr:         { name: "HR", desc: "Home Runs.", fantasy: "HR = 4 pts in your league. Most impactful single counting stat. 30+ HR is elite.", good: "30+", avg: "15-29", bad: "< 15", dir: "higher" },
+    sb:         { name: "SB", desc: "Stolen Bases.", fantasy: "SB = 2 pts, CS = -1. Net positive even at ~60% success rate. Speed is scarce.", good: "25+", avg: "10-24", bad: "< 10", dir: "higher" },
+    bb_pct:     { name: "BB%", desc: "Walk rate. % of plate appearances ending in a walk.", fantasy: "BB = 1 pt. High walk rate = free points and sustained OBP. Pairs well with low K%.", good: "12%+", avg: "8-11%", bad: "< 7%", dir: "higher" },
+    k_pct:      { name: "K%", desc: "Strikeout rate. % of plate appearances ending in a strikeout.", fantasy: "K = -0.5 pts. A 150-K season loses 75 pts from Ks alone. Lower is much better.", good: "< 15%", avg: "15-22%", bad: "22%+", dir: "lower" },
+    // Pitching
+    era:        { name: "ERA", desc: "Earned Run Average. Earned runs per 9 innings.", fantasy: "ER = -4 pts. Every run matters enormously. But ERA is noisy — check FIP for true skill.", good: "< 3.50", avg: "3.50-4.50", bad: "> 4.50", dir: "lower" },
+    fip:        { name: "FIP", desc: "Fielding Independent Pitching. ERA-like stat using only K, BB, HR, HBP.", fantasy: "Better predictor of future ERA than ERA itself. If FIP << ERA, the pitcher is due for regression down.", good: "< 3.20", avg: "3.20-4.20", bad: "> 4.20", dir: "lower" },
+    xfip:       { name: "xFIP", desc: "Expected FIP. Normalizes HR/FB rate to league average.", fantasy: "Most stable pitcher projection metric. Use for ROS projections over ERA or FIP.", good: "< 3.40", avg: "3.40-4.30", bad: "> 4.30", dir: "lower" },
+    siera:      { name: "SIERA", desc: "Skill-Interactive ERA. Uses batted ball data and K/BB rates.", fantasy: "Considered the best ERA estimator. Good for identifying undervalued streaming pitchers.", good: "< 3.20", avg: "3.20-4.20", bad: "> 4.20", dir: "lower" },
+    whip:       { name: "WHIP", desc: "Walks + Hits per Inning Pitched. Baserunner rate.", fantasy: "H = -0.75, BB = -0.75. Low WHIP = fewer baserunners = fewer ER = more points.", good: "< 1.10", avg: "1.10-1.35", bad: "> 1.35", dir: "lower" },
+    k_per_9:    { name: "K/9", desc: "Strikeouts per 9 innings.", fantasy: "Pitcher K = +0.5 pts. High K/9 racks up points and suppresses hits.", good: "10+", avg: "7-9.9", bad: "< 7", dir: "higher" },
+    bb_per_9:   { name: "BB/9", desc: "Walks per 9 innings.", fantasy: "BB = -0.75 pts. Low BB/9 = efficiency and fewer baserunners. Pairs with K/9.", good: "< 2.5", avg: "2.5-3.5", bad: "> 3.5", dir: "lower" },
+    k_bb_pct:   { name: "K-BB%", desc: "Strikeout rate minus walk rate. Measures pitcher dominance.", fantasy: "Best single rate stat for pitcher quality. 15%+ is elite. Drives both K points and run prevention.", good: "15%+", avg: "8-14%", bad: "< 8%", dir: "higher" },
+};
+
+function updateStatDesc(descId, chartType, ...selectIds) {
+    const el = document.getElementById(descId);
+    if (!el) return;
+    const infos = selectIds.map(id => {
+        const val = document.getElementById(id)?.value;
+        return STAT_INFO[val] || null;
+    }).filter(Boolean);
+    if (!infos.length) { el.innerHTML = ''; return; }
+
+    let html = infos.map(info =>
+        `<div class="mb-2">
+            <div class="text-sm"><strong class="text-gray-200">${info.name}:</strong> <span class="text-gray-400">${info.desc}</span></div>
+            <div class="text-sm text-gray-400 italic">${info.fantasy}</div>
+            <div class="flex gap-4 mt-0.5 text-sm">
+                <span class="text-green-400">Good: ${info.good}</span>
+                <span class="text-gray-500">Avg: ${info.avg}</span>
+                <span class="text-red-400">Bad: ${info.bad}</span>
+            </div>
+        </div>`
+    ).join('');
+
+    // "Look for" hint based on chart type
+    if (infos.length === 2 && chartType === 'scatter') {
+        const xDir = infos[0].dir === 'higher' ? 'higher' : 'lower';
+        const yDir = infos[1].dir === 'higher' ? 'higher' : 'lower';
+        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+            Look for: Players in the <strong>${xDir === 'higher' ? 'right' : 'left'}-${yDir === 'higher' ? 'top' : 'bottom'}</strong> corner
+            (${xDir} ${infos[0].name} + ${yDir} ${infos[1].name}) are the best.
+        </div>`;
+    } else if (infos.length === 1 && chartType === 'bar') {
+        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+            Look for: Players at the <strong>top of the chart</strong> lead the league at ${infos[0].name}.
+            Gold bars = your team, blue = rostered, green = free agent waiver targets.
+        </div>`;
+    } else if (infos.length === 1 && chartType === 'dist') {
+        const dirText = infos[0].dir === 'lower' ? 'left' : 'right';
+        const betterText = infos[0].dir === 'lower' ? 'Further left = better.' : 'Further right = better.';
+        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+            Look for: The <strong>${dirText} tail</strong> shows elite performers. ${betterText}
+            The highlighted line shows where your player ranks vs the entire field.
+        </div>`;
+    }
+
+    el.innerHTML = html;
+}
+
+// ── Top 10 Table (sortable) ──
+let _top10Counter = 0;
+function renderTop10(containerId, data, config) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const top = data.slice(0, 10);
+    if (!top.length) { el.innerHTML = ''; return; }
+    const tableId = `top10-tbl-${++_top10Counter}`;
+    const isScatter = config.xLabel && config.yLabel;
+
+    function fmt(val) {
+        if (val === undefined || val === null) return '-';
+        if (typeof val !== 'number') return val;
+        return Math.abs(val) >= 10 ? val.toFixed(1) : val.toFixed(3);
+    }
+    function colorVal(val, info) {
+        if (!info || val === undefined || val === null || typeof val !== 'number') return 'text-gray-300';
+        const goodNum = parseFloat(info.good.replace(/[^0-9.-]/g, ''));
+        const badNum = parseFloat(info.bad.replace(/[^0-9.-]/g, ''));
+        if (isNaN(goodNum)) return 'text-gray-300';
+        if (info.dir === 'higher') {
+            if (val >= goodNum) return 'text-green-400';
+            if (!isNaN(badNum) && val <= badNum) return 'text-red-400';
+        } else {
+            if (val <= goodNum) return 'text-green-400';
+            if (!isNaN(badNum) && val >= badNum) return 'text-red-400';
+        }
+        return 'text-gray-300';
+    }
+
+    let headerHtml, rowsHtml, defaultSort, defaultDir;
+    if (isScatter) {
+        const xK = config.xKey || 'x';
+        const yK = config.yKey || 'y';
+        defaultSort = yK;
+        defaultDir = (config.yInfo?.dir === 'lower') ? 'asc' : 'desc';
+        headerHtml = `<th class="text-left py-1 px-2 w-6 row-number">#</th>
+            <th class="text-left py-1 px-2" data-sort="name">Player</th>
+            <th class="text-right py-1 px-2" data-sort="${xK}">${config.xLabel}</th>
+            <th class="text-right py-1 px-2" data-sort="${yK}">${config.yLabel}</th>`;
+        rowsHtml = top.map((d, i) => {
+            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-blue-900/30' : '';
+            const safeName = (d.name || '').replace(/'/g, "\\'");
+            return `<tr class="border-b border-gray-700/30 hover:bg-gray-700/20 cursor-pointer text-xs ${hl}"
+                        data-name="${d.name}" data-${xK}="${d[xK]}" data-${yK}="${d[yK]}"
+                        onclick="selectHighlightPlayer(${d.player_id}, '${safeName}')">
+                <td class="py-1 px-2 text-gray-600 row-number">${i + 1}</td>
+                <td class="py-1 px-2 text-gray-200">${d.name} <span class="text-gray-600">${d.team || ''}</span></td>
+                <td class="py-1 px-2 text-right font-medium ${colorVal(d[xK], config.xInfo)}">${fmt(d[xK])}</td>
+                <td class="py-1 px-2 text-right font-medium ${colorVal(d[yK], config.yInfo)}">${fmt(d[yK])}</td>
+            </tr>`;
+        }).join('');
+    } else {
+        const vK = config.valueKey || 'value';
+        defaultSort = vK;
+        defaultDir = (config.statInfo?.dir === 'lower') ? 'asc' : 'desc';
+        headerHtml = `<th class="text-left py-1 px-2 w-6 row-number">#</th>
+            <th class="text-left py-1 px-2" data-sort="name">Player</th>
+            <th class="text-left py-1 px-2" data-sort="team">Team</th>
+            <th class="text-right py-1 px-2" data-sort="${vK}">${config.valueLabel}</th>`;
+        rowsHtml = top.map((d, i) => {
+            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-blue-900/30' : '';
+            const safeName = (d.name || '').replace(/'/g, "\\'");
+            return `<tr class="border-b border-gray-700/30 hover:bg-gray-700/20 cursor-pointer text-xs ${hl}"
+                        data-name="${d.name}" data-team="${d.team || ''}" data-${vK}="${d[vK]}"
+                        onclick="selectHighlightPlayer(${d.player_id}, '${safeName}')">
+                <td class="py-1 px-2 text-gray-600 row-number">${i + 1}</td>
+                <td class="py-1 px-2 text-gray-200">${d.name}</td>
+                <td class="py-1 px-2 text-gray-500">${d.team || ''}</td>
+                <td class="py-1 px-2 text-right font-medium ${colorVal(d[vK], config.statInfo)}">${fmt(d[vK])}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    el.innerHTML = `<table class="sortable-table w-full" id="${tableId}"
+        data-default-sort="${defaultSort}" data-default-dir="${defaultDir}"><thead>
+        <tr class="text-gray-600 text-[10px] uppercase border-b border-gray-700">
+            ${headerHtml}
+        </tr></thead><tbody>${rowsHtml}</tbody></table>`;
+
+    // Re-initialize table-sort.js on the new table
+    const tbl = document.getElementById(tableId);
+    if (tbl && typeof initSortableTable === 'function') {
+        initSortableTable(tbl);
+    } else if (tbl) {
+        // Fallback: dispatch event for table-sort.js to pick up
+        document.dispatchEvent(new Event('htmx:afterSettle'));
+    }
+}
+
+// ── Search Dropdown ──
 function onPlayerSearch(query) {
     clearTimeout(searchTimeout);
     const dropdown = document.getElementById('highlight-dropdown');
-    if (query.length < 2) { dropdown.innerHTML = ''; return; }
+    if (query.length < 2) { dropdown.innerHTML = ''; statsSearchIdx = -1; return; }
     searchTimeout = setTimeout(async () => {
         const resp = await fetch(`/api/players/search?q=${encodeURIComponent(query)}&limit=8`);
         const html = await resp.text();
         const parser = new DOMParser();
         const doc = parser.parseFromString(html, 'text/html');
-        const links = doc.querySelectorAll('a');
-        links.forEach(a => {
+        const items = doc.querySelectorAll('li');
+
+        // Build styled dropdown
+        const ul = document.createElement('ul');
+        ul.className = 'bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto';
+
+        items.forEach(li => {
+            const a = li.querySelector('a');
+            if (!a) return;
             const href = a.getAttribute('href');
             const match = href && href.match(/\/player\/(\d+)/);
-            if (match) {
-                const pid = parseInt(match[1]);
-                const name = a.querySelector('.text-gray-100')?.textContent || '';
-                a.removeAttribute('href');
-                a.dataset.playerId = pid;
-                a.dataset.playerName = name;
-                a.style.cursor = 'pointer';
-                a.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    selectHighlightPlayer(
-                        parseInt(this.dataset.playerId),
-                        this.dataset.playerName
-                    );
-                });
+            if (!match) return;
+
+            const pid = parseInt(match[1]);
+            const name = a.querySelector('.text-gray-100')?.textContent?.trim() || '';
+
+            const newLi = document.createElement('li');
+            newLi.className = 'px-3 py-2 hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-600/50 last:border-b-0 flex items-center justify-between';
+            newLi.dataset.playerId = pid;
+            newLi.dataset.playerName = name;
+
+            // Rebuild the content
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'text-gray-100 font-medium';
+            nameSpan.textContent = name;
+            newLi.appendChild(nameSpan);
+
+            const metaSpan = a.querySelector('.text-gray-400');
+            if (metaSpan) {
+                const meta = metaSpan.cloneNode(true);
+                meta.className = 'text-gray-400 text-xs';
+                newLi.appendChild(meta);
             }
+
+            newLi.addEventListener('click', () => selectHighlightPlayer(pid, name));
+            ul.appendChild(newLi);
         });
+
         dropdown.innerHTML = '';
-        links.forEach(a => dropdown.appendChild(a));
+        if (ul.children.length) dropdown.appendChild(ul);
+        statsSearchIdx = -1;
     }, 300);
 }
+
+// Keyboard navigation
+document.getElementById('highlight-search').addEventListener('keydown', function(e) {
+    const dropdown = document.getElementById('highlight-dropdown');
+    const items = dropdown.querySelectorAll('li[data-player-id]');
+    if (!items.length && e.key !== 'Escape') return;
+
+    if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        statsSearchIdx = Math.min(statsSearchIdx + 1, items.length - 1);
+        items.forEach((li, i) => {
+            li.classList.toggle('bg-gray-600', i === statsSearchIdx);
+            if (i === statsSearchIdx) li.scrollIntoView({ block: 'nearest' });
+        });
+    } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        statsSearchIdx = Math.max(statsSearchIdx - 1, -1);
+        items.forEach((li, i) => li.classList.toggle('bg-gray-600', i === statsSearchIdx));
+    } else if (e.key === 'Enter' && statsSearchIdx >= 0) {
+        e.preventDefault();
+        items[statsSearchIdx].click();
+        statsSearchIdx = -1;
+    } else if (e.key === 'Escape') {
+        dropdown.innerHTML = '';
+        statsSearchIdx = -1;
+    }
+});
 
 function selectHighlightPlayer(playerId, name) {
     highlightPlayerId = playerId;
@@ -154,6 +529,7 @@ function selectHighlightPlayer(playerId, name) {
     document.getElementById('highlight-search').value = name;
     document.getElementById('clear-highlight-btn').classList.remove('hidden');
     reloadCharts();
+    loadSpotlight(playerId);
 }
 
 function clearHighlight() {
@@ -161,9 +537,11 @@ function clearHighlight() {
     highlightPlayerName = null;
     document.getElementById('highlight-search').value = '';
     document.getElementById('clear-highlight-btn').classList.add('hidden');
+    document.getElementById('player-spotlight').classList.add('hidden');
     reloadCharts();
 }
 
+// ── Tab Switching ──
 function switchView(view) {
     document.querySelectorAll('.stats-view').forEach(v => v.classList.add('hidden'));
     document.querySelectorAll('.stats-tab-btn').forEach(b => {
@@ -175,7 +553,6 @@ function switchView(view) {
     btn.classList.add('border-blue-500', 'text-blue-400');
     btn.classList.remove('border-transparent', 'text-gray-400');
 
-    // Load charts for the selected view
     if (view === 'statcast') loadStatcastCharts();
     else if (view === 'batting') loadBattingCharts();
     else if (view === 'pitching') loadPitchingCharts();
@@ -191,22 +568,26 @@ async function fetchJSON(url) {
     return resp.json();
 }
 
+// ── Statcast Charts ──
 async function loadStatcastCharts() {
     const season = getSeason();
     const minPA = getMinPA();
     const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
+    const xStat = document.getElementById('sc-scatter-x').value;
+    const yStat = document.getElementById('sc-scatter-y').value;
+    const distStat = document.getElementById('sc-dist-stat').value;
 
-    // EV vs Barrel
-    const evData = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=avg_exit_velo&y_stat=barrel_pct&min_pa=${minPA}`);
+    const evDataRaw = await fetchJSON(`/api/charts/statcast-scatter?season=${season}&x_stat=${xStat}&y_stat=${yStat}&min_pa=${minPA}${hlParam}`);
+    const evData = filterByRoster(evDataRaw);
     buildScatterChart('chart-ev-barrel', evData, {
-        xLabel: 'Avg Exit Velocity (mph)',
-        yLabel: 'Barrel %',
+        xLabel: document.getElementById('sc-scatter-x').selectedOptions[0].text,
+        yLabel: document.getElementById('sc-scatter-y').selectedOptions[0].text,
         colorStat: 'xwoba',
         highlightPlayerId: highlightPlayerId,
     });
 
-    // Luck chart: xwOBA (expected) vs actual wOBA
-    const luckData = await fetchJSON(`/api/charts/luck-scatter?season=${season}&min_pa=${minPA}`);
+    const luckDataRaw = await fetchJSON(`/api/charts/luck-scatter?season=${season}&min_pa=${minPA}${hlParam}`);
+    const luckData = filterByRoster(luckDataRaw);
     buildScatterChart('chart-luck', luckData, {
         xLabel: 'xwOBA (Expected)',
         yLabel: 'wOBA (Actual)',
@@ -214,84 +595,306 @@ async function loadStatcastCharts() {
         highlightPlayerId: highlightPlayerId,
     });
 
-    // xwOBA distribution (from Statcast data)
-    const xwobaDist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=xwoba&player_type=batter${hlParam}`);
-    buildDistribution('chart-xwoba-dist', xwobaDist, { title: 'xwOBA Distribution (Qualified Batters)' });
+    const distData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${distStat}&player_type=batter${hlParam}`);
+    const scCompare = document.getElementById('sc-dist-compare').value;
+    let scCompareData = null;
+    if (scCompare !== 'none') {
+        scCompareData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${scCompare}&player_type=batter${hlParam}`);
+    }
+    const scDistLabel = document.getElementById('sc-dist-stat').selectedOptions[0].text;
+    const scCompLabel = scCompare !== 'none' ? ' vs ' + document.getElementById('sc-dist-compare').selectedOptions[0].text : '';
+    buildDistribution('chart-sc-dist', distData, {
+        title: scDistLabel + scCompLabel + ' Distribution',
+        compareData: scCompareData,
+    });
+
+    // Update descriptions + top 10
+    updateStatDesc('desc-sc-scatter', 'scatter', 'sc-scatter-x', 'sc-scatter-y');
+    updateStatDesc('desc-sc-dist', 'dist', 'sc-dist-stat');
+    const xInfo = STAT_INFO[xStat];
+    const yInfo = STAT_INFO[yStat];
+    // Sort by Y stat for top 10
+    const scSorted = [...evData].sort((a, b) => yInfo?.dir === 'lower' ? a.y - b.y : b.y - a.y);
+    renderTop10('top10-sc-scatter', scSorted, {
+        xLabel: xInfo?.name || xStat, yLabel: yInfo?.name || yStat,
+        xKey: 'x', yKey: 'y', xInfo, yInfo,
+    });
+    // Luck chart top 10: sort by gap (overperformers)
+    const luckSorted = [...luckData].sort((a, b) => (b.y - b.x) - (a.y - a.x));
+    renderTop10('top10-luck', luckSorted, {
+        xLabel: 'xwOBA', yLabel: 'wOBA',
+        xKey: 'x', yKey: 'y',
+        xInfo: STAT_INFO.xwoba, yInfo: STAT_INFO.woba,
+    });
 }
 
+// ── Batting Charts ──
 async function loadBattingCharts() {
     const season = getSeason();
     const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
+    const barStat = document.getElementById('bat-bar-stat').value;
+    const distStat = document.getElementById('bat-dist-stat').value;
 
-    // wRC+ leaders
-    const wrcData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=wrc_plus&limit=30`);
-    buildBarChart('chart-wrc-leaders', wrcData, {
-        label: 'wRC+',
-        title: 'wRC+ Leaders',
-        referenceLine: 100,
+    const barDataRaw = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=${barStat}&limit=30${hlParam}`);
+    const barData = filterByRoster(barDataRaw);
+    const refLines = { wrc_plus: 100 };
+    buildBarChart('chart-bat-leaders', barData, {
+        label: document.getElementById('bat-bar-stat').selectedOptions[0].text,
+        title: document.getElementById('bat-bar-stat').selectedOptions[0].text + ' Leaders',
+        referenceLine: refLines[barStat] || null,
         highlightPlayerId: highlightPlayerId,
     });
 
-    // K% vs BB% scatter
-    const kData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=k_pct&limit=200`);
-    const bbData = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=bb_pct&limit=200`);
-
-    // Merge by player_id
+    const kDataRaw = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=k_pct&limit=200${hlParam}`);
+    const bbDataRaw = await fetchJSON(`/api/charts/batting-leaders?season=${season}&stat=bb_pct&limit=200${hlParam}`);
+    const kData = filterByRoster(kDataRaw);
+    const bbData = filterByRoster(bbDataRaw);
     const bbMap = {};
     bbData.forEach(d => { bbMap[d.player_id] = d.value; });
     const scatterData = kData.filter(d => bbMap[d.player_id] !== undefined).map(d => ({
-        ...d,
-        x: d.value,
-        y: bbMap[d.player_id],
+        ...d, x: d.value, y: bbMap[d.player_id],
     }));
     buildScatterChart('chart-kbb-scatter', scatterData, {
-        xLabel: 'K%',
-        yLabel: 'BB%',
+        xLabel: 'K%', yLabel: 'BB%',
         title: 'Plate Discipline (lower K%, higher BB% = better)',
         highlightPlayerId: highlightPlayerId,
     });
 
-    // wOBA distribution
-    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=woba&player_type=batter${hlParam}`);
-    buildDistribution('chart-woba-dist', dist, { title: 'wOBA Distribution' });
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${distStat}&player_type=batter${hlParam}`);
+    const batCompare = document.getElementById('bat-dist-compare').value;
+    let batCompareData = null;
+    if (batCompare !== 'none') {
+        batCompareData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${batCompare}&player_type=batter${hlParam}`);
+    }
+    const batDistLabel = document.getElementById('bat-dist-stat').selectedOptions[0].text;
+    const batCompLabel = batCompare !== 'none' ? ' vs ' + document.getElementById('bat-dist-compare').selectedOptions[0].text : '';
+    buildDistribution('chart-bat-dist', dist, {
+        title: batDistLabel + batCompLabel + ' Distribution',
+        compareData: batCompareData,
+    });
+
+    // Update descriptions + top 10
+    updateStatDesc('desc-bat-leaders', 'bar', 'bat-bar-stat');
+    updateStatDesc('desc-bat-dist', 'dist', 'bat-dist-stat');
+    const barLabel = document.getElementById('bat-bar-stat').selectedOptions[0].text;
+    renderTop10('top10-bat-leaders', barData, {
+        valueLabel: barLabel, statInfo: STAT_INFO[barStat],
+    });
+    // K% vs BB% top 10: sort by best discipline (low K%, high BB%)
+    const kbbSorted = [...scatterData].sort((a, b) => (a.x - b.x) || (b.y - a.y));
+    renderTop10('top10-kbb', kbbSorted, {
+        xLabel: 'K%', yLabel: 'BB%',
+        xKey: 'x', yKey: 'y',
+        xInfo: STAT_INFO.k_pct, yInfo: STAT_INFO.bb_pct,
+    });
 }
 
+// ── Pitching Charts ──
 async function loadPitchingCharts() {
     const season = getSeason();
     const hlParam = highlightPlayerId ? `&highlight_player_id=${highlightPlayerId}` : '';
+    const xStat = document.getElementById('pit-scatter-x').value;
+    const yStat = document.getElementById('pit-scatter-y').value;
+    const barStat = document.getElementById('pit-bar-stat').value;
+    const distStat = document.getElementById('pit-dist-stat').value;
 
-    // FIP vs ERA scatter
-    const fipData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=fip&limit=200`);
-    const eraData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=era&limit=200`);
-    const eraMap = {};
-    eraData.forEach(d => { eraMap[d.player_id] = d.value; });
-    const fipScatter = fipData.filter(d => eraMap[d.player_id] !== undefined).map(d => ({
-        ...d,
-        x: eraMap[d.player_id],
-        y: d.value,
+    // Scatter: configurable X vs Y
+    const xDataRaw = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=${xStat}&limit=200${hlParam}`);
+    const yDataRaw = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=${yStat}&limit=200${hlParam}`);
+    const xData = filterByRoster(xDataRaw);
+    const yData = filterByRoster(yDataRaw);
+    const yMap = {};
+    yData.forEach(d => { yMap[d.player_id] = d.value; });
+    const scatter = xData.filter(d => yMap[d.player_id] !== undefined).map(d => ({
+        ...d, x: d.value, y: yMap[d.player_id],
     }));
-    buildScatterChart('chart-fip-era', fipScatter, {
-        xLabel: 'ERA',
-        yLabel: 'FIP',
-        title: 'FIP vs ERA (below diagonal = ERA may rise)',
-        diagonalLine: true,
+    const lowerStats = new Set(['era', 'fip', 'xfip', 'siera', 'whip', 'bb_per_9']);
+    const needsDiag = lowerStats.has(xStat) && lowerStats.has(yStat);
+    buildScatterChart('chart-pit-scatter', scatter, {
+        xLabel: document.getElementById('pit-scatter-x').selectedOptions[0].text,
+        yLabel: document.getElementById('pit-scatter-y').selectedOptions[0].text,
+        diagonalLine: needsDiag,
         highlightPlayerId: highlightPlayerId,
     });
 
-    // K-BB% leaders
-    const kbbData = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=k_bb_pct&limit=30`);
-    buildBarChart('chart-kbb-leaders', kbbData, {
-        label: 'K-BB%',
-        title: 'K-BB% Leaders',
+    // Bar leaders
+    const barDataRaw2 = await fetchJSON(`/api/charts/pitching-leaders?season=${season}&stat=${barStat}&limit=30${hlParam}`);
+    const barData = filterByRoster(barDataRaw2);
+    buildBarChart('chart-pit-leaders', barData, {
+        label: document.getElementById('pit-bar-stat').selectedOptions[0].text,
+        title: document.getElementById('pit-bar-stat').selectedOptions[0].text + ' Leaders',
         highlightPlayerId: highlightPlayerId,
     });
 
-    // ERA distribution
-    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=era&player_type=pitcher${hlParam}`);
-    buildDistribution('chart-era-dist', dist, { title: 'ERA Distribution' });
+    // Distribution
+    const dist = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${distStat}&player_type=pitcher${hlParam}`);
+    const pitCompare = document.getElementById('pit-dist-compare').value;
+    let pitCompareData = null;
+    if (pitCompare !== 'none') {
+        pitCompareData = await fetchJSON(`/api/charts/distribution?season=${season}&stat=${pitCompare}&player_type=pitcher${hlParam}`);
+    }
+    const pitDistLabel = document.getElementById('pit-dist-stat').selectedOptions[0].text;
+    const pitCompLabel = pitCompare !== 'none' ? ' vs ' + document.getElementById('pit-dist-compare').selectedOptions[0].text : '';
+    buildDistribution('chart-pit-dist', dist, {
+        title: pitDistLabel + pitCompLabel + ' Distribution',
+        compareData: pitCompareData,
+    });
+
+    // Update descriptions + top 10
+    updateStatDesc('desc-pit-scatter', 'scatter', 'pit-scatter-x', 'pit-scatter-y');
+    updateStatDesc('desc-pit-leaders', 'bar', 'pit-bar-stat');
+    updateStatDesc('desc-pit-dist', 'dist', 'pit-dist-stat');
+    const pitBarLabel = document.getElementById('pit-bar-stat').selectedOptions[0].text;
+    // Pitching scatter top 10
+    const pitXInfo = STAT_INFO[xStat];
+    const pitYInfo = STAT_INFO[yStat];
+    const pitScSorted = [...scatter].sort((a, b) => pitYInfo?.dir === 'lower' ? a.y - b.y : b.y - a.y);
+    renderTop10('top10-pit-scatter', pitScSorted, {
+        xLabel: pitXInfo?.name || xStat, yLabel: pitYInfo?.name || yStat,
+        xKey: 'x', yKey: 'y', xInfo: pitXInfo, yInfo: pitYInfo,
+    });
+    renderTop10('top10-pit-leaders', barData, {
+        valueLabel: pitBarLabel, statInfo: STAT_INFO[barStat],
+    });
 }
 
-// Initialize on load
+// ── Player Spotlight ──
+async function loadSpotlight(playerId) {
+    const season = getSeason();
+    try {
+        const data = await fetchJSON(`/api/charts/player-spotlight?player_id=${playerId}&season=${season}`);
+        if (!data || data.error) return;
+
+        const panel = document.getElementById('player-spotlight');
+        panel.classList.remove('hidden');
+
+        // Name + meta
+        document.getElementById('spotlight-name').textContent = data.player.name;
+        document.getElementById('spotlight-meta').textContent = `${data.player.team} · ${data.player.position}`;
+        const ownerEl = document.getElementById('spotlight-owner');
+        if (data.player.fantasy_team) {
+            ownerEl.textContent = data.player.fantasy_team;
+            ownerEl.className = 'text-xs px-2 py-0.5 rounded ' +
+                (data.player.is_my_team ? 'bg-blue-900/50 text-blue-400' : 'bg-gray-700 text-gray-400');
+        } else {
+            ownerEl.textContent = 'Free Agent';
+            ownerEl.className = 'text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-600';
+        }
+
+        // Generate plain-English summary
+        const summaryEl = document.getElementById('spotlight-summary-text');
+        const summaryParts = [];
+        if (data.type === 'hitter') {
+            const findStat = (label) => (data.summary || []).find(s => s.label === label);
+            const wrc = findStat('wRC+');
+            const ops = findStat('OPS');
+            const iso = findStat('ISO');
+            const pa = findStat('PA');
+            if (wrc) {
+                const val = wrc.value;
+                if (val >= 130) summaryParts.push(`Elite hitter (${val} wRC+ — top tier)`);
+                else if (val >= 110) summaryParts.push(`Above-average hitter (${val} wRC+)`);
+                else if (val >= 90) summaryParts.push(`Average hitter (${val} wRC+)`);
+                else summaryParts.push(`Below-average hitter (${val} wRC+)`);
+            }
+            if (iso) {
+                if (iso.value >= 0.200) summaryParts.push('elite power');
+                else if (iso.value >= 0.150) summaryParts.push('solid power');
+                else if (iso.value < 0.100) summaryParts.push('minimal power');
+            }
+            if (pa && pa.value < 100) summaryParts.push('small sample — stats may be volatile');
+            // Trend check from rolling data
+            if (data.rolling?.batting?.wrc_plus) {
+                const r = data.rolling.batting.wrc_plus;
+                const full = r[0], last7 = r[r.length - 1];
+                if (full && last7) {
+                    if (last7 > full * 1.15) summaryParts.push('trending up recently');
+                    else if (last7 < full * 0.85) summaryParts.push('slumping recently');
+                }
+            }
+        } else {
+            const findStat = (label) => (data.summary || []).find(s => s.label === label);
+            const era = findStat('ERA');
+            const fip = findStat('FIP');
+            const kbb = findStat('K-BB%');
+            if (era && fip) {
+                if (fip.value < 3.50) summaryParts.push(`Strong pitcher (${fip.value} FIP)`);
+                else if (fip.value < 4.20) summaryParts.push(`Average pitcher (${fip.value} FIP)`);
+                else summaryParts.push(`Struggling pitcher (${fip.value} FIP)`);
+                if (era.value > fip.value + 0.5) summaryParts.push('ERA is inflated — could improve (buy low)');
+                else if (era.value < fip.value - 0.5) summaryParts.push('ERA is unsustainably low — may regress (sell high)');
+            }
+            if (kbb && kbb.value >= 15) summaryParts.push('elite command');
+        }
+        // Ownership context
+        if (!data.player.fantasy_team) summaryParts.push('available as a free agent');
+        summaryEl.textContent = summaryParts.length ? summaryParts.join(' · ') + '.' : '';
+
+        // Key stats cards
+        const statsEl = document.getElementById('spotlight-stats');
+        statsEl.innerHTML = '';
+        (data.summary || []).forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'bg-gray-900/50 rounded border border-gray-700 px-2 py-1.5 text-center';
+            const val = typeof s.value === 'number' ? (s.value % 1 === 0 ? s.value : s.value.toFixed(s.decimals || 1)) : s.value;
+            card.innerHTML = `<div class="text-[10px] text-gray-500 uppercase">${s.label}</div>
+                <div class="text-sm font-bold ${s.color || 'text-gray-200'}">${val}</div>`;
+            statsEl.appendChild(card);
+        });
+
+        // Rolling trend chart
+        if (data.rolling && typeof buildRollingChart === 'function') {
+            buildRollingChart('spotlight-rolling', data.rolling, {
+                title: '',
+                statKeys: data.type === 'hitter'
+                    ? ['wrc_plus', 'woba', 'avg', 'ops']
+                    : ['era', 'fip', 'whip', 'k_per_9'],
+            });
+        }
+
+        // Percentile bars
+        const percEl = document.getElementById('spotlight-percentiles');
+        percEl.innerHTML = '';
+        (data.percentiles || []).forEach(p => {
+            const pct = Math.round(p.percentile);
+            const color = pct >= 75 ? 'bg-green-500' : pct >= 50 ? 'bg-blue-500' : pct >= 25 ? 'bg-yellow-500' : 'bg-red-500';
+            const bar = document.createElement('div');
+            bar.className = 'mb-2';
+            bar.innerHTML = `
+                <div class="flex justify-between text-[10px] mb-0.5">
+                    <span class="text-gray-400">${p.display_name}</span>
+                    <span class="text-gray-300 font-medium">${typeof p.value === 'number' ? p.value.toFixed(3) : p.value}</span>
+                </div>
+                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div class="${color} h-full rounded-full" style="width: ${pct}%"></div>
+                </div>
+                <div class="text-[9px] text-gray-600 text-right">${pct}th pct</div>`;
+            percEl.appendChild(bar);
+        });
+
+        // Radar chart — convert arrays to {category: value} objects
+        if (data.radar && typeof buildRadarChart === 'function') {
+            const cats = data.radar.categories;
+            const toStats = (arr) => {
+                const obj = {};
+                cats.forEach((c, i) => { obj[c] = arr[i] || 0; });
+                return obj;
+            };
+            buildRadarChart('spotlight-radar', [
+                { name: data.player.name, stats: toStats(data.radar.values) },
+                { name: 'League Avg', stats: toStats(data.radar.league_avg) },
+            ], {
+                categories: cats,
+                title: '',
+            });
+        }
+
+    } catch (e) {
+        console.warn('Spotlight load failed:', e);
+    }
+}
+
+// Initialize
 switchView(currentView);
 </script>
 {% endblock %}

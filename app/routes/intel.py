@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from collections import defaultdict
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -33,6 +33,8 @@ TYPE_LABELS = {
     "sibling-rivalry": "Sibling Rivalry",
     "injury-watch": "Injury Watch",
     "action-items": "Action Items",
+    "projection-accuracy": "Projection Accuracy",
+    "league-accuracy": "League Accuracy",
     # Legacy
     "daily-briefing": "Daily Briefing",
     "key-takeaways": "Key Takeaways",

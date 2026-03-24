@@ -79,12 +79,36 @@ function setupSearch() {
         searchTimeout = setTimeout(() => doSearch(q), 300);
     });
 
+    let compareSelectedIdx = -1;
+
     input.addEventListener('keydown', (e) => {
+        const items = dropdown.querySelectorAll('li');
         if (e.key === 'Escape') {
             dropdown.classList.add('hidden');
+            compareSelectedIdx = -1;
             input.blur();
+        } else if (e.key === 'ArrowDown' && items.length) {
+            e.preventDefault();
+            compareSelectedIdx = Math.min(compareSelectedIdx + 1, items.length - 1);
+            items.forEach((li, i) => {
+                li.classList.toggle('bg-gray-700', i === compareSelectedIdx);
+                if (i === compareSelectedIdx) li.scrollIntoView({ block: 'nearest' });
+            });
+        } else if (e.key === 'ArrowUp' && items.length) {
+            e.preventDefault();
+            compareSelectedIdx = Math.max(compareSelectedIdx - 1, -1);
+            items.forEach((li, i) => {
+                li.classList.toggle('bg-gray-700', i === compareSelectedIdx);
+            });
+        } else if (e.key === 'Enter' && compareSelectedIdx >= 0 && items.length) {
+            e.preventDefault();
+            items[compareSelectedIdx].click();
+            compareSelectedIdx = -1;
         }
     });
+
+    // Reset selection index when results change
+    new MutationObserver(() => { compareSelectedIdx = -1; }).observe(dropdown, { childList: true });
 
     // Close dropdown on outside click
     document.addEventListener('click', (e) => {
@@ -128,7 +152,7 @@ function renderSearchDropdown(players) {
                 ${imgHtml}
                 <div class="flex-1 min-w-0">
                     <div class="text-sm font-medium text-gray-200 truncate">${p.name}</div>
-                    <div class="text-xs text-gray-400">${p.team || 'FA'} &middot; ${p.position || '?'}</div>
+                    <div class="text-xs text-gray-400">${p.team || 'FA'} &middot; ${p.position || '?'} &middot; <span class="${p.is_my_team ? 'text-blue-400' : 'text-gray-500'}">${p.fantasy_team ? p.fantasy_team.split(' ')[0] : 'FA'}</span></div>
                 </div>
                 <span class="text-xs text-blue-400 flex-shrink-0">+ Add</span>
             </li>`;

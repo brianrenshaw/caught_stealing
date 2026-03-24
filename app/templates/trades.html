@@ -132,35 +132,31 @@
     </div>
     {% if trade_values %}
     <div class="p-4 border-b border-gray-700">
-        <input type="text" id="rankings-search" placeholder="Search players..."
-               oninput="filterRankingsTable()"
+        <input type="text" data-table-search="rankings-table-body-wrapper" placeholder="Search players..."
                class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500">
     </div>
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="sortable-table w-full text-sm" id="rankings-table-body-wrapper"
+               data-default-sort="surplus_value" data-default-dir="desc">
             <thead>
                 <tr class="text-gray-400 border-b border-gray-700">
-                    <th class="text-left py-2 px-3">#</th>
-                    <th class="text-left py-2 px-3 cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('name')">
-                        Player <span class="sort-indicator" data-col="name"></span>
+                    <th class="text-left py-2 px-3 row-number">#</th>
+                    <th class="text-left py-2 px-3" data-sort="name">Player</th>
+                    <th class="text-left py-2 px-1" data-sort="position">Pos</th>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="positional_rank">
+                        Rank {{ stat_info('Pos Rank') }}
                     </th>
-                    <th class="text-left py-2 px-1 cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('position')">
-                        Pos <span class="sort-indicator" data-col="position"></span>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_points">
+                        App Proj {{ stat_info('trade-app-proj') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('positional_rank')">
-                        Rank {{ stat_info('Pos Rank') }} <span class="sort-indicator" data-col="positional_rank"></span>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="steamer_ros_points">
+                        Steamer {{ stat_info('trade-steamer') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('projected_points')">
-                        App Proj {{ stat_info('trade-app-proj') }} <span class="sort-indicator" data-col="projected_points"></span>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="actual_points">
+                        Actual {{ stat_info('trade-actual') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('steamer_ros_points')">
-                        Steamer {{ stat_info('trade-steamer') }} <span class="sort-indicator" data-col="steamer_ros_points"></span>
-                    </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('actual_points')">
-                        Actual {{ stat_info('trade-actual') }} <span class="sort-indicator" data-col="actual_points"></span>
-                    </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap cursor-pointer hover:text-blue-400" onclick="sortRankingsTable('surplus_value')">
-                        Surplus {{ stat_info('surplus_value') }} <span class="sort-indicator" data-col="surplus_value">&#8595;</span>
+                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="surplus_value">
+                        Surplus {{ stat_info('surplus_value') }}
                     </th>
                     <th class="text-center py-2 px-3">Add</th>
                 </tr>
@@ -372,51 +368,6 @@ function clearTradeSides() {
     updateSelectOptions('a');
 }
 
-// ── Rankings Table Sort & Filter ──
-let sortColumn = 'surplus_value';
-let sortAsc = false;
-
-function sortRankingsTable(column) {
-    const table = document.getElementById('rankings-table-body');
-    if (!table) return;
-
-    if (sortColumn === column) {
-        sortAsc = !sortAsc;
-    } else {
-        sortColumn = column;
-        sortAsc = false;
-    }
-
-    const rows = Array.from(table.querySelectorAll('tr'));
-    rows.sort((a, b) => {
-        let aVal = a.dataset[column] || '';
-        let bVal = b.dataset[column] || '';
-
-        const aNum = parseFloat(aVal);
-        const bNum = parseFloat(bVal);
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-            return sortAsc ? aNum - bNum : bNum - aNum;
-        }
-        return sortAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-    });
-
-    rows.forEach(row => table.appendChild(row));
-
-    // Update sort indicators
-    document.querySelectorAll('.sort-indicator').forEach(el => el.textContent = '');
-    const indicator = document.querySelector(`.sort-indicator[data-col="${column}"]`);
-    if (indicator) indicator.textContent = sortAsc ? ' \u2191' : ' \u2193';
-}
-
-function filterRankingsTable() {
-    const query = document.getElementById('rankings-search').value.toLowerCase();
-    const rows = document.querySelectorAll('#rankings-table-body tr');
-    rows.forEach(row => {
-        const name = (row.dataset.name || '').toLowerCase();
-        const team = (row.dataset.team || '').toLowerCase();
-        const pos = (row.dataset.position || '').toLowerCase();
-        row.style.display = (name.includes(query) || team.includes(query) || pos.includes(query)) ? '' : 'none';
-    });
-}
+// Rankings table sort/filter is now handled by table-sort.js (shared utility)
 </script>
 {% endblock %}

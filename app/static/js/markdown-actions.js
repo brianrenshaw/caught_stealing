@@ -18,16 +18,27 @@ function renderMarkdown(container) {
 
 // Remove Obsidian-only markers that shouldn't render in the app
 function cleanObsidianMarkers(target) {
+    // Strip HTML comment text that marked.js renders literally
+    target.innerHTML = target.innerHTML.replace(/&lt;!--[\s\S]*?--&gt;/g, '');
+    target.innerHTML = target.innerHTML.replace(/<!--[\s\S]*?-->/g, '');
+
     var paragraphs = target.querySelectorAll('p');
     paragraphs.forEach(function(p) {
         var text = p.textContent.trim();
-        // Remove [[toc-levels:N]], [[no-header]], and similar Obsidian directives
-        if (text.match(/^\[\[(toc-levels|no-header)[^\]]*\]\]$/i)) {
+        // Remove paragraphs consisting entirely of Obsidian [[directives]]
+        // Handles: [[toc]] [[toc-levels:2]] [[no-header]] on one line
+        var stripped = text.replace(/\[\[[^\]]*\]\]/g, '').trim();
+        if (!stripped && text.includes('[[')) {
             p.remove();
+            return;
+        }
+        // Remove paragraphs that are just HTML comments
+        if (text.match(/^<!--.*-->$/)) {
+            p.remove();
+            return;
         }
     });
-    // Remove <!-- omit from toc --> comments (rendered as empty text nodes or stripped by marked)
-    // Also remove the "Contents:" h2 that's only for Obsidian
+    // Remove the "Contents:" h2 that's only for Obsidian
     var headings = target.querySelectorAll('h2');
     headings.forEach(function(h) {
         if (h.textContent.trim() === 'Contents:') {
@@ -41,7 +52,7 @@ function processToc(target) {
     cleanObsidianMarkers(target);
     var tocMarkers = target.querySelectorAll('p');
     tocMarkers.forEach(function(p) {
-        if (p.textContent.trim().match(/^\[\[toc[^\]]*\]\]$/i)) {
+        if (p.textContent.trim().match(/\[\[toc\b/i)) {
             var headings = target.querySelectorAll('h2, h3');
             if (headings.length === 0) return;
 

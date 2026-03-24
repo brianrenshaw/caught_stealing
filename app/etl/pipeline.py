@@ -120,23 +120,23 @@ async def _update_player_ages(session) -> int:
     return count
 
 
-async def _store_steamer_projections(
-    session, season: int, fetch_batting, fetch_pitching
+async def _store_projections(
+    session, season: int, system: str, fetch_batting, fetch_pitching
 ) -> int:
-    """Fetch Steamer ROS projections and store in the projections table.
+    """Fetch projections and store in the projections table.
 
     Matches players by fangraphs_id or mlbam_id, then stores each counting stat
-    as a separate row in the projections table (system='steamer_ros').
+    as a separate row in the projections table with the given system name.
     """
     from sqlalchemy import delete
 
     from app.models.player import Player
     from app.models.projection import Projection
 
-    # Clear old steamer_ros entries for this season
+    # Clear old entries for this system/season
     await session.execute(
         delete(Projection).where(
-            Projection.system == "steamer_ros",
+            Projection.system == system,
             Projection.season == season,
         )
     )
@@ -168,7 +168,7 @@ async def _store_steamer_projections(
                 Projection(
                     player_id=player_id,
                     season=season,
-                    system="steamer_ros",
+                    system=system,
                     stat_name=stat_name,
                     projected_value=float(value),
                 )
@@ -189,7 +189,7 @@ async def _store_steamer_projections(
                 Projection(
                     player_id=player_id,
                     season=season,
-                    system="steamer_ros",
+                    system=system,
                     stat_name=stat_name,
                     projected_value=float(value),
                 )
@@ -197,7 +197,7 @@ async def _store_steamer_projections(
             count += 1
 
     await session.flush()
-    logger.info(f"Stored {count} Steamer ROS projection rows")
+    logger.info(f"Stored {count} {system} projection rows")
     return count
 
 
@@ -316,6 +316,19 @@ async def run_pipeline() -> dict:
                 await session.commit()
             except Exception as e:
                 logger.warning(f"Matchup actuals update failed: {e}")
+
+            # Update league-wide weekly snapshot actuals
+            try:
+                from app.services.weekly_matchup_service import (
+                    update_league_week_actuals,
+                )
+
+                await update_league_week_actuals(
+                    session, default_season(), "current"
+                )
+                await session.commit()
+            except Exception as e:
+                logger.warning(f"League week actuals update failed: {e}")
 
             duration = time.time() - start_time
             result = {
@@ -452,20 +465,37 @@ async def run_stats_pipeline(season: int | None = None) -> dict:
                 logger.warning(f"Player age update failed: {e}")
                 results["player_ages_error"] = str(e)
 
-            # Step 8: Fetch Steamer ROS projections from FanGraphs API
-            logger.info("=== STATS PIPELINE: Fetching Steamer ROS projections ===")
+            # Step 8: Fetch consensus ROS projections (Steamer + ZiPS + ATC)
+            logger.info("=== STATS PIPELINE: Fetching consensus ROS projections ===")
+            try:
+                from app.services.external_projections import (
+                    fetch_consensus_batting_ros,
+                    fetch_consensus_pitching_ros,
+                )
+
+                consensus_count = await _store_projections(
+                    session, season, "consensus",
+                    fetch_consensus_batting_ros, fetch_consensus_pitching_ros
+                )
+                results["consensus_projections"] = consensus_count
+            except Exception as e:
+                logger.warning(f"Consensus projection fetch failed: {e}")
+                results["consensus_projections_error"] = str(e)
+
+            # Also store Steamer individually for backward compatibility
             try:
                 from app.services.external_projections import (
                     fetch_steamer_batting_ros,
                     fetch_steamer_pitching_ros,
                 )
 
-                steamer_count = await _store_steamer_projections(
-                    session, season, fetch_steamer_batting_ros, fetch_steamer_pitching_ros
+                steamer_count = await _store_projections(
+                    session, season, "steamer_ros",
+                    fetch_steamer_batting_ros, fetch_steamer_pitching_ros
                 )
                 results["steamer_projections"] = steamer_count
             except Exception as e:
-                logger.warning(f"Steamer ROS projection fetch failed: {e}")
+                logger.warning(f"Steamer projection fetch failed: {e}")
                 results["steamer_projections_error"] = str(e)
 
             # Step 9: Calculate player points from loaded stats

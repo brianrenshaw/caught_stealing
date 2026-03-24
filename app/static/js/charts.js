@@ -106,10 +106,16 @@ function buildScatterChart(containerId, data, config = {}) {
     Plotly.purge(el);
     Plotly.newPlot(el, traces, layout, { responsive: true });
 
-    // Click to navigate to player profile
+    // Click: trigger spotlight callback if available, otherwise navigate
     el.on('plotly_click', function(eventData) {
         const playerId = eventData.points[0].customdata;
-        if (playerId) window.location.href = `/player/${playerId}`;
+        if (!playerId) return;
+        const name = (eventData.points[0].text || '').split(' (')[0];
+        if (typeof window.onChartPlayerClick === 'function') {
+            window.onChartPlayerClick(playerId, name);
+        } else {
+            window.location.href = `/player/${playerId}`;
+        }
     });
 }
 
@@ -163,7 +169,13 @@ function buildBarChart(containerId, data, config = {}) {
 
     el.on('plotly_click', function(eventData) {
         const playerId = eventData.points[0].customdata;
-        if (playerId) window.location.href = `/player/${playerId}`;
+        if (!playerId) return;
+        const name = (eventData.points[0].y || '').toString();
+        if (typeof window.onChartPlayerClick === 'function') {
+            window.onChartPlayerClick(playerId, name);
+        } else {
+            window.location.href = `/player/${playerId}`;
+        }
     });
 }
 
@@ -174,15 +186,26 @@ function buildBarChart(containerId, data, config = {}) {
  * @param {Object} config - {title, bins}
  */
 function buildDistribution(containerId, data, config = {}) {
-    const { title = '', bins = 30 } = config;
+    const { title = '', bins = 30, compareData = null } = config;
 
     const traces = [{
         x: data.values,
         type: 'histogram',
         nbinsx: bins,
         marker: { color: '#3b82f6', opacity: 0.7 },
-        name: 'Distribution',
+        name: data.stat || 'Primary',
     }];
+
+    // Optional second distribution overlay for comparison
+    if (compareData && compareData.values && compareData.values.length) {
+        traces.push({
+            x: compareData.values,
+            type: 'histogram',
+            nbinsx: bins,
+            marker: { color: '#f97316', opacity: 0.5 },
+            name: compareData.stat || 'Compare',
+        });
+    }
 
     const shapes = [];
     const annotations = [];
@@ -210,6 +233,8 @@ function buildDistribution(containerId, data, config = {}) {
         shapes: shapes,
         annotations: annotations,
         bargap: 0.05,
+        barmode: compareData ? 'overlay' : undefined,
+        legend: compareData ? { orientation: 'h', y: -0.15, font: { size: 11 } } : undefined,
     };
 
     const distEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
@@ -224,12 +249,14 @@ function buildDistribution(containerId, data, config = {}) {
  * @param {Object} config - {title, statKeys}
  */
 function buildRollingChart(containerId, data, config = {}) {
-    const { title = 'Rolling Trends' } = config;
+    const { title = 'Rolling Trends', statKeys = null } = config;
 
     const traces = [];
     const allStats = { ...data.batting, ...data.pitching };
 
     for (const [stat, values] of Object.entries(allStats)) {
+        // If statKeys specified, only show those
+        if (statKeys && !statKeys.includes(stat)) continue;
         traces.push({
             x: data.periods,
             y: values,

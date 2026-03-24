@@ -85,6 +85,7 @@
 
 {# ── Standard Stats Tab ── #}
 <div id="tab-standard" class="tab-panel">
+<p class="text-sm text-blue-400 font-medium mb-3">Look for: Consistency across time periods. If Last 7 stats diverge sharply from Full Season, the player is trending — check Advanced and Statcast tabs to see if the trend is real or luck.</p>
 {% if is_hitter %}
 <h3 class="text-lg font-semibold text-white mb-3">Batting Stats {{ page_info('standard-stats') }}</h3>
 <div class="overflow-x-auto">
@@ -168,6 +169,7 @@
 
 {# ── Advanced Stats Tab ── #}
 <div id="tab-advanced" class="tab-panel hidden">
+<p class="text-sm text-blue-400 font-medium mb-3">Look for: wRC+ above 100 = above-average hitter. High wOBA + high ISO = power profile. High BB% + low K% = disciplined approach. FIP vs ERA gap reveals pitcher luck.</p>
 {% if is_hitter %}
 <h3 class="text-lg font-semibold text-white mb-3">Advanced Batting {{ page_info('advanced-stats') }}</h3>
 <div class="overflow-x-auto">
@@ -243,6 +245,7 @@
 
 {# ── Statcast Tab ── #}
 <div id="tab-statcast" class="tab-panel hidden">
+<p class="text-sm text-blue-400 font-medium mb-3">Look for: xwOBA vs actual wOBA gap — if xwOBA is higher, the player is better than their stats show (buy low). Barrel% and Hard Hit% predict future HR power. Sprint Speed drives SB upside.</p>
 {% set sc = statcast_bat.get("full_season") or statcast_pitch.get("full_season") %}
 {% if sc %}
 <h3 class="text-lg font-semibold text-white mb-4">Statcast Metrics {{ page_info('statcast-tab') }}</h3>
@@ -310,6 +313,7 @@
 
 {# ── Projections Tab ── #}
 <div id="tab-projections" class="tab-panel hidden">
+<p class="text-sm text-blue-400 font-medium mb-3">Look for: Consensus agreement — when Steamer, ZiPS, and ATC all project similar numbers, the projection is reliable. Large disagreements signal uncertainty.</p>
 {% if projections %}
 <h3 class="text-lg font-semibold text-white mb-3">Rest-of-Season Projections {{ page_info('projections-tab') }}</h3>
 <div class="overflow-x-auto">
@@ -369,6 +373,7 @@
 
 {# ── Comparable Players Tab ── #}
 <div id="tab-comps" class="tab-panel hidden">
+<p class="text-sm text-blue-400 font-medium mb-3">Look for: Similar players you hadn't considered. If a comparable is a free agent with similar production, they could be a cheaper alternative on waivers.</p>
 {% if comps %}
 <h3 class="text-lg font-semibold text-white mb-3">Most Similar Players {{ page_info('comparables-tab') }}</h3>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

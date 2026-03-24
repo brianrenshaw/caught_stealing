@@ -199,6 +199,8 @@ Raw counting stats (H, HR, R, etc.) from FanGraphs are NOT park-adjusted → app
 
 **Why it matters for fantasy:** The matchup breakdown shows exactly which scoring categories are driving the point differential — so you know if you're losing because of a pitching collapse (ER at -4 pts each) or winning because your hitters are racking up HR (4 pts each). Comparing Yahoo's projection to your custom projection can reveal when Yahoo is over- or under-valuing your roster based on matchup context.
 
+**Why do Weekly Lineup and Weekly Matchup totals differ?** The Weekly Lineup widget on the dashboard computes projections fresh each page load using the latest projection data. The Weekly Matchup page displays a snapshot saved during the last Yahoo sync. Because these run at different times and the lineup widget rounds to whole numbers, the totals may not match exactly. The matchup page is the authoritative source for head-to-head projected comparisons.
+
 ---
 
 ### Roster
@@ -622,7 +624,20 @@ Close the popup by clicking the X button, pressing Escape, or clicking outside t
 
 **What it shows:**
 
-Daily and weekly AI-generated intelligence reports built from expert fantasy baseball content — blogs (FanGraphs, Pitcher List, RotoWire) and podcast transcripts (CBS Fantasy Baseball Today, FantasyPros, Locked On Fantasy Baseball, In This League). The reports cross-reference expert opinions with your actual league data: roster, projections, standings, and matchup opponent.
+Daily and weekly AI-generated intelligence reports built from expert fantasy baseball content. The pipeline ingests articles and podcast transcripts, then cross-references expert opinions with your actual league data — roster, projections, standings, and matchup opponent — to produce actionable reports.
+
+**Content sources:**
+
+*Blogs (RSS):*
+- **FanGraphs Blog** — Deep statistical analysis, prospect coverage, and advanced metrics breakdowns
+- **Pitcher List** — Pitching-focused rankings, streaming picks, and SP/RP analysis
+- **RotoWire MLB News** — Real-time player news, injury updates, and lineup changes
+
+*Podcasts (auto-transcribed via MacWhisper):*
+- **Fantasy Baseball Today (CBS)** — Daily roster advice, waiver pickups, and trade analysis
+- **FantasyPros Baseball Podcast** — Expert consensus rankings discussion and start/sit advice
+- **Locked On Fantasy Baseball** — Daily deep dives on matchups, streamers, and league strategy
+- **In This League Fantasy Baseball** — Waiver wire targets, prospect call-ups, and weekly strategy
 
 Reports are organized by date in the left sidebar. Click any report to view it. The "Refresh Briefing" button generates a fresh daily report on demand.
 
@@ -641,7 +656,39 @@ Reports are organized by date in the left sidebar. Click any report to view it. 
 
 **Schedule:** Daily briefings run automatically at 3 AM (Tue-Fri). Monday reports add a last-week recap with standings and matchup results. Saturday generates the full weekly comprehensive report. All reports also appear in the Obsidian vault if configured.
 
+**Output & mobile access:** Reports are saved as Markdown files on your local machine (`data/content/analysis/`). Each report is also automatically converted to a PDF using a custom Cardinals-themed CSS template. The generated PDFs are moved to a syncing folder so they're immediately accessible on mobile — check your phone for the latest briefing without needing to open the app.
+
 **Why it matters for fantasy:** Expert analysis from podcasts and blogs often catches things that raw projections miss — spring training velocity changes, role changes, manager quotes, prospect call-up timelines. This page synthesizes all of that and tells you exactly how it affects your team, with linked player names (to FanGraphs) and source citations (to original articles).
+
+---
+
+### Projection Analysis
+
+**What it shows:**
+
+A week-by-week tracker comparing Yahoo's projections vs your app's custom projections against actual results. Helps you calibrate how much to trust each projection source as the season progresses.
+
+**Season Summary (top cards):**
+
+| Card | What It Measures | How to Read It |
+|------|-----------------|----------------|
+| **Mean Absolute Error (MAE)** | Average number of points each projection was off from actual | Lower is better. If Yahoo MAE = 12.5 and Mine = 9.8, your app's projection has been closer on average |
+| **Predicted Winner Correctly** | Percentage of weeks each projection correctly called the W/L outcome | Higher is better. A system that's directionally correct even with larger point errors may still be more useful for lineup/strategy decisions |
+| **Weeks Closer to Actual** | Count of weeks where each projection's total was nearer to the actual score | Shows consistency — one system might have a lower MAE overall but be less consistent week-to-week |
+
+**Week-by-Week Table:**
+
+Each row shows one completed matchup week: the opponent, both projections, the actual score, each system's error, which was closer, and whether you won or lost. The lower error for each week is highlighted in green.
+
+**Automated accuracy reports:** When a new week starts, the app automatically generates a markdown accuracy report for the completed week, saved to `data/content/analysis/`. These reports also appear in the Intel tab under "Projection Accuracy" and include player-level highlights (biggest over/under performers). A cumulative season summary file is also maintained.
+
+**League-Wide Projection Accuracy (below the My Team section):**
+
+The bottom half of the page tracks Yahoo's projection accuracy for every team in the league, powered by weekly league snapshots. Three summary cards show the league average Yahoo MAE, the most predictable team (lowest MAE), and the most volatile team (highest weekly score standard deviation). The Team Predictability Table ranks all teams by how accurately Yahoo projects them — teams with low MAE are reliable to project against; volatile teams create upset risk.
+
+When a new week starts, the app also generates a "League Accuracy" report (viewable in the Intel tab) showing all matchups with projected vs actual for both teams, highlighting any upsets.
+
+**Why it matters for fantasy:** Early in the season, you may not know whether to trust Yahoo's projections or your custom model when they disagree. This page gives you an evidence-based answer. If one system consistently over-projects (optimistic) or under-projects, you can mentally adjust. If your model has lower MAE, lean into its trade and waiver recommendations with confidence. The league-wide section helps you identify which opponents are hard to predict (target them for upsets with streaming strategies) and which are safe to project against.
 
 ---
 
@@ -1091,11 +1138,14 @@ The scoring weights directly drive which matchup adjustments matter most:
 
 ### Dashboard Sections
 
+- **League Standings** — All teams ranked by W-L-T record with cumulative Points For and Points Against. The "This Week" columns show Yahoo's projected points and live actual points for the current matchup week, plus the opponent name. Your team is highlighted in blue.
 - **Top Hitters by Projected Points** — Hitters ranked by projected ROS fantasy points. The "Pts/PA" column shows efficiency.
 - **Top Starters** — Starting pitchers ranked by projected points. "Pts/Start" is the key metric for weekly decisions.
 - **Reliever Watch** — Closers and setup men ranked by projected points. Role badges show Closer/Setup/Middle.
 - **Contact Kings** — Low-K hitters with the best Pts/PA. The "Pts Lost to Ks" column shows the hidden cost of strikeouts.
 - **Points Calculator** — Enter any stat line to calculate fantasy points. Use presets to internalize the scoring system.
+
+**League-wide snapshot tracking:** Every time a new H2H week starts, the app snapshots all teams' standings and Yahoo projected/actual points. These snapshots feed into the Projection Analysis tab's league-wide section and generate weekly accuracy reports viewable in the Intel tab.
 
 ---
 

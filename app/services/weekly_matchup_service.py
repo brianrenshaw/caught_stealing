@@ -17,6 +17,7 @@ from app.league_config import BATTING_SCORING, PITCHING_SCORING
 from app.models.batting_stats import BattingStats
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
+from app.models.projection import Projection
 from app.models.roster import Roster
 from app.models.weekly_matchup import WeeklyMatchupSnapshot
 from app.services.matchup_quality_service import (
@@ -473,6 +474,23 @@ async def _find_best_stats_season(session: AsyncSession, season: int) -> int:
     return available[0] if available else season
 
 
+async def _bulk_fetch_consensus(session: AsyncSession, season: int) -> dict[int, dict[str, float]]:
+    """Bulk-fetch all consensus ROS projected counting stats.
+
+    Returns: {player_id: {"PA": 580, "HR": 25, "IP": 180, ...}, ...}
+    """
+    all_consensus = await session.execute(
+        select(Projection).where(
+            Projection.season == season,
+            Projection.system == "consensus",
+        )
+    )
+    consensus_by_player: dict[int, dict[str, float]] = {}
+    for proj in all_consensus.scalars().all():
+        consensus_by_player.setdefault(proj.player_id, {})[proj.stat_name] = proj.projected_value
+    return consensus_by_player
+
+
 async def compute_team_projected_breakdown(
     session: AsyncSession,
     team_id: str,
@@ -487,6 +505,10 @@ async def compute_team_projected_breakdown(
     week and probable pitcher starts. Falls back to estimates when
     schedule data isn't available (preseason, etc.).
 
+    Uses consensus projections (Steamer + ZiPS + ATC blend) as the base
+    for counting stats, falling back to actual BattingStats/PitchingStats
+    when consensus projections are unavailable.
+
     Hitters: 4 PA/game * team_games_this_week.
     SP: 6 IP per scheduled start (from probable pitchers).
     RP: ~0.7 IP/game * team_games (closers/setup appear ~60-70% of games).
@@ -496,6 +518,9 @@ async def compute_team_projected_breakdown(
 
     # Fall back to most recent season with data
     stats_season = await _find_best_stats_season(session, season)
+
+    # Bulk-fetch all consensus projections for efficiency
+    consensus_by_player = await _bulk_fetch_consensus(session, season)
 
     # Get schedule data for the week (shared infrastructure)
     team_game_cache: dict[str, int] = {}
@@ -558,17 +583,106 @@ async def compute_team_projected_breakdown(
             continue
 
         if is_pitcher:
-            # Fetch pitching stats
-            ps_result = await session.execute(
-                select(PitchingStats).where(
-                    PitchingStats.player_id == player_id,
-                    PitchingStats.season == stats_season,
-                    PitchingStats.period == "full_season",
-                    PitchingStats.source == "fangraphs",
+            # Try consensus projections first, fall back to actual stats
+            consensus = consensus_by_player.get(player_id)
+            ps = None
+            if not consensus or consensus.get("IP", 0) <= 0:
+                # Fallback: fetch actual PitchingStats
+                ps_result = await session.execute(
+                    select(PitchingStats).where(
+                        PitchingStats.player_id == player_id,
+                        PitchingStats.season == stats_season,
+                        PitchingStats.period == "full_season",
+                        PitchingStats.source == "fangraphs",
+                    )
                 )
-            )
-            ps = ps_result.scalar_one_or_none()
-            if not ps or not ps.ip or ps.ip <= 0:
+                ps = ps_result.scalar_one_or_none()
+
+            if consensus and consensus.get("IP", 0) > 0:
+                # ── Consensus projection path ──
+                proj_ip = consensus["IP"]
+                proj_gs = consensus.get("GS", 0)
+                proj_g = consensus.get("G", 1) or 1
+                is_sp = proj_gs > 0 and proj_gs / proj_g > 0.5
+
+                if is_sp:
+                    mlbam_int = int(p_mlbam) if p_mlbam else None
+                    starts = probable_starts.get(mlbam_int, 0)
+                    ip_per_gs = proj_ip / proj_gs if proj_gs > 0 else 5.5
+                    if starts == 0:
+                        starts = max(round(team_games / 5, 1), 0)
+                    weekly_ip = starts * ip_per_gs
+                else:
+                    ip_per_app = proj_ip / proj_g if proj_g > 0 else 1.0
+                    app_rate = proj_g / full_season_games
+                    weekly_apps = app_rate * team_games
+                    weekly_ip = weekly_apps * ip_per_app
+
+                scale = weekly_ip / proj_ip
+
+                proj_stats = {}
+                for stat_name, cat in [
+                    ("K", "K"),
+                    ("SV", "SV"),
+                    ("HLD", "HLD"),
+                    ("W", "W"),
+                    ("QS", "QS"),
+                    ("H", "H"),
+                    ("ER", "ER"),
+                    ("BB", "BB"),
+                    ("HBP", "HBP"),
+                ]:
+                    val = consensus.get(stat_name, 0)
+                    proj_stats[cat] = round(val * scale, 1)
+
+                # Only count wins as relief wins (RW=4 pts) for relievers
+                if not is_sp:
+                    proj_stats["RW"] = proj_stats.pop("W", 0)
+
+                proj_stats["OUT"] = round(weekly_ip * 3, 1)
+            elif ps and ps.ip and ps.ip > 0:
+                # ── Fallback: actual PitchingStats path (existing behavior) ──
+                ip = ps.ip
+                gs = ps.gs or 0
+                g = ps.g or 1
+                is_sp = gs > 0 and gs / g > 0.5
+
+                if is_sp:
+                    mlbam_int = int(p_mlbam) if p_mlbam else None
+                    starts = probable_starts.get(mlbam_int, 0)
+                    ip_per_gs = ip / gs if gs > 0 else 5.5
+                    if starts == 0:
+                        starts = max(round(team_games / 5, 1), 0)
+                    weekly_ip = starts * ip_per_gs
+                else:
+                    ip_per_app = ip / g if g > 0 else 1.0
+                    app_rate = g / full_season_games
+                    weekly_apps = app_rate * team_games
+                    weekly_ip = weekly_apps * ip_per_app
+
+                scale = weekly_ip / ip
+
+                proj_stats = {}
+                for attr, cat in [
+                    ("so", "K"),
+                    ("sv", "SV"),
+                    ("hld", "HLD"),
+                    ("w", "W"),
+                    ("qs", "QS"),
+                    ("h", "H"),
+                    ("er", "ER"),
+                    ("bb", "BB"),
+                    ("hbp", "HBP"),
+                ]:
+                    val = getattr(ps, attr, 0) or 0
+                    proj_stats[cat] = round(val * scale, 1)
+
+                # Only count wins as relief wins (RW=4 pts) for relievers
+                if not is_sp:
+                    proj_stats["RW"] = proj_stats.pop("W", 0)
+
+                proj_stats["OUT"] = round(weekly_ip * 3, 1)
+            else:
                 player_list.append(
                     {
                         "name": p_name,
@@ -580,48 +694,6 @@ async def compute_team_projected_breakdown(
                     }
                 )
                 continue
-
-            ip = ps.ip
-            gs = ps.gs or 0
-            g = ps.g or 1
-            is_sp = gs > 0 and gs / g > 0.5
-
-            if is_sp:
-                # Use probable starter data if available
-                mlbam_int = int(p_mlbam) if p_mlbam else None
-                starts = probable_starts.get(mlbam_int, 0)
-                ip_per_gs = ip / gs if gs > 0 else 5.5
-                if starts == 0:
-                    # Estimate starts from team games (~1 per 5 games)
-                    starts = max(round(team_games / 5, 1), 0)
-                weekly_ip = starts * ip_per_gs
-            else:
-                # Reliever: use per-appearance IP * estimated appearances
-                # Appearance rate = G / 162 (% of team games they appear in)
-                # e.g., 70 G / 162 = 43% appearance rate
-                ip_per_app = ip / g if g > 0 else 1.0
-                app_rate = g / full_season_games
-                weekly_apps = app_rate * team_games
-                weekly_ip = weekly_apps * ip_per_app
-
-            scale = weekly_ip / ip
-
-            proj_stats = {}
-            for attr, cat in [
-                ("so", "K"),
-                ("sv", "SV"),
-                ("hld", "HLD"),
-                ("w", "RW"),
-                ("qs", "QS"),
-                ("h", "H"),
-                ("er", "ER"),
-                ("bb", "BB"),
-                ("hbp", "HBP"),
-            ]:
-                val = getattr(ps, attr, 0) or 0
-                proj_stats[cat] = round(val * scale, 1)
-
-            proj_stats["OUT"] = round(weekly_ip * 3, 1)
 
             # ── Phase 2: Opposing team offense adjustment ──
             team_games_list = get_team_games(p_team, game_details)
@@ -666,17 +738,85 @@ async def compute_team_projected_breakdown(
                 }
             )
         else:
-            # Fetch batting stats
-            bs_result = await session.execute(
-                select(BattingStats).where(
-                    BattingStats.player_id == player_id,
-                    BattingStats.season == stats_season,
-                    BattingStats.period == "full_season",
-                    BattingStats.source == "fangraphs",
+            # Try consensus projections first, fall back to actual stats
+            consensus = consensus_by_player.get(player_id)
+            bs = None
+            if not consensus or consensus.get("PA", 0) <= 0:
+                # Fallback: fetch actual BattingStats
+                bs_result = await session.execute(
+                    select(BattingStats).where(
+                        BattingStats.player_id == player_id,
+                        BattingStats.season == stats_season,
+                        BattingStats.period == "full_season",
+                        BattingStats.source == "fangraphs",
+                    )
                 )
-            )
-            bs = bs_result.scalar_one_or_none()
-            if not bs or not bs.pa or bs.pa <= 0:
+                bs = bs_result.scalar_one_or_none()
+
+            if consensus and consensus.get("PA", 0) > 0:
+                # ── Consensus projection path ──
+                proj_pa = consensus["PA"]
+                pa_per_game = proj_pa / 162
+                weekly_pa = pa_per_game * team_games
+                scale = weekly_pa / proj_pa
+
+                proj_stats = {}
+                for stat_name, cat in [
+                    ("R", "R"),
+                    ("2B", "2B"),
+                    ("3B", "3B"),
+                    ("HR", "HR"),
+                    ("RBI", "RBI"),
+                    ("SB", "SB"),
+                    ("CS", "CS"),
+                    ("BB", "BB"),
+                    ("HBP", "HBP"),
+                    ("H", "H"),
+                ]:
+                    val = consensus.get(stat_name, 0)
+                    proj_stats[cat] = round(val * scale, 1)
+
+                # Batter strikeouts: consensus stores as "SO" (FanGraphs convention)
+                so_val = consensus.get("SO", 0) or consensus.get("K", 0)
+                proj_stats["K"] = round(so_val * scale, 1)
+
+                # Derive singles
+                h = proj_stats.get("H", 0)
+                d = proj_stats.get("2B", 0)
+                t = proj_stats.get("3B", 0)
+                hr = proj_stats.get("HR", 0)
+                proj_stats["1B"] = round(h - d - t - hr, 1)
+            elif bs and bs.pa and bs.pa > 0:
+                # ── Fallback: actual BattingStats path (existing behavior) ──
+                pa = bs.pa
+                pa_per_game_player = pa / full_season_games
+                weekly_pa = pa_per_game_player * team_games
+                scale = weekly_pa / pa
+
+                proj_stats = {}
+                for attr, cat in [
+                    ("r", "R"),
+                    ("doubles", "2B"),
+                    ("triples", "3B"),
+                    ("hr", "HR"),
+                    ("rbi", "RBI"),
+                    ("sb", "SB"),
+                    ("cs", "CS"),
+                    ("bb", "BB"),
+                    ("hbp", "HBP"),
+                    ("so", "K"),
+                    ("h", "H"),
+                ]:
+                    val = getattr(bs, attr, 0) or 0
+                    proj_stats[cat] = round(val * scale, 1)
+
+                # Derive singles
+                h = proj_stats.get("H", 0)
+                d = proj_stats.get("2B", 0)
+                t = proj_stats.get("3B", 0)
+                hr = proj_stats.get("HR", 0)
+                proj_stats["1B"] = round(h - d - t - hr, 1)
+            else:
                 player_list.append(
                     {
                         "name": p_name,
@@ -688,37 +828,6 @@ async def compute_team_projected_breakdown(
                     }
                 )
                 continue
-
-            pa = bs.pa
-            # Schedule-aware: PA per game * team games this week
-            full_season_games = 162
-            pa_per_game_player = pa / full_season_games
-            weekly_pa = pa_per_game_player * team_games
-            scale = weekly_pa / pa
-
-            proj_stats = {}
-            for attr, cat in [
-                ("r", "R"),
-                ("doubles", "2B"),
-                ("triples", "3B"),
-                ("hr", "HR"),
-                ("rbi", "RBI"),
-                ("sb", "SB"),
-                ("cs", "CS"),
-                ("bb", "BB"),
-                ("hbp", "HBP"),
-                ("so", "K"),
-                ("h", "H"),
-            ]:
-                val = getattr(bs, attr, 0) or 0
-                proj_stats[cat] = round(val * scale, 1)
-
-            # Derive singles
-            h = proj_stats.get("H", 0)
-            d = proj_stats.get("2B", 0)
-            t = proj_stats.get("3B", 0)
-            hr = proj_stats.get("HR", 0)
-            proj_stats["1B"] = round(h - d - t - hr, 1)
 
             # ── Phases 1, 3, 4: Matchup quality adjustments ──
             team_games_list = get_team_games(p_team, game_details)
@@ -740,7 +849,18 @@ async def compute_team_projected_breakdown(
 
                                 splits = await get_splits(session, player_id, stats_season)
                                 split_data = splits.get(split_key)
-                                if split_data:
+                                # Need BattingStats for rate comparisons in platoon calc
+                                if split_data and not bs:
+                                    _bs_result = await session.execute(
+                                        select(BattingStats).where(
+                                            BattingStats.player_id == player_id,
+                                            BattingStats.season == stats_season,
+                                            BattingStats.period == "full_season",
+                                            BattingStats.source == "fangraphs",
+                                        )
+                                    )
+                                    bs = _bs_result.scalar_one_or_none()
+                                if split_data and bs:
                                     overall = {
                                         "woba": bs.woba,
                                         "avg": bs.avg,
@@ -886,13 +1006,72 @@ async def get_or_create_weekly_snapshot(
         my_player_stats=json.dumps(my_actual_breakdown.get("players", [])),
         opponent_player_stats=json.dumps(opp_actual_breakdown.get("players", [])),
     )
+
+    # Compute and store app's custom projection totals (frozen alongside Yahoo's)
+    display = build_matchup_display(snapshot)
+    snapshot.my_app_projected_points = display["my_proj_total"]
+    snapshot.opponent_app_projected_points = display["opp_proj_total"]
+
     session.add(snapshot)
     await session.flush()
 
     # Immediately update with actual data
     await _update_snapshot_actuals(session, snapshot, matchup_info)
 
+    # Generate projection accuracy report for the previous completed week
+    if week > 1:
+        try:
+            from app.services.projection_accuracy_service import (
+                generate_league_accuracy_report,
+                generate_season_accuracy_summary,
+                generate_week_accuracy_report,
+            )
+
+            await generate_week_accuracy_report(session, season, week - 1)
+            await generate_league_accuracy_report(session, season, week - 1)
+            await generate_season_accuracy_summary(session, season)
+        except Exception as e:
+            logger.warning(f"Accuracy report generation failed for week {week - 1}: {e}")
+
+    # Snapshot league-wide standings and scoreboard for this week
+    try:
+        await snapshot_league_week(
+            session,
+            season,
+            week,
+            app_projected_my_team=snapshot.my_app_projected_points,
+        )
+    except Exception as e:
+        logger.warning(f"League week snapshot failed for week {week}: {e}")
+
     return snapshot
+
+
+async def backfill_app_projected_points(session: AsyncSession) -> int:
+    """Backfill my_app_projected_points for existing snapshots that lack it.
+
+    Returns the number of snapshots updated.
+    """
+    result = await session.execute(
+        select(WeeklyMatchupSnapshot).where(
+            WeeklyMatchupSnapshot.my_app_projected_points.is_(None),
+            WeeklyMatchupSnapshot.my_projected_breakdown.isnot(None),
+        )
+    )
+    snapshots = result.scalars().all()
+    count = 0
+    for snap in snapshots:
+        try:
+            display = build_matchup_display(snap)
+            snap.my_app_projected_points = display["my_proj_total"]
+            snap.opponent_app_projected_points = display["opp_proj_total"]
+            count += 1
+        except Exception as e:
+            logger.warning(f"Backfill failed for week {snap.week}: {e}")
+    if count:
+        await session.flush()
+        logger.info(f"Backfilled app projected points for {count} snapshots")
+    return count
 
 
 async def _update_snapshot_actuals(
@@ -941,3 +1120,191 @@ async def update_current_matchup_actuals(session: AsyncSession, season: int) -> 
     snapshot = result.scalar_one_or_none()
     if snapshot:
         await _update_snapshot_actuals(session, snapshot, matchup_info)
+
+
+# ── League-wide weekly snapshots ──
+
+
+def _parse_scoreboard(scoreboard) -> list[dict]:
+    """Parse yfpy scoreboard object into a flat list of per-team dicts.
+
+    Returns: [{team_id, team_name, is_my_team, yahoo_projected, actual,
+               opponent_team_id, opponent_team_name, opponent_actual}, ...]
+    """
+    teams_out: list[dict] = []
+    matchups = getattr(scoreboard, "matchups", [])
+    if not matchups:
+        return teams_out
+
+    for matchup in matchups:
+        m_teams = getattr(matchup, "teams", [])
+        if not m_teams or len(m_teams) < 2:
+            continue
+
+        parsed = []
+        for t in m_teams:
+            parsed.append(
+                {
+                    "team_id": str(getattr(t, "team_id", "")),
+                    "team_name": _decode_team_name(getattr(t, "name", "")),
+                    "is_my_team": bool(getattr(t, "is_owned_by_current_login", 0)),
+                    "yahoo_projected": float(getattr(t, "projected_points", 0) or 0),
+                    "actual": float(getattr(t, "points", 0) or 0),
+                }
+            )
+
+        if len(parsed) == 2:
+            # Cross-link opponents
+            parsed[0]["opponent_team_id"] = parsed[1]["team_id"]
+            parsed[0]["opponent_team_name"] = parsed[1]["team_name"]
+            parsed[0]["opponent_actual"] = parsed[1]["actual"]
+            parsed[1]["opponent_team_id"] = parsed[0]["team_id"]
+            parsed[1]["opponent_team_name"] = parsed[0]["team_name"]
+            parsed[1]["opponent_actual"] = parsed[0]["actual"]
+            teams_out.extend(parsed)
+
+    return teams_out
+
+
+async def snapshot_league_week(
+    session: AsyncSession,
+    season: int,
+    week: int,
+    app_projected_my_team: float | None = None,
+) -> int:
+    """Create or update LeagueWeekSnapshot rows for all teams.
+
+    Returns count of rows created/updated.
+    """
+    from app.models.league_team import LeagueTeam
+    from app.models.league_week_snapshot import LeagueWeekSnapshot
+
+    # Get scoreboard from Yahoo
+    scoreboard = await yahoo_service.get_scoreboard(week)
+    teams_data = _parse_scoreboard(scoreboard)
+    if not teams_data:
+        logger.warning(f"No scoreboard data for week {week}")
+        return 0
+
+    # Get current standings
+    standings_result = await session.execute(select(LeagueTeam))
+    standings_map = {str(lt.team_id): lt for lt in standings_result.scalars().all()}
+
+    count = 0
+    for td in teams_data:
+        tid = td["team_id"]
+        standings = standings_map.get(tid)
+
+        # Check for existing row
+        existing = await session.execute(
+            select(LeagueWeekSnapshot).where(
+                LeagueWeekSnapshot.season == season,
+                LeagueWeekSnapshot.week == week,
+                LeagueWeekSnapshot.team_id == tid,
+            )
+        )
+        snap = existing.scalar_one_or_none()
+
+        if snap:
+            # Update existing
+            snap.yahoo_projected_points = td["yahoo_projected"]
+            snap.actual_points = td["actual"]
+            snap.opponent_actual_points = td["opponent_actual"]
+            if standings:
+                snap.rank = standings.rank
+                snap.wins = standings.wins
+                snap.losses = standings.losses
+                snap.ties = standings.ties
+                snap.points_for = standings.points_for
+                snap.points_against = standings.points_against
+        else:
+            snap = LeagueWeekSnapshot(
+                season=season,
+                week=week,
+                team_id=tid,
+                team_name=td["team_name"],
+                is_my_team=td["is_my_team"],
+                rank=standings.rank if standings else 0,
+                wins=standings.wins if standings else 0,
+                losses=standings.losses if standings else 0,
+                ties=standings.ties if standings else 0,
+                points_for=standings.points_for if standings else 0,
+                points_against=standings.points_against if standings else 0,
+                opponent_team_id=td["opponent_team_id"],
+                opponent_team_name=td["opponent_team_name"],
+                yahoo_projected_points=td["yahoo_projected"],
+                actual_points=td["actual"],
+                opponent_actual_points=td["opponent_actual"],
+            )
+            session.add(snap)
+
+        # Set app projection for my team
+        if td["is_my_team"] and app_projected_my_team is not None:
+            snap.app_projected_points = app_projected_my_team
+
+        count += 1
+
+    await session.flush()
+    logger.info(f"League week snapshot: {count} teams for season {season} week {week}")
+    return count
+
+
+async def update_league_week_actuals(
+    session: AsyncSession,
+    season: int,
+    week: int | str = "current",
+) -> None:
+    """Update actual points for all teams from Yahoo scoreboard.
+
+    Pass week="current" to update the current in-progress week.
+    """
+    from app.models.league_team import LeagueTeam
+    from app.models.league_week_snapshot import LeagueWeekSnapshot
+
+    try:
+        scoreboard = await yahoo_service.get_scoreboard(week)
+    except Exception as e:
+        logger.warning(f"Failed to fetch scoreboard for week {week}: {e}")
+        return
+
+    teams_data = _parse_scoreboard(scoreboard)
+    if not teams_data:
+        return
+
+    # Determine numeric week from scoreboard if "current" was passed
+    numeric_week = week
+    if isinstance(week, str):
+        # Find the week from existing snapshots or matchup info
+        matchup_info = await _find_current_matchup()
+        if matchup_info and matchup_info.get("week"):
+            numeric_week = matchup_info["week"]
+        else:
+            logger.warning("Cannot determine current week number")
+            return
+
+    # Get current standings for rank updates
+    standings_result = await session.execute(select(LeagueTeam))
+    standings_map = {str(lt.team_id): lt for lt in standings_result.scalars().all()}
+
+    for td in teams_data:
+        result = await session.execute(
+            select(LeagueWeekSnapshot).where(
+                LeagueWeekSnapshot.season == season,
+                LeagueWeekSnapshot.week == numeric_week,
+                LeagueWeekSnapshot.team_id == td["team_id"],
+            )
+        )
+        snap = result.scalar_one_or_none()
+        if snap:
+            snap.actual_points = td["actual"]
+            snap.opponent_actual_points = td["opponent_actual"]
+            standings = standings_map.get(td["team_id"])
+            if standings:
+                snap.rank = standings.rank
+                snap.wins = standings.wins
+                snap.losses = standings.losses
+                snap.ties = standings.ties
+                snap.points_for = standings.points_for
+                snap.points_against = standings.points_against
+
+    await session.flush()

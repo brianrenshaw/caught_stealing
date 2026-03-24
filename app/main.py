@@ -17,6 +17,7 @@ from app.routes import (
     league_dashboard,
     matchups,
     player,
+    projection_analysis,
     projections,
     roster,
     stats_dashboard,
@@ -98,4 +99,5 @@ app.include_router(assistant.router)
 app.include_router(comparison.router)
 app.include_router(league_dashboard.router)
 app.include_router(intel.router)
+app.include_router(projection_analysis.router)
 app.include_router(api.router)

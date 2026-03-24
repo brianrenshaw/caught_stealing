@@ -4,16 +4,20 @@
 {% set is_weekly = period != 'ros' %}
 
 {% if recommendations %}
+<input type="text" data-table-search="waiver-table"
+       placeholder="Search waivers..."
+       class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
 <div class="overflow-x-auto">
-    <table class="w-full text-sm">
+    <table class="sortable-table w-full text-sm" id="waiver-table"
+           data-default-sort="waiver_score" data-default-dir="desc">
         <thead>
             <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
-                <th class="text-left py-2 px-3">#</th>
-                <th class="text-left py-2 px-3">Player</th>
-                <th class="text-left py-2 px-1">Pos</th>
-                <th class="text-right py-2 px-3 whitespace-nowrap">Score</th>
+                <th class="text-left py-2 px-3 row-number">#</th>
+                <th class="text-left py-2 px-3" data-sort="name">Player</th>
+                <th class="text-left py-2 px-1" data-sort="position">Pos</th>
+                <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="waiver_score">Score</th>
                 <th class="text-right py-2 px-3 whitespace-nowrap">
-                    {% if is_weekly %}Week Pts{% else %}Steamer {{ stat_info('projected_points') }}{% endif %}
+                    {% if is_weekly %}Week Pts{% else %}Consensus {{ stat_info('projected_points') }}{% endif %}
                 </th>
                 {% if not is_weekly %}
                 <th class="text-right py-2 px-3 whitespace-nowrap">My Proj</th>
@@ -30,8 +34,10 @@
         </thead>
         <tbody>
             {% for rec in recommendations %}
-            <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+            <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                data-name="{{ rec.name }}" data-team="{{ rec.team }}" data-position="{{ rec.position }}"
+                data-waiver_score="{{ rec.waiver_score }}">
+                <td class="py-2 px-3 text-gray-500 row-number">{{ loop.index }}</td>
                 <td class="py-2 px-3">
                     <div class="flex items-center gap-1.5">
                         {{ player_link(rec.player_id, rec.name, rec.team) }}

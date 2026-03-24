@@ -400,6 +400,7 @@ async def dashboard(request: Request, season: int | None = Query(None)):
                         "opp_projected": display["opp_proj_total"],
                         "my_yahoo_projected": round(snapshot.my_projected_points or 0, 1),
                         "opp_yahoo_projected": round(snapshot.opponent_projected_points or 0, 1),
+                        "snapshot_created_at": snapshot.created_at,
                         **display,
                     }
                 await matchup_session.commit()

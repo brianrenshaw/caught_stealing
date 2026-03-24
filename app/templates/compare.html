@@ -118,6 +118,7 @@
     <div id="tab-content">
         {# Overview Tab: Percentile Bars #}
         <div id="tab-overview" class="tab-panel">
+            <p class="text-sm text-blue-400 font-medium mb-3">Look for: The biggest gaps between players — that's where the real differences are. Deep red bars = elite (90th+ percentile). Blue bars = poor.</p>
             <div class="flex items-center gap-3 mb-4">
                 <label class="text-gray-400 text-sm">Stat Set:</label>
                 <select id="percentile-stat-set" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
@@ -163,6 +164,7 @@
 
         {# Trends Tab #}
         <div id="tab-trends" class="tab-panel hidden">
+            <p class="text-sm text-blue-400 font-medium mb-3">Look for: Rising lines = improvement or hot streak. Falling = decline or slump. Statcast metrics (xwOBA, Exit Velo) are more predictive than traditional stats.</p>
             <div class="flex items-center gap-3 mb-4">
                 <label class="text-gray-400 text-sm">Metric:</label>
                 <select id="trend-metric" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
@@ -182,6 +184,7 @@
 
         {# Splits Tab #}
         <div id="tab-splits" class="tab-panel hidden">
+            <p class="text-sm text-blue-400 font-medium mb-3">Look for: Large platoon splits — a hitter who crushes lefties (.900+ OPS vs LHP) but struggles vs righties is a matchup-dependent start/sit decision.</p>
             <div id="splits-content">
                 <div class="text-gray-500 text-sm">Select players to compare splits.</div>
             </div>
@@ -189,6 +192,7 @@
 
         {# Radar Tab #}
         <div id="tab-radar" class="tab-panel hidden">
+            <p class="text-sm text-blue-400 font-medium mb-3">Look for: Bigger shape = more well-rounded player. Spikes show strengths, dips show weaknesses. Compare shapes to find complementary players for your roster.</p>
             <div id="radar-chart" class="bg-gray-800 rounded-lg border border-gray-700 p-2" style="height: 500px;"></div>
         </div>
     </div>

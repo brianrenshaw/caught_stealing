@@ -224,9 +224,7 @@ def _stat_dict_from_statcast(sc: StatcastSummary | None) -> dict[str, float | No
 # ── Percentile calculation ──
 
 
-async def _get_batting_distribution(
-    session: AsyncSession, season: int
-) -> dict[str, list[float]]:
+async def _get_batting_distribution(session: AsyncSession, season: int) -> dict[str, list[float]]:
     """Get sorted arrays of all qualified batter stats for percentile calculation."""
     cache_key = f"percentile_dist_batting:{season}"
     cached_val = cache.get(cache_key)
@@ -252,9 +250,7 @@ async def _get_batting_distribution(
     return dist
 
 
-async def _get_pitching_distribution(
-    session: AsyncSession, season: int
-) -> dict[str, list[float]]:
+async def _get_pitching_distribution(session: AsyncSession, season: int) -> dict[str, list[float]]:
     """Get sorted arrays of all qualified pitcher stats."""
     cache_key = f"percentile_dist_pitching:{season}"
     cached_val = cache.get(cache_key)
@@ -434,15 +430,11 @@ async def calculate_percentiles(
     # Pitcher statcast percentiles
     if statcast_pitch and statcast_pitch.pa and statcast_pitch.pa >= 20:
         if statcast_pitch_dist is None:
-            statcast_pitch_dist = await _get_statcast_distribution(
-                session, season, "pitcher"
-            )
+            statcast_pitch_dist = await _get_statcast_distribution(session, season, "pitcher")
         for display_name, attr, lower in PITCHER_STATCAST_STATS:
             val = getattr(statcast_pitch, attr, None)
             if val is not None and attr in statcast_pitch_dist:
-                pct, rank, total = _compute_percentile(
-                    val, statcast_pitch_dist[attr], lower
-                )
+                pct, rank, total = _compute_percentile(val, statcast_pitch_dist[attr], lower)
                 percentiles.append(
                     StatPercentile(
                         stat_name=attr,
@@ -468,15 +460,11 @@ def _build_rolling(profile) -> dict[str, list[float | None]]:
 
     if profile.is_hitter:
         for stat in ("avg", "obp", "slg", "ops", "woba", "wrc_plus", "iso", "hr", "sb"):
-            rolling[stat] = [
-                getattr(profile.batting_stats.get(p), stat, None) for p in periods
-            ]
+            rolling[stat] = [getattr(profile.batting_stats.get(p), stat, None) for p in periods]
 
     if profile.is_pitcher:
         for stat in ("era", "fip", "whip", "k_per_9", "bb_per_9"):
-            rolling[stat] = [
-                getattr(profile.pitching_stats.get(p), stat, None) for p in periods
-            ]
+            rolling[stat] = [getattr(profile.pitching_stats.get(p), stat, None) for p in periods]
 
     # Statcast rolling (only 3 periods available)
     sc_periods = ["full_season", "last_30", "last_14"]
@@ -632,6 +620,8 @@ async def search_players_json(
     session: AsyncSession, query: str, position: str | None = None, limit: int = 10
 ) -> list[dict]:
     """JSON player search for comparison autocomplete."""
+    from app.models.roster import Roster
+
     stmt = select(Player).where(Player.name.ilike(f"%{query}%"))
     if position:
         stmt = stmt.where(Player.position.ilike(f"%{position}%"))
@@ -640,16 +630,27 @@ async def search_players_json(
     result = await session.execute(stmt)
     players = result.scalars().all()
 
-    return [
-        {
-            "id": p.id,
-            "name": p.name,
-            "team": p.team,
-            "position": p.position,
-            "headshot_url": _headshot_url(p.mlbam_id),
-        }
-        for p in players
-    ]
+    # Ownership lookup
+    roster_result = await session.execute(
+        select(Roster.player_id, Roster.team_name, Roster.is_my_team)
+    )
+    ownership = {pid: (tname, mine) for pid, tname, mine in roster_result.all()}
+
+    results = []
+    for p in players:
+        own = ownership.get(p.id)
+        results.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "team": p.team,
+                "position": p.position,
+                "headshot_url": _headshot_url(p.mlbam_id),
+                "fantasy_team": own[0] if own else None,
+                "is_my_team": own[1] if own else False,
+            }
+        )
+    return results
 
 
 async def get_stat_leaders(
@@ -668,8 +669,7 @@ async def get_stat_leaders(
     # Check if stat is lower-is-better
     lower_stats = set()
     all_stats = (
-        HITTER_BATTING_STATS + PITCHER_STATS
-        + HITTER_STATCAST_STATS + PITCHER_STATCAST_STATS
+        HITTER_BATTING_STATS + PITCHER_STATS + HITTER_STATCAST_STATS + PITCHER_STATCAST_STATS
     )
     for _, attr, lower in all_stats:
         if lower:
