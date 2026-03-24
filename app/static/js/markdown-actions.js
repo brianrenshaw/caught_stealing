@@ -11,7 +11,44 @@ function renderMarkdown(container) {
     var target = container.querySelector('[data-markdown-target]');
     if (source && target && typeof marked !== 'undefined') {
         target.innerHTML = marked.parse(source.textContent);
+        // Process [[toc]] markers — generate table of contents from headings
+        processToc(target);
     }
+}
+
+// Replace [[toc]] placeholder with a generated table of contents
+function processToc(target) {
+    var tocMarkers = target.querySelectorAll('p');
+    tocMarkers.forEach(function(p) {
+        if (p.textContent.trim().match(/^\[\[toc[^\]]*\]\]$/i)) {
+            var headings = target.querySelectorAll('h2, h3');
+            if (headings.length === 0) return;
+
+            var tocHtml = '<div class="table-of-contents bg-gray-900/50 rounded-lg border border-gray-700 p-4 mb-4">';
+            tocHtml += '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contents</p>';
+            tocHtml += '<ul class="space-y-1">';
+
+            headings.forEach(function(h, i) {
+                // Generate an ID for the heading if it doesn't have one
+                if (!h.id) {
+                    h.id = 'section-' + h.textContent.toLowerCase()
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\s+/g, '-')
+                        .replace(/-+/g, '-')
+                        .substring(0, 60);
+                }
+                var indent = h.tagName === 'H3' ? 'ml-4' : '';
+                var weight = h.tagName === 'H2' ? 'font-medium text-gray-200' : 'text-gray-400';
+                tocHtml += '<li class="' + indent + '">';
+                tocHtml += '<a href="#' + h.id + '" class="text-xs ' + weight + ' hover:text-teal-400 transition-colors">';
+                tocHtml += h.textContent;
+                tocHtml += '</a></li>';
+            });
+
+            tocHtml += '</ul></div>';
+            p.outerHTML = tocHtml;
+        }
+    });
 }
 
 // Find the rendered markdown target relative to a button

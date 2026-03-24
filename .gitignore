@@ -31,3 +31,11 @@ uv.lock
 
 # Documentation archives
 *.webarchive
+
+# Content pipeline
+data/content/audio/
+data/content/transcripts/
+data/content/blogs/
+data/content/manifest.json
+data/content/logs/
+data/content/analysis/

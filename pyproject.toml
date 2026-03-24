@@ -22,6 +22,8 @@ dependencies = [
     "numpy",
     "python-multipart>=0.0.22",
     "anthropic>=0.86.0",
+    "feedparser>=6.0.12",
+    "watchdog>=6.0.0",
 ]
 
 [tool.ruff]
@@ -37,7 +39,9 @@ testpaths = ["tests"]
 
 [dependency-groups]
 dev = [
+    "openpyxl>=3.1.5",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "ruff",
+    "scipy>=1.17.1",
 ]

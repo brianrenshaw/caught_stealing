@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}Intel — Fantasy Baseball{% endblock %}
+{% block nav_intel %}bg-gray-700 text-white{% endblock %}
+
+{% from "macros/info_icon.html" import page_info %}
+
+{% block content %}
+<div class="p-6">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold">
+            Intel {{ page_info('intel') }}
+        </h2>
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-500">{{ report_count }} reports</span>
+            <button onclick="confirmRefresh()"
+                    class="bg-teal-600 hover:bg-teal-500 text-white text-sm px-4 py-2 rounded-lg
+                           transition-colors flex items-center gap-2">
+                <svg id="refresh-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Refresh Briefing
+            </button>
+        </div>
+    </div>
+
+    <div class="flex gap-6">
+        <!-- Report selector sidebar -->
+        <div class="w-64 flex-shrink-0">
+            <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 sticky top-6">
+                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Reports</h3>
+
+                {% if grouped_reports %}
+                <div class="space-y-4">
+                    {% for date_label, reports in grouped_reports %}
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 mb-1.5">{{ date_label }}</p>
+                        <div class="space-y-1">
+                            {% for report in reports %}
+                            <button hx-get="/intel/report?file={{ report.filename }}"
+                                    hx-target="#intel-content"
+                                    hx-swap="innerHTML"
+                                    class="intel-report-btn block w-full text-left px-3 py-2 text-sm rounded-lg
+                                           hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                                    data-filename="{{ report.filename }}">
+                                <span class="block font-medium">{{ report.type_label }}</span>
+                                {% if report.source_count %}
+                                <span class="text-[10px] text-gray-500">{{ report.source_count }} sources</span>
+                                {% endif %}
+                            </button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-500">No reports yet. Click "Refresh Analysis" to generate.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Report content area -->
+        <div class="flex-1 min-w-0">
+            <div id="intel-content"
+                 {% if latest_briefing %}
+                 hx-get="/intel/report?file={{ latest_briefing.filename }}"
+                 hx-trigger="load"
+                 hx-swap="innerHTML"
+                 {% endif %}>
+                {% if not latest_briefing %}
+                <div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
+                    <p class="text-gray-400 text-lg mb-2">No analysis reports yet</p>
+                    <p class="text-gray-500 text-sm mb-4">
+                        Click "Refresh Analysis" to generate reports from your ingested content,
+                        or wait for the daily 3 AM job to create them automatically.
+                    </p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Highlight active report in sidebar
+document.addEventListener('htmx:afterRequest', function(e) {
+    if (e.detail.target && e.detail.target.id === 'intel-content') {
+        document.querySelectorAll('.intel-report-btn').forEach(function(btn) {
+            btn.classList.remove('bg-gray-700', 'text-white');
+        });
+        if (e.detail.elt && e.detail.elt.classList.contains('intel-report-btn')) {
+            e.detail.elt.classList.add('bg-gray-700', 'text-white');
+        }
+    }
+});
+
+// Refresh briefing confirmation
+function confirmRefresh() {
+    var latestDate = '{{ latest_briefing.date_display if latest_briefing else "Never" }}';
+    var msg = 'Your latest daily briefing was from ' + latestDate + '.\n\nGenerate a fresh briefing now? This takes about 30 seconds.';
+    if (confirm(msg)) {
+        var spinner = document.getElementById('refresh-spinner');
+        spinner.classList.remove('hidden');
+        htmx.ajax('POST', '/intel/refresh', {target: '#intel-content', swap: 'innerHTML'}).then(function() {
+            spinner.classList.add('hidden');
+        });
+    }
+}
+</script>
+{% endblock %}

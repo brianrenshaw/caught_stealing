@@ -52,8 +52,8 @@ fantasy-baseball/
 │   │   ├── statcast_service.py   # Statcast data fetching + processing
 │   │   ├── mlb_service.py        # MLB Stats API for live data
 │   │   ├── player_service.py     # Player profile aggregation
-│   │   ├── projection_service.py # Fetch + blend projections
-│   │   ├── external_projections.py # FanGraphs projection fetching
+│   │   ├── projection_service.py # Statcast buy/sell signals + trend detection (supplements consensus)
+│   │   ├── external_projections.py # Fetch Steamer/ZiPS/ATC and blend into consensus projections
 │   │   ├── comparison_service.py # Player comparison logic + search
 │   │   ├── matchup_service.py    # Head-to-head matchup analysis
 │   │   ├── rankings_service.py   # Player ranking calculations
@@ -77,6 +77,7 @@ fantasy-baseball/
 │   │   ├── player.py             # Player profile pages
 │   │   ├── comparison.py         # Player comparison tool
 │   │   ├── matchups.py           # Head-to-head matchup views
+│   │   ├── intel.py              # Intel tab — daily analysis reports
 │   │   ├── assistant.py          # AI chat assistant routes
 │   │   └── api.py                # JSON API endpoints for HTMX
 │   ├── templates/                # Jinja2 HTML templates
@@ -103,6 +104,28 @@ fantasy-baseball/
 │           ├── charts.js         # Plotly chart builders (scatter, bar, histogram, radar)
 │           ├── comparison.js     # Player comparison tool logic
 │           └── tooltips.js       # Info tooltip system
+├── scripts/                      # Standalone backtesting & content tools
+│   ├── data_pipeline.py          # Historical data download (2015-2025)
+│   ├── backtest_harness.py       # Walk-forward projection testing
+│   ├── optimize_parameters.py    # scipy parameter tuning (April 30 hold)
+│   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List)
+│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder
+│   ├── transcript_collector.py   # Collects MacWhisper output → formatted markdown
+│   ├── daily_analysis.py         # Claude-powered analysis of content + league data
+│   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM)
+│   └── analysis/                 # Analysis scripts → Excel reports
+├── data/                         # Backtesting data (raw CSVs, results, optimization)
+│   └── content/                  # Ingested blogs + podcast transcripts
+│       ├── blogs/                # Markdown articles from RSS feeds
+│       ├── transcripts/          # Final formatted transcripts with frontmatter
+│       ├── analysis/             # Claude-generated daily reports (Obsidian watches this)
+│       ├── audio/
+│       │   ├── pending/          # MacWhisper watches this folder (.mp3 + .json sidecar)
+│       │   └── transcribed/      # MacWhisper outputs .txt here
+│       └── manifest.json         # Index of all ingested content
+├── docs/                         # Documentation
+│   ├── BACKTESTING_METHODOLOGY.md
+│   └── USER_GUIDE.md
 └── tests/
     ├── __init__.py
     ├── test_optimizer.py
@@ -130,6 +153,7 @@ pandas
 numpy
 python-multipart
 anthropic              # Claude AI assistant
+feedparser             # RSS feed parsing for blog ingestion
 ```
 
 ## Database Schema (Core Tables)
@@ -199,6 +223,12 @@ YAHOO_GAME_KEY=mlb  # or specific year key like 431
 DATABASE_URL=sqlite+aiosqlite:///./fantasy_baseball.db
 ```
 
+## Projection Architecture
+All features (trades, waivers, optimizer, weekly matchup) derive from consensus
+projections (Steamer + ZiPS + ATC blended). Consensus counting stats are converted
+to fantasy points using league scoring. Statcast data provides buy/sell signals and
+trend detection on top of the consensus base.
+
 ## Development Commands
 ```bash
 uv run uvicorn app.main:app --reload --port 8000    # Start dev server
@@ -206,6 +236,15 @@ uv run python -m app.etl.pipeline                     # Run ETL manually
 uv run ruff check .                                   # Lint
 uv run ruff format .                                  # Format
 uv run pytest                                         # Test
+uv run python -m scripts.data_pipeline                # Download historical data
+uv run python -m scripts.backtest_harness             # Run backtesting
+uv run python -m scripts.optimize_parameters --mode validation  # Parameter tuning
+uv run python -m scripts.blog_ingest --days 7               # Fetch recent blog articles
+uv run python -m scripts.podcast_transcriber --days 7        # Download podcasts to MacWhisper watch folder
+uv run python -m scripts.transcript_collector                # Collect finished MacWhisper transcripts
+uv run python -m scripts.daily_analysis                      # Generate daily analysis reports
+uv run python -m scripts.daily_analysis --dry-run            # Preview prompts without API calls
+./scripts/daily_content_ingest.sh                            # Run full daily pipeline manually
 ```
 
 ## Coding Conventions
