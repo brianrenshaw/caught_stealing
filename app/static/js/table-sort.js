@@ -48,16 +48,16 @@
       th.classList.add("cursor-pointer");
       th.classList.add("select-none");
       th.addEventListener("mouseenter", () =>
-        th.classList.add("text-blue-400")
+        th.classList.add("text-accent-link")
       );
       th.addEventListener("mouseleave", () =>
-        th.classList.remove("text-blue-400")
+        th.classList.remove("text-accent-link")
       );
 
       // Add sort indicator span if not present
       if (!th.querySelector(".sort-ind")) {
         const span = document.createElement("span");
-        span.className = "sort-ind text-gray-500 ml-0.5";
+        span.className = "sort-ind text-txt-muted ml-0.5";
         th.appendChild(span);
       }
 
@@ -122,12 +122,12 @@
       const col = el.closest("th").dataset.sort;
       if (col === state.column) {
         el.textContent = state.ascending ? " \u2191" : " \u2193";
-        el.classList.remove("text-gray-500");
-        el.classList.add("text-blue-400");
+        el.classList.remove("text-txt-muted");
+        el.classList.add("text-accent-link");
       } else {
         el.textContent = "";
-        el.classList.remove("text-blue-400");
-        el.classList.add("text-gray-500");
+        el.classList.remove("text-accent-link");
+        el.classList.add("text-txt-muted");
       }
     });
   }
@@ -241,7 +241,7 @@
 
         const tr = document.createElement("tr");
         tr.className =
-          "fetched-row border-b border-gray-700/50 bg-blue-900/10";
+          "fetched-row border-b border-bdr/50 bg-surface-warm";
 
         // Set data attributes for sorting/filtering
         Object.keys(p).forEach((key) => {
@@ -256,21 +256,21 @@
           const sortKey = th.dataset.sort;
 
           if (th.classList.contains("row-number")) {
-            td.className += " row-number text-gray-500";
+            td.className += " row-number text-txt-muted";
             td.textContent = "-";
           } else if (sortKey === "name") {
-            td.className += " text-blue-300";
+            td.className += " text-accent-link";
             const ownerBadge = p.fantasy_team
-              ? `<span class="text-[10px] ml-1 ${p.is_my_team ? "text-blue-400" : "text-gray-600"}">${p.fantasy_team}</span>`
-              : '<span class="text-[10px] ml-1 text-gray-700">FA</span>';
-            td.innerHTML = `${p.name || ""} <span class="text-gray-500 text-xs">${p.team || ""}, ${p.position || ""}</span> ${ownerBadge}`;
+              ? `<span class="text-[10px] ml-1 ${p.is_my_team ? "text-accent-link" : "text-txt-muted"}">${p.fantasy_team}</span>`
+              : '<span class="text-[10px] ml-1 text-txt-muted">FA</span>';
+            td.innerHTML = `${p.name || ""} <span class="text-txt-muted text-xs">${p.team || ""}, ${p.position || ""}</span> ${ownerBadge}`;
           } else if (sortKey && p[sortKey] !== undefined) {
-            td.className += " text-right text-gray-400";
+            td.className += " text-right text-txt-secondary";
             const val = p[sortKey];
             td.textContent =
               typeof val === "number" ? val.toFixed(1) : val || "-";
           } else if (!sortKey && th.textContent.trim() === "#") {
-            td.className += " row-number text-gray-500";
+            td.className += " row-number text-txt-muted";
             td.textContent = "-";
           } else {
             td.textContent = "";

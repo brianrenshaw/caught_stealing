@@ -3,52 +3,52 @@
 {% from "macros/info_icon.html" import page_info, stat_info %}
 
 {% block title %}League Points Dashboard{% endblock %}
-{% block nav_league %}bg-gray-700 text-white{% endblock %}
+{% block nav_league %}nav-item-active{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Header -->
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-white">{{ league_config.league_name }} — H2H Points</h1>
-            <p class="text-gray-400 mt-1">
+            <h1 class="font-display text-3xl font-extrabold text-txt-navy">{{ league_config.league_name }} — H2H Points</h1>
+            <p class="text-txt-secondary mt-1">
                 Week {{ week_num }} &bull; {{ days_remaining }} days remaining &bull;
-                <span class="text-yellow-400">Deadline: Monday</span>
+                <span class="text-[#F57F17]">Deadline: Monday</span>
             </p>
         </div>
         <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500">{{ league_config.teams }}-team keeper league</span>
+            <span class="text-xs text-txt-muted">{{ league_config.teams }}-team keeper league</span>
         </div>
     </div>
 
     <!-- Scoring Quick Reference -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
         <div class="flex items-center gap-2 mb-3">
-            <h2 class="text-sm font-semibold text-gray-300">Scoring Quick Reference</h2>
+            <h2 class="text-sm font-semibold text-txt-primary">Scoring Quick Reference</h2>
             {{ page_info('league_scoring') }}
         </div>
         <div class="grid grid-cols-2 gap-4">
             <div>
-                <h3 class="text-xs font-medium text-blue-400 mb-1">Batting</h3>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                <h3 class="text-xs font-medium text-accent-link mb-1">Batting</h3>
+                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
                     <span>R=1</span><span>1B=1</span><span>2B=2</span><span>3B=3</span>
-                    <span class="text-green-400">HR=4</span><span>RBI=1</span>
-                    <span>SB=2</span><span class="text-red-400">CS=-1</span>
+                    <span class="text-[#2e7d32]">HR=4</span><span>RBI=1</span>
+                    <span>SB=2</span><span class="text-[#c62828]">CS=-1</span>
                     <span>BB=1</span><span>HBP=1</span>
-                    <span class="text-red-400">K=-0.5</span>
+                    <span class="text-[#c62828]">K=-0.5</span>
                 </div>
             </div>
             <div>
-                <h3 class="text-xs font-medium text-blue-400 mb-1">Pitching</h3>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400">
+                <h3 class="text-xs font-medium text-accent-link mb-1">Pitching</h3>
+                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
                     <span>OUT=1.5</span><span>K=0.5</span>
-                    <span class="text-green-400">SV=7</span>
-                    <span class="text-green-400">HLD=4</span>
-                    <span class="text-green-400">RW=4</span>
+                    <span class="text-[#2e7d32]">SV=7</span>
+                    <span class="text-[#2e7d32]">HLD=4</span>
+                    <span class="text-[#2e7d32]">RW=4</span>
                     <span>QS=2</span>
-                    <span class="text-red-400">H=-0.75</span>
-                    <span class="text-red-400">ER=-4</span>
-                    <span class="text-red-400">BB=-0.75</span>
+                    <span class="text-[#c62828]">H=-0.75</span>
+                    <span class="text-[#c62828]">ER=-4</span>
+                    <span class="text-[#c62828]">BB=-0.75</span>
                 </div>
             </div>
         </div>
@@ -56,16 +56,16 @@
 
     <!-- League Standings -->
     {% if standings %}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-        <h2 class="text-lg font-semibold text-gray-200 mb-1">
+    <div class="bg-surface-card rounded-lg border border-bdr p-5">
+        <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary mb-1">
             League Standings {{ page_info('league-standings') }}
         </h2>
-        <p class="text-sm text-blue-400 font-medium mb-3">Look for: Teams with high Points For but a losing record — they've been unlucky and may bounce back. Teams with low PF but wins are due for regression.</p>
+        <p class="text-sm text-accent-link font-medium mb-3">Look for: Teams with high Points For but a losing record — they've been unlucky and may bounce back. Teams with low PF but wins are due for regression.</p>
         <div class="overflow-x-auto">
             <table class="sortable-table w-full text-sm" id="league-standings"
                    data-default-sort="rank" data-default-dir="asc">
                 <thead>
-                    <tr class="text-gray-500 border-b border-gray-700 text-xs uppercase tracking-wider">
+                    <tr class="text-txt-muted border-b border-bdr text-xs uppercase tracking-wider">
                         <th class="text-left py-2 px-2 w-8 row-number" data-sort="rank">#</th>
                         <th class="text-left py-2 px-2" data-sort="team_name">Team</th>
                         <th class="text-center py-2 px-2" data-sort="wins">W-L-T</th>
@@ -78,29 +78,29 @@
                 </thead>
                 <tbody>
                     {% for team in standings %}
-                    <tr class="border-b border-gray-700/50 {% if team.is_my_team %}bg-blue-900/20{% endif %} hover:bg-gray-700/30"
+                    <tr class="border-b border-bdr/50 {% if team.is_my_team %}bg-surface-warm{% endif %} hover:bg-surface-elevated/30"
                         data-rank="{{ team.rank }}" data-team_name="{{ team.team_name }}"
                         data-wins="{{ team.wins }}" data-points_for="{{ team.points_for }}"
                         data-points_against="{{ team.points_against }}"
                         data-week_projected="{{ team.week_projected }}"
                         data-week_actual="{{ team.week_actual }}"
                         data-name="{{ team.team_name }}">
-                        <td class="py-2 px-2 text-gray-500 row-number">{{ team.rank }}</td>
-                        <td class="py-2 px-2 {% if team.is_my_team %}text-blue-300 font-medium{% else %}text-gray-300{% endif %}">
+                        <td class="py-2 px-2 text-txt-muted row-number">{{ team.rank }}</td>
+                        <td class="py-2 px-2 {% if team.is_my_team %}text-accent-link font-medium{% else %}text-txt-primary{% endif %}">
                             {{ team.team_name }}
                         </td>
-                        <td class="py-2 px-2 text-center text-gray-400">
+                        <td class="py-2 px-2 text-center text-txt-secondary">
                             {{ team.wins }}-{{ team.losses }}{% if team.ties %}-{{ team.ties }}{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-right text-gray-300">{{ "%.1f"|format(team.points_for) }}</td>
-                        <td class="py-2 px-2 text-right text-gray-500">{{ "%.1f"|format(team.points_against) }}</td>
-                        <td class="py-2 px-2 text-right text-gray-400">
+                        <td class="py-2 px-2 text-right text-txt-primary">{{ "%.1f"|format(team.points_for) }}</td>
+                        <td class="py-2 px-2 text-right text-txt-muted">{{ "%.1f"|format(team.points_against) }}</td>
+                        <td class="py-2 px-2 text-right text-txt-secondary">
                             {% if team.week_projected > 0 %}{{ "%.1f"|format(team.week_projected) }}{% else %}-{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-right {% if team.week_actual > team.week_projected %}text-green-400{% elif team.week_actual > 0 %}text-gray-300{% else %}text-gray-600{% endif %}">
+                        <td class="py-2 px-2 text-right {% if team.week_actual > team.week_projected %}text-[#2e7d32]{% elif team.week_actual > 0 %}text-txt-primary{% else %}text-txt-muted{% endif %}">
                             {% if team.week_actual > 0 %}{{ "%.1f"|format(team.week_actual) }}{% else %}-{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-gray-500 text-xs">{{ team.opponent_name }}</td>
+                        <td class="py-2 px-2 text-txt-muted text-xs">{{ team.opponent_name }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -113,21 +113,21 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- Top Hitters by Projected Points -->
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <div class="bg-surface-card rounded-lg border border-bdr p-5">
             <div class="flex items-center gap-2 mb-3">
-                <h2 class="text-lg font-semibold text-white">Top Hitters by Projected Points</h2>
+                <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Top Hitters by Projected Points</h2>
                 {{ page_info('top_hitters_points') }}
             </div>
-            <p class="text-sm text-blue-400 font-medium mb-2">Look for: High Pts/PA efficiency + high Surplus Value. These players earn the most points per opportunity above what a free agent would produce.</p>
+            <p class="text-sm text-accent-link font-medium mb-2">Look for: High Pts/PA efficiency + high Surplus Value. These players earn the most points per opportunity above what a free agent would produce.</p>
             {% if top_hitters %}
             <input type="text" data-table-search="top-hitters" data-table-fetch="/api/points/search?player_type=hitter"
                    placeholder="Search hitters..."
-                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
+                   class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3">
             <div class="overflow-x-auto">
                 <table class="sortable-table w-full text-sm" id="top-hitters"
                        data-default-sort="projected_points" data-default-dir="desc">
                     <thead>
-                        <tr class="text-gray-400 text-xs border-b border-gray-700">
+                        <tr class="text-txt-secondary text-xs border-b border-bdr">
                             <th class="text-left py-2 pr-2 row-number">#</th>
                             <th class="text-left py-2" data-sort="name">Player</th>
                             <th class="text-right py-2" data-sort="projected_points">Proj Pts {{ stat_info('projected_points') }}</th>
@@ -138,26 +138,26 @@
                     </thead>
                     <tbody>
                         {% for h in top_hitters[:15] %}
-                        <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                        <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                             data-name="{{ h.name }}" data-team="{{ h.team }}" data-position="{{ h.position }}"
                             data-projected_points="{{ h.projected_points }}" data-actual_points="{{ h.actual_points }}"
                             data-points_per_pa="{{ h.points_per_pa }}" data-surplus_value="{{ h.surplus_value }}">
-                            <td class="py-1.5 pr-2 text-gray-500 row-number">{{ loop.index }}</td>
+                            <td class="py-1.5 pr-2 text-txt-muted row-number">{{ loop.index }}</td>
                             <td class="py-1.5">
                                 {{ player_link(h.player_id, h.name, h.team) }}
-                                <span class="text-gray-500 text-xs ml-1">{{ h.position }}</span>
+                                <span class="text-txt-muted text-xs ml-1">{{ h.position }}</span>
                                 {% if h.fantasy_team %}
-                                <span class="text-[10px] ml-1 {% if h.is_my_team %}text-blue-400{% else %}text-gray-600{% endif %}">{{ h.fantasy_team.split()[0] }}</span>
+                                <span class="text-[10px] ml-1 {% if h.is_my_team %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ h.fantasy_team.split()[0] }}</span>
                                 {% else %}
-                                <span class="text-[10px] ml-1 text-gray-700">FA</span>
+                                <span class="text-[10px] ml-1 text-txt-muted">FA</span>
                                 {% endif %}
                             </td>
-                            <td class="text-right font-medium {% if h.projected_points >= 300 %}text-green-400{% elif h.projected_points >= 200 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                            <td class="text-right font-medium {% if h.projected_points >= 300 %}text-[#2e7d32]{% elif h.projected_points >= 200 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                                 {{ h.projected_points }}
                             </td>
-                            <td class="text-right text-gray-400">{{ h.actual_points }}</td>
-                            <td class="text-right text-gray-300">{{ h.points_per_pa }}</td>
-                            <td class="text-right {% if h.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                            <td class="text-right text-txt-secondary">{{ h.actual_points }}</td>
+                            <td class="text-right text-txt-primary">{{ h.points_per_pa }}</td>
+                            <td class="text-right {% if h.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %}">
                                 {{ h.surplus_value }}
                             </td>
                         </tr>
@@ -166,25 +166,25 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-gray-500 text-sm">No points data yet. Run the stats pipeline first.</p>
+            <p class="text-txt-muted text-sm">No points data yet. Run the stats pipeline first.</p>
             {% endif %}
         </div>
 
         <!-- Top Starters by Projected Points -->
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+        <div class="bg-surface-card rounded-lg border border-bdr p-5">
             <div class="flex items-center gap-2 mb-3">
-                <h2 class="text-lg font-semibold text-white">Top Starters — Innings are Gold</h2>
+                <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Top Starters — Innings are Gold</h2>
                 {{ page_info('innings_eaters') }}
             </div>
             {% if top_pitchers %}
             <input type="text" data-table-search="top-starters" data-table-fetch="/api/points/search?player_type=pitcher"
                    placeholder="Search starters..."
-                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
+                   class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3">
             <div class="overflow-x-auto">
                 <table class="sortable-table w-full text-sm" id="top-starters"
                        data-default-sort="projected_points" data-default-dir="desc">
                     <thead>
-                        <tr class="text-gray-400 text-xs border-b border-gray-700">
+                        <tr class="text-txt-secondary text-xs border-b border-bdr">
                             <th class="text-left py-2 pr-2 row-number">#</th>
                             <th class="text-left py-2" data-sort="name">Player</th>
                             <th class="text-right py-2" data-sort="projected_points">Proj Pts</th>
@@ -195,27 +195,27 @@
                     </thead>
                     <tbody>
                         {% for p in top_pitchers[:15] %}
-                        <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                        <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                             data-name="{{ p.name }}" data-team="{{ p.team }}" data-position="{{ p.position }}"
                             data-projected_points="{{ p.projected_points }}" data-points_per_start="{{ p.points_per_start or 0 }}"
                             data-points_per_ip="{{ p.points_per_ip or 0 }}" data-surplus_value="{{ p.surplus_value }}">
-                            <td class="py-1.5 pr-2 text-gray-500 row-number">{{ loop.index }}</td>
+                            <td class="py-1.5 pr-2 text-txt-muted row-number">{{ loop.index }}</td>
                             <td class="py-1.5">
                                 {{ player_link(p.player_id, p.name, p.team) }}
                                 {% if p.fantasy_team %}
-                                <span class="text-[10px] ml-1 {% if p.is_my_team %}text-blue-400{% else %}text-gray-600{% endif %}">{{ p.fantasy_team.split()[0] }}</span>
+                                <span class="text-[10px] ml-1 {% if p.is_my_team %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ p.fantasy_team.split()[0] }}</span>
                                 {% else %}
-                                <span class="text-[10px] ml-1 text-gray-700">FA</span>
+                                <span class="text-[10px] ml-1 text-txt-muted">FA</span>
                                 {% endif %}
                             </td>
-                            <td class="text-right font-medium {% if p.projected_points >= 250 %}text-green-400{% elif p.projected_points >= 150 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                            <td class="text-right font-medium {% if p.projected_points >= 250 %}text-[#2e7d32]{% elif p.projected_points >= 150 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                                 {{ p.projected_points }}
                             </td>
-                            <td class="text-right {% if p.points_per_start and p.points_per_start >= 15 %}text-green-400{% elif p.points_per_start and p.points_per_start >= 8 %}text-yellow-400{% else %}text-gray-300{% endif %}">
+                            <td class="text-right {% if p.points_per_start and p.points_per_start >= 15 %}text-[#2e7d32]{% elif p.points_per_start and p.points_per_start >= 8 %}text-[#F57F17]{% else %}text-txt-primary{% endif %}">
                                 {{ p.points_per_start or '—' }}
                             </td>
-                            <td class="text-right text-gray-300">{{ p.points_per_ip }}</td>
-                            <td class="text-right {% if p.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                            <td class="text-right text-txt-primary">{{ p.points_per_ip }}</td>
+                            <td class="text-right {% if p.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %}">
                                 {{ p.surplus_value }}
                             </td>
                         </tr>
@@ -224,30 +224,30 @@
                 </table>
             </div>
             {% else %}
-            <p class="text-gray-500 text-sm">No points data yet.</p>
+            <p class="text-txt-muted text-sm">No points data yet.</p>
             {% endif %}
         </div>
     </div>
 
     <!-- Reliever Watch -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+    <div class="bg-surface-card rounded-lg border border-bdr p-5">
         <div class="flex items-center gap-2 mb-3">
-            <h2 class="text-lg font-semibold text-white">Reliever Watch — SV=7, HLD=4</h2>
+            <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Reliever Watch — SV=7, HLD=4</h2>
             {{ page_info('reliever_watch') }}
         </div>
-        <p class="text-sm text-blue-400 font-medium mb-1">Look for: Closers (red badge) with SV > 0 are premium — SV = 7pts. Setup men (yellow) earning HLD = 4pts are also valuable for your 4 flex P slots.</p>
-        <p class="text-xs text-gray-400 mb-3">
+        <p class="text-sm text-accent-link font-medium mb-1">Look for: Closers (red badge) with SV > 0 are premium — SV = 7pts. Setup men (yellow) earning HLD = 4pts are also valuable for your 4 flex P slots.</p>
+        <p class="text-xs text-txt-secondary mb-3">
             Elite closer clean inning + save = 12.5 pts | Setup hold = 9.5 pts | Blown save can cost -8+ pts
         </p>
         {% if top_relievers %}
         <input type="text" data-table-search="reliever-watch" data-table-fetch="/api/points/search?player_type=pitcher"
                placeholder="Search relievers..."
-               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
+               class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3">
         <div class="overflow-x-auto">
             <table class="sortable-table w-full text-sm" id="reliever-watch"
                    data-default-sort="projected_points" data-default-dir="desc">
                 <thead>
-                    <tr class="text-gray-400 text-xs border-b border-gray-700">
+                    <tr class="text-txt-secondary text-xs border-b border-bdr">
                         <th class="text-left py-2 pr-2 row-number">#</th>
                         <th class="text-left py-2" data-sort="name">Player</th>
                         <th class="text-left py-2" data-sort="role">Role</th>
@@ -260,32 +260,32 @@
                 </thead>
                 <tbody>
                     {% for r in top_relievers[:15] %}
-                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                         data-name="{{ r.name }}" data-team="{{ r.team }}" data-position="RP"
                         data-role="{{ r.role }}" data-sv="{{ r.sv }}" data-hld="{{ r.hld }}"
                         data-points_per_appearance="{{ r.points_per_appearance }}"
                         data-projected_points="{{ r.projected_points }}" data-surplus_value="{{ r.surplus_value }}">
-                        <td class="py-1.5 pr-2 text-gray-500 row-number">{{ loop.index }}</td>
+                        <td class="py-1.5 pr-2 text-txt-muted row-number">{{ loop.index }}</td>
                         <td class="py-1.5">
                             {{ player_link(r.player_id, r.name, r.team) }}
                             {% if r.fantasy_team %}
-                            <span class="text-[10px] ml-1 {% if r.is_my_team %}text-blue-400{% else %}text-gray-600{% endif %}">{{ r.fantasy_team.split()[0] }}</span>
+                            <span class="text-[10px] ml-1 {% if r.is_my_team %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ r.fantasy_team.split()[0] }}</span>
                             {% else %}
-                            <span class="text-[10px] ml-1 text-gray-700">FA</span>
+                            <span class="text-[10px] ml-1 text-txt-muted">FA</span>
                             {% endif %}
                         </td>
                         <td class="py-1.5">
-                            <span class="text-xs px-1.5 py-0.5 rounded {% if r.role == 'Closer' %}bg-red-900/50 text-red-400{% elif r.role == 'Setup' %}bg-yellow-900/50 text-yellow-400{% else %}bg-gray-700 text-gray-400{% endif %}">
+                            <span class="text-xs px-1.5 py-0.5 rounded {% if r.role == 'Closer' %}bg-[#fce4ec] text-[#c62828]{% elif r.role == 'Setup' %}bg-[#FFF8E1] text-[#F57F17]{% else %}bg-surface-elevated text-txt-secondary{% endif %}">
                                 {{ r.role }}
                             </span>
                         </td>
-                        <td class="text-right {% if r.sv > 0 %}text-green-400 font-medium{% else %}text-gray-500{% endif %}">{{ r.sv }}</td>
-                        <td class="text-right {% if r.hld > 0 %}text-blue-400{% else %}text-gray-500{% endif %}">{{ r.hld }}</td>
-                        <td class="text-right {% if r.points_per_appearance >= 8 %}text-green-400{% elif r.points_per_appearance >= 4 %}text-yellow-400{% else %}text-gray-300{% endif %}">
+                        <td class="text-right {% if r.sv > 0 %}text-[#2e7d32] font-medium{% else %}text-txt-muted{% endif %}">{{ r.sv }}</td>
+                        <td class="text-right {% if r.hld > 0 %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ r.hld }}</td>
+                        <td class="text-right {% if r.points_per_appearance >= 8 %}text-[#2e7d32]{% elif r.points_per_appearance >= 4 %}text-[#F57F17]{% else %}text-txt-primary{% endif %}">
                             {{ r.points_per_appearance }}
                         </td>
-                        <td class="text-right text-gray-300">{{ r.projected_points }}</td>
-                        <td class="text-right {% if r.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %}">
+                        <td class="text-right text-txt-primary">{{ r.projected_points }}</td>
+                        <td class="text-right {% if r.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %}">
                             {{ r.surplus_value }}
                         </td>
                     </tr>
@@ -294,29 +294,29 @@
             </table>
         </div>
         {% else %}
-        <p class="text-gray-500 text-sm">No reliever data yet.</p>
+        <p class="text-txt-muted text-sm">No reliever data yet.</p>
         {% endif %}
     </div>
 
     <!-- Contact Kings -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+    <div class="bg-surface-card rounded-lg border border-bdr p-5">
         <div class="flex items-center gap-2 mb-3">
-            <h2 class="text-lg font-semibold text-white">Contact Kings — Hidden Gems (K% &lt; 20%)</h2>
+            <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Contact Kings — Hidden Gems (K% &lt; 20%)</h2>
             {{ page_info('contact_kings') }}
         </div>
-        <p class="text-xs text-gray-400 mb-3">
+        <p class="text-xs text-txt-secondary mb-3">
             K = -0.5 pts. Over a season, a 150K hitter loses 75 pts from Ks alone.
             These low-K hitters are systematically undervalued in this format.
         </p>
         {% if contact_kings %}
         <input type="text" data-table-search="contact-kings"
                placeholder="Search contact hitters..."
-               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3">
+               class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3">
         <div class="overflow-x-auto">
             <table class="sortable-table w-full text-sm" id="contact-kings"
                    data-default-sort="points_per_pa" data-default-dir="desc">
                 <thead>
-                    <tr class="text-gray-400 text-xs border-b border-gray-700">
+                    <tr class="text-txt-secondary text-xs border-b border-bdr">
                         <th class="text-left py-2 pr-2 row-number">#</th>
                         <th class="text-left py-2" data-sort="name">Player</th>
                         <th class="text-right py-2" data-sort="k_pct">K%</th>
@@ -329,62 +329,62 @@
                 </thead>
                 <tbody>
                     {% for c in contact_kings %}
-                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                    <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                         data-name="{{ c.name }}" data-team="{{ c.team }}" data-position="{{ c.position }}"
                         data-k_pct="{{ c.k_pct }}" data-bb_pct="{{ c.bb_pct }}" data-avg="{{ c.avg }}"
                         data-points_per_pa="{{ c.points_per_pa }}" data-projected_points="{{ c.projected_points }}"
                         data-k_points_lost="{{ c.k_points_lost }}">
-                        <td class="py-1.5 pr-2 text-gray-500 row-number">{{ loop.index }}</td>
+                        <td class="py-1.5 pr-2 text-txt-muted row-number">{{ loop.index }}</td>
                         <td class="py-1.5">
                             {{ player_link(c.player_id, c.name, c.team) }}
-                            <span class="text-gray-500 text-xs ml-1">{{ c.position }}</span>
+                            <span class="text-txt-muted text-xs ml-1">{{ c.position }}</span>
                             {% if c.fantasy_team %}
-                            <span class="text-[10px] ml-1 {% if c.is_my_team %}text-blue-400{% else %}text-gray-600{% endif %}">{{ c.fantasy_team.split()[0] }}</span>
+                            <span class="text-[10px] ml-1 {% if c.is_my_team %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ c.fantasy_team.split()[0] }}</span>
                             {% else %}
-                            <span class="text-[10px] ml-1 text-gray-700">FA</span>
+                            <span class="text-[10px] ml-1 text-txt-muted">FA</span>
                             {% endif %}
                         </td>
-                        <td class="text-right text-green-400">{{ c.k_pct }}%</td>
-                        <td class="text-right text-blue-400">{{ c.bb_pct }}%</td>
-                        <td class="text-right text-gray-300">{{ c.avg }}</td>
-                        <td class="text-right font-medium text-green-400">{{ c.points_per_pa }}</td>
-                        <td class="text-right text-gray-300">{{ c.projected_points }}</td>
-                        <td class="text-right text-red-400">-{{ c.k_points_lost }}</td>
+                        <td class="text-right text-[#2e7d32]">{{ c.k_pct }}%</td>
+                        <td class="text-right text-accent-link">{{ c.bb_pct }}%</td>
+                        <td class="text-right text-txt-primary">{{ c.avg }}</td>
+                        <td class="text-right font-medium text-[#2e7d32]">{{ c.points_per_pa }}</td>
+                        <td class="text-right text-txt-primary">{{ c.projected_points }}</td>
+                        <td class="text-right text-[#c62828]">-{{ c.k_points_lost }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <p class="text-gray-500 text-sm">No contact hitter data yet.</p>
+        <p class="text-txt-muted text-sm">No contact hitter data yet.</p>
         {% endif %}
     </div>
 
     <!-- Points Calculator -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
+    <div class="bg-surface-card rounded-lg border border-bdr p-5">
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
-                <h2 class="text-lg font-semibold text-white">Points Calculator</h2>
+                <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Points Calculator</h2>
                 {{ page_info('points_calculator') }}
             </div>
             <button onclick="document.getElementById('calc-body').classList.toggle('hidden')"
-                    class="text-xs text-blue-400 hover:text-blue-300">
+                    class="text-xs text-accent-link hover:text-accent-link">
                 Toggle
             </button>
         </div>
         <div id="calc-body">
             <!-- Preset Examples -->
             <div class="flex flex-wrap gap-2 mb-4">
-                <button onclick="loadPreset('elite_start')" class="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded hover:bg-green-900/80">
+                <button onclick="loadPreset('elite_start')" class="text-xs bg-[#e8f5e9] text-[#2e7d32] px-2 py-1 rounded hover:bg-[#c8e6c9]">
                     Elite Start (24.5 pts)
                 </button>
-                <button onclick="loadPreset('closer_save')" class="text-xs bg-blue-900/50 text-blue-400 px-2 py-1 rounded hover:bg-blue-900/80">
+                <button onclick="loadPreset('closer_save')" class="text-xs bg-surface-warm text-accent-link px-2 py-1 rounded hover:bg-accent-primary/20">
                     Closer Save (12.5 pts)
                 </button>
-                <button onclick="loadPreset('blowup')" class="text-xs bg-red-900/50 text-red-400 px-2 py-1 rounded hover:bg-red-900/80">
+                <button onclick="loadPreset('blowup')" class="text-xs bg-[#fce4ec] text-[#c62828] px-2 py-1 rounded hover:bg-[#fce4ec]">
                     Blowup Start (-17.75 pts)
                 </button>
-                <button onclick="loadPreset('batter_game')" class="text-xs bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-900/80">
+                <button onclick="loadPreset('batter_game')" class="text-xs bg-[#FFF8E1] text-[#F57F17] px-2 py-1 rounded hover:bg-[#FFF8E1]">
                     Batter HR Game (7.5 pts)
                 </button>
             </div>
@@ -392,127 +392,127 @@
             <div class="grid grid-cols-2 gap-4">
                 <!-- Pitcher Calculator -->
                 <div>
-                    <h3 class="text-sm font-medium text-blue-400 mb-2">Pitcher</h3>
+                    <h3 class="text-sm font-medium text-accent-link mb-2">Pitcher</h3>
                     <div class="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                            <label class="text-gray-500">IP</label>
+                            <label class="text-txt-muted">IP</label>
                             <input type="number" id="calc-ip" step="0.1" value="7"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">K</label>
+                            <label class="text-txt-muted">K</label>
                             <input type="number" id="calc-k" value="7"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">ER</label>
+                            <label class="text-txt-muted">ER</label>
                             <input type="number" id="calc-er" value="2"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">H</label>
+                            <label class="text-txt-muted">H</label>
                             <input type="number" id="calc-h" value="5"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">BB</label>
+                            <label class="text-txt-muted">BB</label>
                             <input type="number" id="calc-bb" value="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">QS</label>
+                            <label class="text-txt-muted">QS</label>
                             <input type="number" id="calc-qs" value="1" min="0" max="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">SV</label>
+                            <label class="text-txt-muted">SV</label>
                             <input type="number" id="calc-sv" value="0" min="0" max="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                         <div>
-                            <label class="text-gray-500">HLD</label>
+                            <label class="text-txt-muted">HLD</label>
                             <input type="number" id="calc-hld" value="0" min="0" max="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculatePitcher()">
                         </div>
                     </div>
-                    <div id="pitcher-result" class="mt-3 p-2 bg-gray-900/50 rounded text-sm">
-                        <span class="text-gray-400">Total:</span>
-                        <span id="pitcher-total" class="font-bold text-green-400 ml-2">24.5</span>
-                        <span class="text-gray-500 ml-1">pts</span>
+                    <div id="pitcher-result" class="mt-3 p-2 bg-surface-inset/50 rounded text-sm">
+                        <span class="text-txt-secondary">Total:</span>
+                        <span id="pitcher-total" class="font-bold text-[#2e7d32] ml-2">24.5</span>
+                        <span class="text-txt-muted ml-1">pts</span>
                     </div>
                 </div>
 
                 <!-- Batter Calculator -->
                 <div>
-                    <h3 class="text-sm font-medium text-blue-400 mb-2">Batter</h3>
+                    <h3 class="text-sm font-medium text-accent-link mb-2">Batter</h3>
                     <div class="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                            <label class="text-gray-500">R</label>
+                            <label class="text-txt-muted">R</label>
                             <input type="number" id="calc-r" value="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">1B</label>
+                            <label class="text-txt-muted">1B</label>
                             <input type="number" id="calc-1b" value="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">2B</label>
+                            <label class="text-txt-muted">2B</label>
                             <input type="number" id="calc-2b" value="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">3B</label>
+                            <label class="text-txt-muted">3B</label>
                             <input type="number" id="calc-3b" value="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">HR</label>
+                            <label class="text-txt-muted">HR</label>
                             <input type="number" id="calc-hr" value="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">RBI</label>
+                            <label class="text-txt-muted">RBI</label>
                             <input type="number" id="calc-rbi" value="2"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">SB</label>
+                            <label class="text-txt-muted">SB</label>
                             <input type="number" id="calc-sb" value="0"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">BB</label>
+                            <label class="text-txt-muted">BB</label>
                             <input type="number" id="calc-bat-bb" value="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                         <div>
-                            <label class="text-gray-500">K</label>
+                            <label class="text-txt-muted">K</label>
                             <input type="number" id="calc-bat-k" value="1"
-                                   class="w-full bg-gray-700 border border-gray-600 rounded px-2 py-1 text-gray-200"
+                                   class="w-full bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-txt-primary"
                                    onchange="calculateBatter()">
                         </div>
                     </div>
-                    <div id="batter-result" class="mt-3 p-2 bg-gray-900/50 rounded text-sm">
-                        <span class="text-gray-400">Total:</span>
-                        <span id="batter-total" class="font-bold text-green-400 ml-2">7.5</span>
-                        <span class="text-gray-500 ml-1">pts</span>
+                    <div id="batter-result" class="mt-3 p-2 bg-surface-inset/50 rounded text-sm">
+                        <span class="text-txt-secondary">Total:</span>
+                        <span id="batter-total" class="font-bold text-[#2e7d32] ml-2">7.5</span>
+                        <span class="text-txt-muted ml-1">pts</span>
                     </div>
                 </div>
             </div>
@@ -546,7 +546,7 @@ function calculatePitcher() {
 
     const el = document.getElementById('pitcher-total');
     el.textContent = total.toFixed(1);
-    el.className = total >= 0 ? 'font-bold text-green-400 ml-2' : 'font-bold text-red-400 ml-2';
+    el.className = total >= 0 ? 'font-bold text-[#2e7d32] ml-2' : 'font-bold text-[#c62828] ml-2';
 }
 
 function calculateBatter() {
@@ -564,7 +564,7 @@ function calculateBatter() {
 
     const el = document.getElementById('batter-total');
     el.textContent = total.toFixed(1);
-    el.className = total >= 0 ? 'font-bold text-green-400 ml-2' : 'font-bold text-red-400 ml-2';
+    el.className = total >= 0 ? 'font-bold text-[#2e7d32] ml-2' : 'font-bold text-[#c62828] ml-2';
 }
 
 function loadPreset(name) {

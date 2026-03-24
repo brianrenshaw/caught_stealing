@@ -1,27 +1,27 @@
 {% extends "base.html" %}
 
 {% block title %}Matchups — Fantasy Baseball{% endblock %}
-{% block nav_matchups %}bg-gray-700 text-white{% endblock %}
+{% block nav_matchups %}nav-item-active{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-2">Daily Matchups {{ page_info('matchups') }}</h2>
-<p class="text-gray-400 text-sm mb-6">{{ game_date }}</p>
+<h2 class="font-display text-3xl font-extrabold text-txt-navy mb-2">Daily Matchups {{ page_info('matchups') }}</h2>
+<p class="text-txt-secondary text-sm mb-6">{{ game_date }}</p>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Streaming Pitchers -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden lg:col-span-2">
-        <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Streaming Pitchers {{ page_info('streaming-pitchers') }}</h3>
-            <p class="text-gray-500 text-xs mt-1">Ranked by matchup quality (pitcher skill + opponent + park)</p>
-            <p class="text-sm text-blue-400 font-medium mt-1">Look for: Green scores (70+) are strong streaming plays. Score = pitcher quality (40%) + opponent weakness (35%) + park factor (15%) + recent form (10%).</p>
+    <div class="bg-surface-card rounded-lg border border-bdr overflow-hidden lg:col-span-2">
+        <div class="p-4 border-b border-bdr">
+            <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Streaming Pitchers {{ page_info('streaming-pitchers') }}</h3>
+            <p class="text-txt-muted text-xs mt-1">Ranked by matchup quality (pitcher skill + opponent + park)</p>
+            <p class="text-sm text-accent-link font-medium mt-1">Look for: Green scores (70+) are strong streaming plays. Score = pitcher quality (40%) + opponent weakness (35%) + park factor (15%) + recent form (10%).</p>
         </div>
         {% if streaming_picks %}
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-gray-400 border-b border-gray-700">
+                    <tr class="text-txt-secondary border-b border-bdr">
                         <th class="text-left py-2 px-3">#</th>
                         <th class="text-left py-2 px-3">Pitcher</th>
                         <th class="text-left py-2 px-3">vs</th>
@@ -34,21 +34,21 @@
                 </thead>
                 <tbody>
                     {% for pick in streaming_picks %}
-                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                        <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30">
+                        <td class="py-2 px-3 text-txt-muted">{{ loop.index }}</td>
                         <td class="py-2 px-3">
                             {{ player_link(pick.player_id, pick.name, pick.team) }}
                         </td>
-                        <td class="py-2 px-3 text-gray-400">{{ pick.opponent }}</td>
-                        <td class="py-2 px-3 text-gray-500 text-xs">{{ pick.park }}</td>
+                        <td class="py-2 px-3 text-txt-secondary">{{ pick.opponent }}</td>
+                        <td class="py-2 px-3 text-txt-muted text-xs">{{ pick.park }}</td>
                         <td class="py-2 px-3 text-right">
-                            <span class="font-medium {% if pick.streaming_score >= 70 %}text-green-400{% elif pick.streaming_score >= 50 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                            <span class="font-medium {% if pick.streaming_score >= 70 %}text-[#2e7d32]{% elif pick.streaming_score >= 50 %}text-[#F57F17]{% else %}text-[#c62828]{% endif %}">
                                 {{ "%.0f"|format(pick.streaming_score) }}
                             </span>
                         </td>
-                        <td class="py-2 px-3 text-right text-gray-300">{{ "%.1f"|format(pick.projected_k) }}</td>
-                        <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(pick.projected_era_for_start) }}</td>
-                        <td class="py-2 px-3 text-gray-500 text-xs max-w-xs truncate">{{ pick.reasoning }}</td>
+                        <td class="py-2 px-3 text-right text-txt-primary">{{ "%.1f"|format(pick.projected_k) }}</td>
+                        <td class="py-2 px-3 text-right text-txt-primary">{{ "%.2f"|format(pick.projected_era_for_start) }}</td>
+                        <td class="py-2 px-3 text-txt-muted text-xs max-w-xs truncate">{{ pick.reasoning }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -56,65 +56,65 @@
         </div>
         {% else %}
         <div class="p-8 text-center">
-            <p class="text-gray-400">No games scheduled today.</p>
+            <p class="text-txt-secondary">No games scheduled today.</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Hitter Stacks -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-        <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Hitter Stacks {{ page_info('hitter-stacks') }}</h3>
-            <p class="text-gray-500 text-xs mt-1">Best offenses to target today</p>
+    <div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
+        <div class="p-4 border-b border-bdr">
+            <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Hitter Stacks {{ page_info('hitter-stacks') }}</h3>
+            <p class="text-txt-muted text-xs mt-1">Best offenses to target today</p>
         </div>
         {% if stacks %}
-        <div class="divide-y divide-gray-700/50">
+        <div class="divide-y divide-bdr/50">
             {% for stack in stacks %}
-            <div class="p-4 hover:bg-gray-700/30">
+            <div class="p-4 hover:bg-surface-elevated/30">
                 <div class="flex justify-between items-start mb-1">
-                    <span class="text-gray-200 font-medium">{{ stack.team }}</span>
-                    <span class="font-medium {% if stack.stack_score >= 60 %}text-green-400{% elif stack.stack_score >= 40 %}text-yellow-400{% else %}text-gray-400{% endif %}">
+                    <span class="text-txt-primary font-medium">{{ stack.team }}</span>
+                    <span class="font-medium {% if stack.stack_score >= 60 %}text-[#2e7d32]{% elif stack.stack_score >= 40 %}text-[#F57F17]{% else %}text-txt-secondary{% endif %}">
                         {{ "%.0f"|format(stack.stack_score) }}
                     </span>
                 </div>
-                <p class="text-gray-400 text-xs">vs {{ stack.opponent_pitcher }} @ {{ stack.park }}</p>
-                <p class="text-gray-500 text-xs mt-1">{{ stack.reasoning }}</p>
+                <p class="text-txt-secondary text-xs">vs {{ stack.opponent_pitcher }} @ {{ stack.park }}</p>
+                <p class="text-txt-muted text-xs mt-1">{{ stack.reasoning }}</p>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <div class="p-8 text-center">
-            <p class="text-gray-400">No stack recommendations today.</p>
+            <p class="text-txt-secondary">No stack recommendations today.</p>
         </div>
         {% endif %}
     </div>
 
     <!-- Two-Start Pitchers -->
-    <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-        <div class="p-4 border-b border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-200">Two-Start Pitchers {{ page_info('two-start-pitchers') }}</h3>
-            <p class="text-gray-500 text-xs mt-1">Pitchers with two starts this week</p>
+    <div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
+        <div class="p-4 border-b border-bdr">
+            <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Two-Start Pitchers {{ page_info('two-start-pitchers') }}</h3>
+            <p class="text-txt-muted text-xs mt-1">Pitchers with two starts this week</p>
         </div>
         {% if two_start %}
-        <div class="divide-y divide-gray-700/50">
+        <div class="divide-y divide-bdr/50">
             {% for pitcher in two_start %}
-            <div class="p-4 hover:bg-gray-700/30">
+            <div class="p-4 hover:bg-surface-elevated/30">
                 <div class="flex justify-between items-start mb-1">
                     <div>
-                        {{ player_link(pitcher.player_id, pitcher.name, pitcher.team, "text-gray-200 font-medium") }}
+                        {{ player_link(pitcher.player_id, pitcher.name, pitcher.team, "text-txt-primary font-medium") }}
                     </div>
-                    <span class="font-medium {% if pitcher.combined_score >= 60 %}text-green-400{% elif pitcher.combined_score >= 40 %}text-yellow-400{% else %}text-red-400{% endif %}">
+                    <span class="font-medium {% if pitcher.combined_score >= 60 %}text-[#2e7d32]{% elif pitcher.combined_score >= 40 %}text-[#F57F17]{% else %}text-[#c62828]{% endif %}">
                         {{ "%.0f"|format(pitcher.combined_score) }}
                     </span>
                 </div>
-                <p class="text-gray-400 text-xs">vs {{ pitcher.start_1_opponent }} / vs {{ pitcher.start_2_opponent }}</p>
-                <p class="text-gray-500 text-xs mt-1">{{ pitcher.reasoning }}</p>
+                <p class="text-txt-secondary text-xs">vs {{ pitcher.start_1_opponent }} / vs {{ pitcher.start_2_opponent }}</p>
+                <p class="text-txt-muted text-xs mt-1">{{ pitcher.reasoning }}</p>
             </div>
             {% endfor %}
         </div>
         {% else %}
         <div class="p-8 text-center">
-            <p class="text-gray-400">No two-start pitchers identified yet.</p>
+            <p class="text-txt-secondary">No two-start pitchers identified yet.</p>
         </div>
         {% endif %}
     </div>

@@ -1,37 +1,37 @@
-<div class="bg-gray-900/60 rounded border border-teal-600/40 p-3 mt-1" data-ai-panel>
+<div class="bg-surface-base/60 rounded border border-teal-600/40 p-3 mt-1" data-ai-panel>
     <div class="flex items-center justify-between mb-2">
-        <h4 class="text-[10px] font-semibold text-teal-400 uppercase tracking-wider">AI Lineup Analysis</h4>
-        <span class="text-[9px] text-gray-600">Source: MLB Official Injury Report</span>
+        <h4 class="text-[10px] font-semibold text-teal-700 uppercase tracking-wider">AI Lineup Analysis</h4>
+        <span class="text-[9px] text-txt-muted">Source: MLB Official Injury Report</span>
     </div>
 
     {% if analysis %}
     <div data-ai-content>
         <script type="text/markdown" data-markdown-source>{{ analysis }}</script>
-        <div data-markdown-target class="prose prose-invert prose-xs max-w-none text-gray-200 text-xs leading-relaxed
-                    [&_strong]:text-white [&_strong]:font-semibold
-                    [&_h1]:text-sm [&_h1]:font-bold [&_h1]:text-teal-300 [&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:pb-1 [&_h1]:border-b [&_h1]:border-gray-700
-                    [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:text-gray-100 [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:pb-1 [&_h2]:border-b [&_h2]:border-gray-700/50
-                    [&_h3]:text-xs [&_h3]:font-medium [&_h3]:text-gray-200 [&_h3]:italic [&_h3]:mt-2 [&_h3]:mb-1
+        <div data-markdown-target class="prose prose-invert prose-xs max-w-none text-txt-primary text-xs leading-relaxed
+                    [&_strong]:text-txt-primary [&_strong]:font-semibold
+                    [&_h1]:text-sm [&_h1]:font-bold [&_h1]:text-teal-700 [&_h1]:mt-3 [&_h1]:mb-1 [&_h1]:pb-1 [&_h1]:border-b [&_h1]:border-bdr
+                    [&_h2]:text-xs [&_h2]:font-semibold [&_h2]:text-txt-primary [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-3 [&_h2]:mb-1 [&_h2]:pb-1 [&_h2]:border-b [&_h2]:border-bdr/50
+                    [&_h3]:text-xs [&_h3]:font-medium [&_h3]:text-txt-primary [&_h3]:italic [&_h3]:mt-2 [&_h3]:mb-1
                     [&_ul]:my-1 [&_ul]:space-y-0.5
                     [&_ol]:my-1 [&_ol]:space-y-0.5
-                    [&_li]:my-0 [&_li]:text-gray-300
-                    [&_li_strong]:text-white
-                    [&_p]:my-1.5 [&_p]:text-gray-300
-                    [&_hr]:border-gray-700 [&_hr]:my-3
-                    [&_blockquote]:border-l-2 [&_blockquote]:border-teal-600 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-400
+                    [&_li]:my-0 [&_li]:text-txt-primary
+                    [&_li_strong]:text-txt-primary
+                    [&_p]:my-1.5 [&_p]:text-txt-primary
+                    [&_hr]:border-bdr [&_hr]:my-3
+                    [&_blockquote]:border-l-2 [&_blockquote]:border-teal-600 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-txt-secondary
                     [&_table]:w-full [&_table]:text-xs
-                    [&_th]:bg-gray-700 [&_th]:text-gray-200 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold
-                    [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-gray-700/50 [&_td]:text-gray-300">
+                    [&_th]:bg-surface-elevated [&_th]:text-txt-primary [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold
+                    [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-bdr/50 [&_td]:text-txt-primary">
         </div>
     </div>
     {% else %}
-    <p class="text-gray-500 text-xs">Analysis could not be generated.</p>
+    <p class="text-txt-muted text-xs">Analysis could not be generated.</p>
     {% endif %}
 
-    <div class="mt-2 pt-2 border-t border-gray-700/50 flex items-center justify-between">
+    <div class="mt-2 pt-2 border-t border-bdr/50 flex items-center justify-between">
         <div class="flex items-center gap-3">
             <button onclick="copyAsRichText(this)"
-                    class="text-[10px] text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                    class="text-[10px] text-txt-secondary hover:text-txt-primary transition-colors flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
                     <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
@@ -39,7 +39,7 @@
                 Copy
             </button>
             <button onclick="emailAnalysis(this, 'Weekly Lineup Analysis')"
-                    class="text-[10px] text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                    class="text-[10px] text-txt-secondary hover:text-txt-primary transition-colors flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
@@ -51,7 +51,7 @@
                 hx-target="#lineup-analysis-container"
                 hx-swap="innerHTML"
                 hx-indicator="#lineup-spinner"
-                class="text-[10px] text-teal-400 hover:text-teal-300 transition-colors">
+                class="text-[10px] text-teal-700 hover:text-teal-700 transition-colors">
             Re-analyze
         </button>
     </div>

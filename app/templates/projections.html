@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
 {% block title %}Projections — Fantasy Baseball{% endblock %}
-{% block nav_projections %}bg-gray-700 text-white{% endblock %}
+{% block nav_projections %}nav-item-active{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-    <h2 class="text-2xl font-bold">Projections {{ page_info('projections') }}</h2>
+    <h2 class="font-display text-3xl font-extrabold text-txt-navy">Projections {{ page_info('projections') }}</h2>
     <div class="flex items-center gap-4">
         {% if available_seasons %}
         <select onchange="window.location.href='/projections?player_type={{ selected_type }}&season=' + this.value"
-                class="bg-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 border border-gray-600 focus:border-blue-500 focus:outline-none">
+                class="bg-surface-elevated text-txt-primary text-sm rounded-lg px-3 py-1.5 border border-bdr-subtle focus:border-accent-primary focus:outline-none">
             {% for yr in available_seasons %}
             <option value="{{ yr }}" {% if yr == selected_season %}selected{% endif %}>{{ yr }}</option>
             {% endfor %}
@@ -20,12 +20,12 @@
         <div class="flex gap-2">
             <a href="/projections?player_type=hitter&season={{ selected_season }}"
                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                      {% if selected_type == 'hitter' %}bg-blue-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                      {% if selected_type == 'hitter' %}bg-accent-primary text-txt-primary{% else %}bg-surface-elevated text-txt-primary hover:bg-surface-elevated{% endif %}">
                 Hitters
             </a>
             <a href="/projections?player_type=pitcher&season={{ selected_season }}"
                class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors
-                      {% if selected_type == 'pitcher' %}bg-blue-600 text-white{% else %}bg-gray-700 text-gray-300 hover:bg-gray-600{% endif %}">
+                      {% if selected_type == 'pitcher' %}bg-accent-primary text-txt-primary{% else %}bg-surface-elevated text-txt-primary hover:bg-surface-elevated{% endif %}">
                 Pitchers
             </a>
         </div>
@@ -35,29 +35,29 @@
 {% if selected_type == 'hitter' or selected_type == 'all' %}
 <!-- Position filter -->
 <div class="flex gap-2 mb-4 flex-wrap items-center">
-    <a href="/projections?player_type=hitter&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">All</a>
+    <a href="/projections?player_type=hitter&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-surface-elevated text-txt-primary{% else %}bg-surface-card text-txt-secondary hover:bg-surface-elevated{% endif %}">All</a>
     {% for pos in ['C', '1B', '2B', '3B', 'SS', 'OF', 'DH'] %}
-    <a href="/projections?player_type=hitter&position={{ pos }}&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == pos %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">{{ pos }}</a>
+    <a href="/projections?player_type=hitter&position={{ pos }}&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == pos %}bg-surface-elevated text-txt-primary{% else %}bg-surface-card text-txt-secondary hover:bg-surface-elevated{% endif %}">{{ pos }}</a>
     {% endfor %}
-    <span class="mx-2 text-gray-600">|</span>
+    <span class="mx-2 text-txt-muted">|</span>
     <button onclick="toggleAdvancedCols('hitter')" id="hitter-adv-toggle"
-            class="px-2 py-1 rounded text-xs bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-600">
+            class="px-2 py-1 rounded text-xs bg-surface-card text-txt-secondary hover:bg-surface-elevated border border-bdr-subtle">
         Show Advanced
     </button>
 </div>
 
 <!-- Hitter Projections Table -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-    <p class="text-sm text-blue-400 font-medium px-3 pt-3">Look for: The Adj FP column — green arrows (▲) flag buy-low candidates whose contact quality (xwOBA) exceeds actual results. Red arrows (▼) are sell-high. The Signal column is your action trigger.</p>
+<div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
+    <p class="text-sm text-accent-link font-medium px-3 pt-3">Look for: The Adj FP column — green arrows (▲) flag buy-low candidates whose contact quality (xwOBA) exceeds actual results. Red arrows (▼) are sell-high. The Signal column is your action trigger.</p>
     {% if hitter_projs %}
     <input type="text" data-table-search="hitter-projections"
            placeholder="Search hitters..."
-           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
+           class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
     <div class="overflow-x-auto">
         <table class="sortable-table w-full text-sm" id="hitter-projections"
                data-default-sort="projected_hr" data-default-dir="desc">
             <thead>
-                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                <tr class="text-txt-secondary border-b border-bdr bg-surface-card/50">
                     <th class="text-left py-2 px-3 row-number">#</th>
                     <th class="text-left py-2 px-3" data-sort="name">Player</th>
                     <th class="text-left py-2 px-1" data-sort="position">Pos</th>
@@ -89,57 +89,57 @@
                 {% for proj in hitter_projs %}
                 {% set adv = hitter_advanced.get(proj.player_id) %}
                 {% set adj = hitter_adj_fp.get(proj.player_id) %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                     data-name="{{ proj.player_name }}" data-team="{{ proj.team }}" data-position="{{ proj.position }}"
                     data-projected_hr="{{ proj.projected_hr }}" data-projected_r="{{ proj.projected_r }}"
                     data-projected_rbi="{{ proj.projected_rbi }}" data-projected_sb="{{ proj.projected_sb }}"
                     data-projected_avg="{{ proj.projected_avg }}" data-projected_ops="{{ proj.projected_ops }}">
-                    <td class="py-2 px-3 text-gray-500 row-number">{{ loop.index }}</td>
+                    <td class="py-2 px-3 text-txt-muted row-number">{{ loop.index }}</td>
                     <td class="py-2 px-3">
                         {{ player_link(proj.player_id, proj.player_name, proj.team) }}
                     </td>
-                    <td class="py-2 px-1 text-gray-400 text-xs">{{ proj.position }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_hr) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_r) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_rbi) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_sb) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.3f"|format(proj.projected_avg) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.3f"|format(proj.projected_ops) }}</td>
+                    <td class="py-2 px-1 text-txt-secondary text-xs">{{ proj.position }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_hr) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_r) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_rbi) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_sb) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.3f"|format(proj.projected_avg) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.3f"|format(proj.projected_ops) }}</td>
                     <!-- Advanced stats cells -->
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.3f"|format(adv.xwoba) if adv and adv.xwoba is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.3f"|format(adv.woba) if adv and adv.woba is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.3f"|format(adv.iso) if adv and adv.iso is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.1f"|format(adv.barrel_pct) if adv and adv.barrel_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.1f"|format(adv.hard_hit_pct) if adv and adv.hard_hit_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.1f"|format(adv.bb_pct) if adv and adv.bb_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.k_pct is not none and adv.k_pct < 18 %}text-green-400{% elif adv and adv.k_pct is not none and adv.k_pct > 25 %}text-red-400{% else %}text-gray-300{% endif %} hitter-adv-col hidden">{{ "%.1f"|format(adv.k_pct) if adv and adv.k_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.1f"|format(adv.sprint_speed) if adv and adv.sprint_speed is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.0f"|format(adv.sb_success_pct) if adv and adv.sb_success_pct is not none else "—" }}{% if adv and adv.sb_success_pct is not none %}%{% endif %}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 hitter-adv-col hidden">{{ "%.3f"|format(adv.babip) if adv and adv.babip is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.3f"|format(adv.xwoba) if adv and adv.xwoba is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.3f"|format(adv.woba) if adv and adv.woba is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.3f"|format(adv.iso) if adv and adv.iso is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.1f"|format(adv.barrel_pct) if adv and adv.barrel_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.1f"|format(adv.hard_hit_pct) if adv and adv.hard_hit_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.1f"|format(adv.bb_pct) if adv and adv.bb_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.k_pct is not none and adv.k_pct < 18 %}text-[#2e7d32]{% elif adv and adv.k_pct is not none and adv.k_pct > 25 %}text-[#c62828]{% else %}text-txt-primary{% endif %} hitter-adv-col hidden">{{ "%.1f"|format(adv.k_pct) if adv and adv.k_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.1f"|format(adv.sprint_speed) if adv and adv.sprint_speed is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.0f"|format(adv.sb_success_pct) if adv and adv.sb_success_pct is not none else "—" }}{% if adv and adv.sb_success_pct is not none %}%{% endif %}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary hitter-adv-col hidden">{{ "%.3f"|format(adv.babip) if adv and adv.babip is not none else "—" }}</td>
                     <!-- Adj FP -->
                     <td class="py-2 px-3 text-right whitespace-nowrap">
                         {% if adj and adj.direction == 'up' %}
-                        <span class="text-green-400" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9650; +{{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
+                        <span class="text-[#2e7d32]" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9650; +{{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
                         {% elif adj and adj.direction == 'down' %}
-                        <span class="text-red-400" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9660; {{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
+                        <span class="text-[#c62828]" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9660; {{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
                         {% elif adj and adj.baseline_fp > 0 %}
-                        <span class="text-gray-400">{{ "%.0f"|format(adj.baseline_fp) }} <span class="text-xs">—</span></span>
+                        <span class="text-txt-secondary">{{ "%.0f"|format(adj.baseline_fp) }} <span class="text-xs">—</span></span>
                         {% else %}
-                        <span class="text-gray-500">—</span>
+                        <span class="text-txt-muted">—</span>
                         {% endif %}
                     </td>
                     <td class="py-2 px-3 text-center">
                         {% if proj.buy_low_signal %}
-                        <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY</span>
+                        <span class="text-[#2e7d32] text-xs font-medium bg-[#e8f5e9] px-1.5 py-0.5 rounded">BUY</span>
                         {% elif proj.sell_high_signal %}
-                        <span class="text-red-400 text-xs font-medium bg-red-900/30 px-1.5 py-0.5 rounded">SELL</span>
+                        <span class="text-[#c62828] text-xs font-medium bg-[#fce4ec] px-1.5 py-0.5 rounded">SELL</span>
                         {% endif %}
                     </td>
-                    <td class="py-2 px-3 text-right {% if proj.xwoba_delta > 0 %}text-green-400{% elif proj.xwoba_delta < 0 %}text-red-400{% else %}text-gray-400{% endif %}">
+                    <td class="py-2 px-3 text-right {% if proj.xwoba_delta > 0 %}text-[#2e7d32]{% elif proj.xwoba_delta < 0 %}text-[#c62828]{% else %}text-txt-secondary{% endif %}">
                         {{ "%+.3f"|format(proj.xwoba_delta) }}
                     </td>
                     <td class="py-2 px-3 text-right">
-                        <div class="w-12 bg-gray-700 rounded-full h-1.5">
+                        <div class="w-12 bg-surface-elevated rounded-full h-1.5">
                             <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ (proj.confidence_score * 100)|int }}%"></div>
                         </div>
                     </td>
@@ -150,8 +150,8 @@
     </div>
     {% else %}
     <div class="p-8 text-center">
-        <p class="text-gray-400">No hitter projections available for {{ selected_season }}.</p>
-        <p class="text-gray-500 text-sm mt-2">
+        <p class="text-txt-secondary">No hitter projections available for {{ selected_season }}.</p>
+        <p class="text-txt-muted text-sm mt-2">
             {% if available_seasons %}
                 Try selecting a different season, or run the stats sync to populate data.
             {% else %}
@@ -166,28 +166,28 @@
 {% if selected_type == 'pitcher' or selected_type == 'all' %}
 <!-- Pitcher position filter -->
 <div class="flex gap-2 mb-4 flex-wrap items-center {% if selected_type == 'all' %}mt-8{% endif %}">
-    <a href="/projections?player_type=pitcher&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">All</a>
-    <a href="/projections?player_type=pitcher&position=SP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'SP' %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">SP</a>
-    <a href="/projections?player_type=pitcher&position=RP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'RP' %}bg-gray-600 text-white{% else %}bg-gray-800 text-gray-400 hover:bg-gray-700{% endif %}">RP</a>
-    <span class="mx-2 text-gray-600">|</span>
+    <a href="/projections?player_type=pitcher&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if not selected_position %}bg-surface-elevated text-txt-primary{% else %}bg-surface-card text-txt-secondary hover:bg-surface-elevated{% endif %}">All</a>
+    <a href="/projections?player_type=pitcher&position=SP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'SP' %}bg-surface-elevated text-txt-primary{% else %}bg-surface-card text-txt-secondary hover:bg-surface-elevated{% endif %}">SP</a>
+    <a href="/projections?player_type=pitcher&position=RP&season={{ selected_season }}" class="px-2 py-1 rounded text-xs {% if selected_position == 'RP' %}bg-surface-elevated text-txt-primary{% else %}bg-surface-card text-txt-secondary hover:bg-surface-elevated{% endif %}">RP</a>
+    <span class="mx-2 text-txt-muted">|</span>
     <button onclick="toggleAdvancedCols('pitcher')" id="pitcher-adv-toggle"
-            class="px-2 py-1 rounded text-xs bg-gray-800 text-gray-400 hover:bg-gray-700 border border-gray-600">
+            class="px-2 py-1 rounded text-xs bg-surface-card text-txt-secondary hover:bg-surface-elevated border border-bdr-subtle">
         Show Advanced
     </button>
 </div>
 
 <!-- Pitcher Projections Table -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-    <p class="text-sm text-blue-400 font-medium px-3 pt-3">Look for: High K projections with low ERA/WHIP. Pitchers with ▲ signals have better underlying stuff than their ERA shows — stream or acquire them.</p>
+<div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
+    <p class="text-sm text-accent-link font-medium px-3 pt-3">Look for: High K projections with low ERA/WHIP. Pitchers with ▲ signals have better underlying stuff than their ERA shows — stream or acquire them.</p>
     {% if pitcher_projs %}
     <input type="text" data-table-search="pitcher-projections"
            placeholder="Search pitchers..."
-           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm text-gray-200 placeholder-gray-500 mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
+           class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-1.5 text-sm text-txt-primary placeholder-txt-muted mb-3 mx-3 mt-3" style="width: calc(100% - 1.5rem);">
     <div class="overflow-x-auto">
         <table class="sortable-table w-full text-sm" id="pitcher-projections"
                data-default-sort="projected_k" data-default-dir="desc">
             <thead>
-                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                <tr class="text-txt-secondary border-b border-bdr bg-surface-card/50">
                     <th class="text-left py-2 px-3 row-number">#</th>
                     <th class="text-left py-2 px-3" data-sort="name">Player</th>
                     <th class="text-left py-2 px-1" data-sort="position">Pos</th>
@@ -217,53 +217,53 @@
                 {% for proj in pitcher_projs %}
                 {% set adv = pitcher_advanced.get(proj.player_id) %}
                 {% set adj = pitcher_adj_fp.get(proj.player_id) %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                     data-name="{{ proj.player_name }}" data-team="{{ proj.team }}" data-position="{{ proj.position }}"
                     data-projected_w="{{ proj.projected_w }}" data-projected_sv="{{ proj.projected_sv }}"
                     data-projected_k="{{ proj.projected_k }}" data-projected_era="{{ proj.projected_era }}"
                     data-projected_whip="{{ proj.projected_whip }}">
-                    <td class="py-2 px-3 text-gray-500 row-number">{{ loop.index }}</td>
+                    <td class="py-2 px-3 text-txt-muted row-number">{{ loop.index }}</td>
                     <td class="py-2 px-3">
                         {{ player_link(proj.player_id, proj.player_name, proj.team) }}
                     </td>
-                    <td class="py-2 px-1 text-gray-400 text-xs">{{ proj.position }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_w) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_sv) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.0f"|format(proj.projected_k) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(proj.projected_era) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">{{ "%.2f"|format(proj.projected_whip) }}</td>
+                    <td class="py-2 px-1 text-txt-secondary text-xs">{{ proj.position }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_w) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_sv) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.0f"|format(proj.projected_k) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.2f"|format(proj.projected_era) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary">{{ "%.2f"|format(proj.projected_whip) }}</td>
                     <!-- Advanced stats cells -->
-                    <td class="py-2 px-3 text-right text-gray-300 pitcher-adv-col hidden">{{ "%.2f"|format(adv.xera) if adv and adv.xera is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 pitcher-adv-col hidden">{{ "%.2f"|format(adv.siera) if adv and adv.siera is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.k_pct is not none and adv.k_pct > 25 %}text-green-400{% elif adv and adv.k_pct is not none and adv.k_pct < 18 %}text-red-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.k_pct) if adv and adv.k_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.bb_pct is not none and adv.bb_pct > 10 %}text-red-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.bb_pct) if adv and adv.bb_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.k_bb_pct is not none and adv.k_bb_pct > 18 %}text-green-400{% elif adv and adv.k_bb_pct is not none and adv.k_bb_pct < 10 %}text-red-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.k_bb_pct) if adv and adv.k_bb_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.gb_pct is not none and adv.gb_pct > 50 %}text-green-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.gb_pct) if adv and adv.gb_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.hr_fb_pct is not none and adv.hr_fb_pct > 15 %}text-red-400{% elif adv and adv.hr_fb_pct is not none and adv.hr_fb_pct < 8 %}text-green-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.hr_fb_pct) if adv and adv.hr_fb_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.whiff_pct is not none and adv.whiff_pct > 30 %}text-green-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.whiff_pct) if adv and adv.whiff_pct is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right {% if adv and adv.gmli is not none and adv.gmli > 1.5 %}text-yellow-400{% else %}text-gray-300{% endif %} pitcher-adv-col hidden">{{ "%.2f"|format(adv.gmli) if adv and adv.gmli is not none else "—" }}</td>
-                    <td class="py-2 px-3 text-right text-gray-300 pitcher-adv-col hidden">{{ "%.2f"|format(adv.ip_per_g) if adv and adv.ip_per_g is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary pitcher-adv-col hidden">{{ "%.2f"|format(adv.xera) if adv and adv.xera is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary pitcher-adv-col hidden">{{ "%.2f"|format(adv.siera) if adv and adv.siera is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.k_pct is not none and adv.k_pct > 25 %}text-[#2e7d32]{% elif adv and adv.k_pct is not none and adv.k_pct < 18 %}text-[#c62828]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.k_pct) if adv and adv.k_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.bb_pct is not none and adv.bb_pct > 10 %}text-[#c62828]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.bb_pct) if adv and adv.bb_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.k_bb_pct is not none and adv.k_bb_pct > 18 %}text-[#2e7d32]{% elif adv and adv.k_bb_pct is not none and adv.k_bb_pct < 10 %}text-[#c62828]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.k_bb_pct) if adv and adv.k_bb_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.gb_pct is not none and adv.gb_pct > 50 %}text-[#2e7d32]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.gb_pct) if adv and adv.gb_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.hr_fb_pct is not none and adv.hr_fb_pct > 15 %}text-[#c62828]{% elif adv and adv.hr_fb_pct is not none and adv.hr_fb_pct < 8 %}text-[#2e7d32]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.hr_fb_pct) if adv and adv.hr_fb_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.whiff_pct is not none and adv.whiff_pct > 30 %}text-[#2e7d32]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.1f"|format(adv.whiff_pct) if adv and adv.whiff_pct is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right {% if adv and adv.gmli is not none and adv.gmli > 1.5 %}text-[#F57F17]{% else %}text-txt-primary{% endif %} pitcher-adv-col hidden">{{ "%.2f"|format(adv.gmli) if adv and adv.gmli is not none else "—" }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary pitcher-adv-col hidden">{{ "%.2f"|format(adv.ip_per_g) if adv and adv.ip_per_g is not none else "—" }}</td>
                     <!-- Adj FP -->
                     <td class="py-2 px-3 text-right whitespace-nowrap">
                         {% if adj and adj.direction == 'up' %}
-                        <span class="text-green-400" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9650; +{{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
+                        <span class="text-[#2e7d32]" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9650; +{{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
                         {% elif adj and adj.direction == 'down' %}
-                        <span class="text-red-400" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9660; {{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
+                        <span class="text-[#c62828]" title="{{ adj.flag_text }}">{{ "%.0f"|format(adj.adjusted_fp) }} <span class="text-xs">&#9660; {{ "%.1f"|format(adj.adjustment_pct) }}%</span></span>
                         {% elif adj and adj.baseline_fp > 0 %}
-                        <span class="text-gray-400">{{ "%.0f"|format(adj.baseline_fp) }} <span class="text-xs">—</span></span>
+                        <span class="text-txt-secondary">{{ "%.0f"|format(adj.baseline_fp) }} <span class="text-xs">—</span></span>
                         {% else %}
-                        <span class="text-gray-500">—</span>
+                        <span class="text-txt-muted">—</span>
                         {% endif %}
                     </td>
                     <td class="py-2 px-3 text-center">
                         {% if proj.buy_low_signal %}
-                        <span class="text-green-400 text-xs font-medium bg-green-900/30 px-1.5 py-0.5 rounded">BUY</span>
+                        <span class="text-[#2e7d32] text-xs font-medium bg-[#e8f5e9] px-1.5 py-0.5 rounded">BUY</span>
                         {% elif proj.sell_high_signal %}
-                        <span class="text-red-400 text-xs font-medium bg-red-900/30 px-1.5 py-0.5 rounded">SELL</span>
+                        <span class="text-[#c62828] text-xs font-medium bg-[#fce4ec] px-1.5 py-0.5 rounded">SELL</span>
                         {% endif %}
                     </td>
                     <td class="py-2 px-3 text-right">
-                        <div class="w-12 bg-gray-700 rounded-full h-1.5">
+                        <div class="w-12 bg-surface-elevated rounded-full h-1.5">
                             <div class="bg-blue-500 h-1.5 rounded-full" style="width: {{ (proj.confidence_score * 100)|int }}%"></div>
                         </div>
                     </td>
@@ -274,8 +274,8 @@
     </div>
     {% else %}
     <div class="p-8 text-center">
-        <p class="text-gray-400">No pitcher projections available for {{ selected_season }}.</p>
-        <p class="text-gray-500 text-sm mt-2">
+        <p class="text-txt-secondary">No pitcher projections available for {{ selected_season }}.</p>
+        <p class="text-txt-muted text-sm mt-2">
             {% if available_seasons %}
                 Try selecting a different season, or run the stats sync to populate data.
             {% else %}
@@ -291,15 +291,15 @@
 {% if buy_low or sell_high %}
 <div class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
     {% if buy_low %}
-    <div class="bg-gray-800 rounded-lg border border-emerald-700/30 overflow-hidden">
-        <div class="px-4 py-3 bg-emerald-900/20 border-b border-emerald-700/30">
-            <h3 class="text-sm font-semibold text-emerald-400 uppercase tracking-wider">Buy Low Candidates {{ page_info('buy-low-candidates') }}</h3>
-            <p class="text-xs text-gray-500 mt-1">Expected performance exceeds actual — likely to improve</p>
+    <div class="bg-surface-card rounded-lg border border-[#c8e6c9] overflow-hidden">
+        <div class="px-4 py-3 bg-[#e8f5e9] border-b border-[#c8e6c9]">
+            <h3 class="text-sm font-semibold text-[#2e7d32] uppercase tracking-wider">Buy Low Candidates {{ page_info('buy-low-candidates') }}</h3>
+            <p class="text-xs text-txt-muted mt-1">Expected performance exceeds actual — likely to improve</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-gray-400 border-b border-gray-700">
+                    <tr class="text-txt-secondary border-b border-bdr">
                         <th class="text-left py-2 px-3">Player</th>
                         <th class="text-right py-2 px-3 whitespace-nowrap">wOBA {{ stat_info('wOBA') }}</th>
                         <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA {{ stat_info('xwOBA') }}</th>
@@ -308,14 +308,14 @@
                 </thead>
                 <tbody>
                     {% for c in buy_low %}
-                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30">
                         <td class="py-2 px-3">
-                            <a href="/player/{{ c.player_id }}" class="text-blue-400 hover:text-blue-300">{{ c.name }}</a>
-                            <span class="text-gray-500 text-xs ml-1">{{ c.team }}</span>
+                            <a href="/player/{{ c.player_id }}" class="text-accent-link hover:text-accent-link">{{ c.name }}</a>
+                            <span class="text-txt-muted text-xs ml-1">{{ c.team }}</span>
                         </td>
-                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.actual_woba) }}</td>
-                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.xwoba) }}</td>
-                        <td class="text-right py-2 px-3 text-emerald-400 font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
+                        <td class="text-right py-2 px-3 text-txt-primary">{{ "%.3f"|format(c.actual_woba) }}</td>
+                        <td class="text-right py-2 px-3 text-txt-primary">{{ "%.3f"|format(c.xwoba) }}</td>
+                        <td class="text-right py-2 px-3 text-[#2e7d32] font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -325,15 +325,15 @@
     {% endif %}
 
     {% if sell_high %}
-    <div class="bg-gray-800 rounded-lg border border-red-700/30 overflow-hidden">
-        <div class="px-4 py-3 bg-red-900/20 border-b border-red-700/30">
-            <h3 class="text-sm font-semibold text-red-400 uppercase tracking-wider">Sell High Candidates {{ page_info('sell-high-candidates') }}</h3>
-            <p class="text-xs text-gray-500 mt-1">Actual performance exceeds expected — likely to regress</p>
+    <div class="bg-surface-card rounded-lg border border-[#f8bbd0]/30 overflow-hidden">
+        <div class="px-4 py-3 bg-[#fce4ec] border-b border-[#f8bbd0]/30">
+            <h3 class="text-sm font-semibold text-[#c62828] uppercase tracking-wider">Sell High Candidates {{ page_info('sell-high-candidates') }}</h3>
+            <p class="text-xs text-txt-muted mt-1">Actual performance exceeds expected — likely to regress</p>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead>
-                    <tr class="text-gray-400 border-b border-gray-700">
+                    <tr class="text-txt-secondary border-b border-bdr">
                         <th class="text-left py-2 px-3">Player</th>
                         <th class="text-right py-2 px-3 whitespace-nowrap">wOBA {{ stat_info('wOBA') }}</th>
                         <th class="text-right py-2 px-3 whitespace-nowrap">xwOBA {{ stat_info('xwOBA') }}</th>
@@ -342,14 +342,14 @@
                 </thead>
                 <tbody>
                     {% for c in sell_high %}
-                    <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
+                    <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30">
                         <td class="py-2 px-3">
-                            <a href="/player/{{ c.player_id }}" class="text-blue-400 hover:text-blue-300">{{ c.name }}</a>
-                            <span class="text-gray-500 text-xs ml-1">{{ c.team }}</span>
+                            <a href="/player/{{ c.player_id }}" class="text-accent-link hover:text-accent-link">{{ c.name }}</a>
+                            <span class="text-txt-muted text-xs ml-1">{{ c.team }}</span>
                         </td>
-                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.actual_woba) }}</td>
-                        <td class="text-right py-2 px-3 text-gray-300">{{ "%.3f"|format(c.xwoba) }}</td>
-                        <td class="text-right py-2 px-3 text-red-400 font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
+                        <td class="text-right py-2 px-3 text-txt-primary">{{ "%.3f"|format(c.actual_woba) }}</td>
+                        <td class="text-right py-2 px-3 text-txt-primary">{{ "%.3f"|format(c.xwoba) }}</td>
+                        <td class="text-right py-2 px-3 text-[#c62828] font-medium">{{ "%+.3f"|format(c.xwoba_delta) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -373,10 +373,10 @@ function toggleAdvancedCols(type) {
         }
     });
     btn.textContent = isHidden ? 'Hide Advanced' : 'Show Advanced';
-    btn.classList.toggle('bg-blue-600', isHidden);
-    btn.classList.toggle('text-white', isHidden);
-    btn.classList.toggle('bg-gray-800', !isHidden);
-    btn.classList.toggle('text-gray-400', !isHidden);
+    btn.classList.toggle('bg-accent-primary', isHidden);
+    btn.classList.toggle('text-txt-primary', isHidden);
+    btn.classList.toggle('bg-surface-card', !isHidden);
+    btn.classList.toggle('text-txt-secondary', !isHidden);
 }
 </script>
 {% endblock %}

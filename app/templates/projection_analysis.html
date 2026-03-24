@@ -1,101 +1,101 @@
 {% extends "base.html" %}
 
 {% block title %}Projection Analysis — Fantasy Baseball{% endblock %}
-{% block nav_projection_analysis %}bg-gray-700 text-white{% endblock %}
+{% block nav_projection_analysis %}nav-item-active{% endblock %}
 
 {% from "macros/info_icon.html" import page_info %}
 
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-    <h2 class="text-2xl font-bold">
+    <h2 class="font-display text-3xl font-extrabold text-txt-navy">
         Projection Analysis {{ page_info('projection-analysis') }}
     </h2>
-    <span class="text-sm text-gray-500">{{ season }} Season</span>
+    <span class="text-sm text-txt-muted">{{ season }} Season</span>
 </div>
 
 {% if summary.weeks_played == 0 %}
 {# ── Empty state ── #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-    <p class="text-gray-400 text-lg mb-2">No completed matchup weeks yet</p>
-    <p class="text-gray-500 text-sm">Projection accuracy data will appear here after your first completed H2H matchup week. Check back after Week 1 ends.</p>
+<div class="bg-surface-card rounded-lg border border-bdr p-8 text-center">
+    <p class="text-txt-secondary text-lg mb-2">No completed matchup weeks yet</p>
+    <p class="text-txt-muted text-sm">Projection accuracy data will appear here after your first completed H2H matchup week. Check back after Week 1 ends.</p>
 </div>
 
 {% else %}
-<p class="text-sm text-blue-400 font-medium mb-4">Look for: Which projection system (Yahoo vs yours) has lower MAE — that's the one to trust more for lineup decisions. Directional accuracy (correctly predicting wins) matters most for weekly strategy.</p>
+<p class="text-sm text-accent-link font-medium mb-4">Look for: Which projection system (Yahoo vs yours) has lower MAE — that's the one to trust more for lineup decisions. Directional accuracy (correctly predicting wins) matters most for weekly strategy.</p>
 {# ── Season Summary Cards ── #}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     {# MAE Comparison #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Mean Absolute Error</h3>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">Mean Absolute Error</h3>
         <div class="flex items-end justify-between">
             <div>
-                <p class="text-[10px] text-gray-500 mb-0.5">Yahoo</p>
-                <p class="text-2xl font-bold {% if summary.yahoo_mae <= summary.app_mae %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Yahoo</p>
+                <p class="text-2xl font-bold {% if summary.yahoo_mae <= summary.app_mae %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.yahoo_mae }}
                 </p>
             </div>
-            <div class="text-gray-600 text-lg px-2">vs</div>
+            <div class="text-txt-muted text-lg px-2">vs</div>
             <div class="text-right">
-                <p class="text-[10px] text-gray-500 mb-0.5">Mine</p>
-                <p class="text-2xl font-bold {% if summary.app_mae <= summary.yahoo_mae %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Mine</p>
+                <p class="text-2xl font-bold {% if summary.app_mae <= summary.yahoo_mae %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.app_mae }}
                 </p>
             </div>
         </div>
-        <p class="text-[10px] text-gray-600 mt-2">Lower is better — average pts off from actual</p>
+        <p class="text-[10px] text-txt-muted mt-2">Lower is better — average pts off from actual</p>
     </div>
 
     {# Directional Accuracy #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Predicted Winner Correctly</h3>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">Predicted Winner Correctly</h3>
         <div class="flex items-end justify-between">
             <div>
-                <p class="text-[10px] text-gray-500 mb-0.5">Yahoo</p>
-                <p class="text-2xl font-bold {% if summary.yahoo_direction_pct >= summary.app_direction_pct %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Yahoo</p>
+                <p class="text-2xl font-bold {% if summary.yahoo_direction_pct >= summary.app_direction_pct %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.yahoo_direction_pct }}%
                 </p>
             </div>
-            <div class="text-gray-600 text-lg px-2">vs</div>
+            <div class="text-txt-muted text-lg px-2">vs</div>
             <div class="text-right">
-                <p class="text-[10px] text-gray-500 mb-0.5">Mine</p>
-                <p class="text-2xl font-bold {% if summary.app_direction_pct >= summary.yahoo_direction_pct %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Mine</p>
+                <p class="text-2xl font-bold {% if summary.app_direction_pct >= summary.yahoo_direction_pct %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.app_direction_pct }}%
                 </p>
             </div>
         </div>
-        <p class="text-[10px] text-gray-600 mt-2">Higher is better — correctly called W/L</p>
+        <p class="text-[10px] text-txt-muted mt-2">Higher is better — correctly called W/L</p>
     </div>
 
     {# Closer Count #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Weeks Closer to Actual</h3>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">Weeks Closer to Actual</h3>
         <div class="flex items-end justify-between">
             <div>
-                <p class="text-[10px] text-gray-500 mb-0.5">Yahoo</p>
-                <p class="text-2xl font-bold {% if summary.yahoo_closer_count >= summary.app_closer_count %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Yahoo</p>
+                <p class="text-2xl font-bold {% if summary.yahoo_closer_count >= summary.app_closer_count %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.yahoo_closer_count }}
                 </p>
             </div>
-            <div class="text-gray-600 text-lg px-2">vs</div>
+            <div class="text-txt-muted text-lg px-2">vs</div>
             <div class="text-right">
-                <p class="text-[10px] text-gray-500 mb-0.5">Mine</p>
-                <p class="text-2xl font-bold {% if summary.app_closer_count >= summary.yahoo_closer_count %}text-green-400{% else %}text-gray-300{% endif %}">
+                <p class="text-[10px] text-txt-muted mb-0.5">Mine</p>
+                <p class="text-2xl font-bold {% if summary.app_closer_count >= summary.yahoo_closer_count %}text-[#2e7d32]{% else %}text-txt-primary{% endif %}">
                     {{ summary.app_closer_count }}
                 </p>
             </div>
         </div>
-        <p class="text-[10px] text-gray-600 mt-2">Out of {{ summary.weeks_played }} completed weeks</p>
+        <p class="text-[10px] text-txt-muted mt-2">Out of {{ summary.weeks_played }} completed weeks</p>
     </div>
 </div>
 
 {# ── Week-by-Week Table ── #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-    <h3 class="text-lg font-semibold text-gray-200 mb-4">Week-by-Week Breakdown</h3>
+<div class="bg-surface-card rounded-lg border border-bdr p-5">
+    <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary mb-4">Week-by-Week Breakdown</h3>
     <div class="overflow-x-auto">
         <table class="sortable-table w-full text-sm" id="week-breakdown"
                data-default-sort="week" data-default-dir="asc">
             <thead>
-                <tr class="text-gray-500 border-b border-gray-700 text-xs uppercase tracking-wider">
+                <tr class="text-txt-muted border-b border-bdr text-xs uppercase tracking-wider">
                     <th class="text-left py-2 px-3" data-sort="week">Week</th>
                     <th class="text-left py-2 px-3" data-sort="opponent">Opponent</th>
                     <th class="text-right py-2 px-3" data-sort="my_yahoo_proj">Yahoo Proj</th>
@@ -109,38 +109,38 @@
             </thead>
             <tbody>
                 {% for w in weeks %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                     data-week="{{ w.week }}" data-opponent="{{ w.opponent }}"
                     data-my_yahoo_proj="{{ w.my_yahoo_proj }}" data-my_app_proj="{{ w.my_app_proj }}"
                     data-my_actual="{{ w.my_actual }}" data-yahoo_error="{{ w.yahoo_error }}"
                     data-app_error="{{ w.app_error }}">
-                    <td class="py-2 px-3 text-gray-300">{{ w.week }}</td>
-                    <td class="py-2 px-3 text-gray-300">{{ w.opponent }}</td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ "%.1f"|format(w.my_yahoo_proj) }}</td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ "%.1f"|format(w.my_app_proj) }}</td>
-                    <td class="py-2 px-3 text-right text-white font-medium">{{ "%.1f"|format(w.my_actual) }}</td>
-                    <td class="py-2 px-3 text-right {% if w.yahoo_error <= w.app_error %}text-green-400 font-medium{% else %}text-gray-500{% endif %}">
+                    <td class="py-2 px-3 text-txt-primary">{{ w.week }}</td>
+                    <td class="py-2 px-3 text-txt-primary">{{ w.opponent }}</td>
+                    <td class="py-2 px-3 text-right text-txt-secondary">{{ "%.1f"|format(w.my_yahoo_proj) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-secondary">{{ "%.1f"|format(w.my_app_proj) }}</td>
+                    <td class="py-2 px-3 text-right text-txt-primary font-medium">{{ "%.1f"|format(w.my_actual) }}</td>
+                    <td class="py-2 px-3 text-right {% if w.yahoo_error <= w.app_error %}text-[#2e7d32] font-medium{% else %}text-txt-muted{% endif %}">
                         {{ "%.1f"|format(w.yahoo_error) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if w.app_error <= w.yahoo_error %}text-green-400 font-medium{% else %}text-gray-500{% endif %}">
+                    <td class="py-2 px-3 text-right {% if w.app_error <= w.yahoo_error %}text-[#2e7d32] font-medium{% else %}text-txt-muted{% endif %}">
                         {{ "%.1f"|format(w.app_error) }}
                     </td>
                     <td class="py-2 px-3 text-center">
                         {% if w.closer == "Yahoo" %}
-                        <span class="text-yellow-400 text-xs font-medium">Yahoo</span>
+                        <span class="text-[#F57F17] text-xs font-medium">Yahoo</span>
                         {% elif w.closer == "Mine" %}
-                        <span class="text-blue-400 text-xs font-medium">Mine</span>
+                        <span class="text-accent-link text-xs font-medium">Mine</span>
                         {% else %}
-                        <span class="text-gray-500 text-xs">Tie</span>
+                        <span class="text-txt-muted text-xs">Tie</span>
                         {% endif %}
                     </td>
                     <td class="py-2 px-3 text-center">
                         {% if w.tied %}
-                        <span class="text-gray-500 font-medium">T</span>
+                        <span class="text-txt-muted font-medium">T</span>
                         {% elif w.won %}
-                        <span class="text-green-400 font-medium">W</span>
+                        <span class="text-[#2e7d32] font-medium">W</span>
                         {% else %}
-                        <span class="text-red-400 font-medium">L</span>
+                        <span class="text-[#c62828] font-medium">L</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -150,7 +150,7 @@
     </div>
 
     {% if summary.weeks_played < 4 %}
-    <p class="text-[10px] text-gray-600 mt-3 italic">
+    <p class="text-[10px] text-txt-muted mt-3 italic">
         Accuracy metrics become more meaningful with 4+ weeks of data. Early results may be noisy.
     </p>
     {% endif %}
@@ -162,35 +162,35 @@
 <h2 class="text-xl font-bold mt-8 mb-1">
     League-Wide Projection Accuracy {{ page_info('league-projection-accuracy') }}
 </h2>
-<p class="text-sm text-blue-400 font-medium mb-4">Look for: The most predictable teams are safer to project against in matchups. Volatile teams create upset risk — avoid betting heavily on or against them.</p>
+<p class="text-sm text-accent-link font-medium mb-4">Look for: The most predictable teams are safer to project against in matchups. Volatile teams create upset risk — avoid betting heavily on or against them.</p>
 
 {# Summary Cards #}
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">League Avg Yahoo MAE</h3>
-        <p class="text-2xl font-bold text-gray-200">{{ league_summary.league_avg_mae }}</p>
-        <p class="text-[10px] text-gray-600 mt-1">Across all {{ league_summary.weeks_tracked }} weeks, all teams</p>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">League Avg Yahoo MAE</h3>
+        <p class="text-2xl font-bold text-txt-primary">{{ league_summary.league_avg_mae }}</p>
+        <p class="text-[10px] text-txt-muted mt-1">Across all {{ league_summary.weeks_tracked }} weeks, all teams</p>
     </div>
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Most Predictable Team</h3>
-        <p class="text-lg font-bold text-green-400">{{ league_summary.most_predictable }}</p>
-        <p class="text-sm text-gray-400">MAE: {{ league_summary.most_predictable_mae }}</p>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">Most Predictable Team</h3>
+        <p class="text-lg font-bold text-[#2e7d32]">{{ league_summary.most_predictable }}</p>
+        <p class="text-sm text-txt-secondary">MAE: {{ league_summary.most_predictable_mae }}</p>
     </div>
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-        <h3 class="text-xs text-gray-500 uppercase tracking-wider mb-3">Most Volatile Team</h3>
-        <p class="text-lg font-bold text-yellow-400">{{ league_summary.most_volatile }}</p>
-        <p class="text-sm text-gray-400">Std Dev: {{ league_summary.most_volatile_std }}</p>
+    <div class="bg-surface-card rounded-lg border border-bdr p-4">
+        <h3 class="text-xs text-txt-muted uppercase tracking-wider mb-3">Most Volatile Team</h3>
+        <p class="text-lg font-bold text-[#F57F17]">{{ league_summary.most_volatile }}</p>
+        <p class="text-sm text-txt-secondary">Std Dev: {{ league_summary.most_volatile_std }}</p>
     </div>
 </div>
 
 {# Team Predictability Table #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-5">
-    <h3 class="text-lg font-semibold text-gray-200 mb-4">Team Predictability Rankings</h3>
+<div class="bg-surface-card rounded-lg border border-bdr p-5">
+    <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary mb-4">Team Predictability Rankings</h3>
     <div class="overflow-x-auto">
         <table class="sortable-table w-full text-sm" id="team-predictability"
                data-default-sort="yahoo_mae" data-default-dir="asc">
             <thead>
-                <tr class="text-gray-500 border-b border-gray-700 text-xs uppercase tracking-wider">
+                <tr class="text-txt-muted border-b border-bdr text-xs uppercase tracking-wider">
                     <th class="text-left py-2 px-3" data-sort="name">Team</th>
                     <th class="text-right py-2 px-3" data-sort="yahoo_mae">Yahoo MAE</th>
                     <th class="text-right py-2 px-3" data-sort="avg_weekly_pts">Avg Weekly Pts</th>
@@ -201,22 +201,22 @@
             </thead>
             <tbody>
                 {% for team in league_teams %}
-                <tr class="border-b border-gray-700/50 {% if team.is_my_team %}bg-blue-900/20{% endif %} hover:bg-gray-700/30"
+                <tr class="border-b border-bdr/50 {% if team.is_my_team %}bg-surface-warm{% endif %} hover:bg-surface-elevated/30"
                     data-name="{{ team.name }}" data-yahoo_mae="{{ team.yahoo_mae }}"
                     data-avg_weekly_pts="{{ team.avg_weekly_pts }}" data-volatility="{{ team.volatility }}"
                     data-weeks_over="{{ team.weeks_over }}" data-weeks_under="{{ team.weeks_under }}">
-                    <td class="py-2 px-3 {% if team.is_my_team %}text-blue-300 font-medium{% else %}text-gray-300{% endif %}">
+                    <td class="py-2 px-3 {% if team.is_my_team %}text-accent-link font-medium{% else %}text-txt-primary{% endif %}">
                         {{ team.name }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if team.yahoo_mae <= league_summary.league_avg_mae %}text-green-400{% else %}text-gray-400{% endif %}">
+                    <td class="py-2 px-3 text-right {% if team.yahoo_mae <= league_summary.league_avg_mae %}text-[#2e7d32]{% else %}text-txt-secondary{% endif %}">
                         {{ team.yahoo_mae }}
                     </td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ team.avg_weekly_pts }}</td>
-                    <td class="py-2 px-3 text-right {% if team.volatility > league_summary.most_volatile_std * 0.8 %}text-yellow-400{% else %}text-gray-400{% endif %}">
+                    <td class="py-2 px-3 text-right text-txt-secondary">{{ team.avg_weekly_pts }}</td>
+                    <td class="py-2 px-3 text-right {% if team.volatility > league_summary.most_volatile_std * 0.8 %}text-[#F57F17]{% else %}text-txt-secondary{% endif %}">
                         {{ team.volatility }}
                     </td>
-                    <td class="py-2 px-3 text-right text-red-400/70">{{ team.weeks_over }}</td>
-                    <td class="py-2 px-3 text-right text-blue-400/70">{{ team.weeks_under }}</td>
+                    <td class="py-2 px-3 text-right text-[#c62828]/70">{{ team.weeks_over }}</td>
+                    <td class="py-2 px-3 text-right text-accent-link/70">{{ team.weeks_under }}</td>
                 </tr>
                 {% endfor %}
             </tbody>

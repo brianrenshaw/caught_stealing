@@ -1,11 +1,12 @@
-{% macro player_link(player_id, name, team=None, classes="text-gray-200") %}
+{% macro player_link(player_id, name, team=None, classes="") %}
 {% if player_id %}
 <a hx-get="/api/player/{{ player_id }}"
    hx-target="#player-modal-content"
    hx-swap="innerHTML"
-   class="{{ classes }} hover:text-blue-400 cursor-pointer transition-colors player-link">{{ name }}</a>
+   class="{{ classes }} cursor-pointer transition-colors player-link"
+   style="color: var(--text-primary);">{{ name }}</a>
 {% else %}
-<span class="{{ classes }}">{{ name }}</span>
+<span class="{{ classes }}" style="color: var(--text-primary);">{{ name }}</span>
 {% endif %}
-{% if team %}<span class="text-gray-500 text-xs ml-1">{{ team }}</span>{% endif %}
+{% if team %}<span class="text-xs ml-1" style="color: var(--text-muted);">{{ team }}</span>{% endif %}
 {% endmacro %}

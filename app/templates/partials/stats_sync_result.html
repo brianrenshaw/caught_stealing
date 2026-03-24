@@ -1,27 +1,27 @@
 {% if result.status == "success" %}
-<div class="bg-green-900/50 border border-green-700 rounded-lg p-4 mt-3">
-    <p class="text-green-300 font-semibold">Stats sync complete ({{ result.season }})</p>
-    <p class="text-green-400 text-sm mt-1">
+<div class="bg-[#e8f5e9] border border-[#c8e6c9] rounded-lg p-4 mt-3">
+    <p class="text-[#2e7d32] font-semibold">Stats sync complete ({{ result.season }})</p>
+    <p class="text-[#2e7d32] text-sm mt-1">
         {{ result.batting_stats|default(0) }} batting, {{ result.pitching_stats|default(0) }} pitching,
         {{ result.statcast_batters|default(0) }} Statcast batters, {{ result.statcast_pitchers|default(0) }} Statcast pitchers
         — {{ result.duration_seconds }}s
     </p>
     {% if result.statcast_batters_error %}
-    <p class="text-yellow-400 text-xs mt-1">Statcast batters: {{ result.statcast_batters_error }}</p>
+    <p class="text-[#F57F17] text-xs mt-1">Statcast batters: {{ result.statcast_batters_error }}</p>
     {% endif %}
     {% if result.statcast_pitchers_error %}
-    <p class="text-yellow-400 text-xs mt-1">Statcast pitchers: {{ result.statcast_pitchers_error }}</p>
+    <p class="text-[#F57F17] text-xs mt-1">Statcast pitchers: {{ result.statcast_pitchers_error }}</p>
     {% endif %}
     <script>setTimeout(() => location.reload(), 1500)</script>
 </div>
 {% elif result.status == "cooldown" %}
-<div class="bg-yellow-900/50 border border-yellow-700 rounded-lg p-4 mt-3">
-    <p class="text-yellow-300 font-semibold">Cooldown active</p>
-    <p class="text-yellow-400 text-sm mt-1">{{ result.message }}</p>
+<div class="bg-[#FFF8E1] border border-yellow-700 rounded-lg p-4 mt-3">
+    <p class="text-[#F57F17] font-semibold">Cooldown active</p>
+    <p class="text-[#F57F17] text-sm mt-1">{{ result.message }}</p>
 </div>
 {% else %}
-<div class="bg-red-900/50 border border-red-700 rounded-lg p-4 mt-3">
-    <p class="text-red-300 font-semibold">Stats sync failed</p>
-    <p class="text-red-400 text-sm mt-1">{{ result.message }}</p>
+<div class="bg-[#fce4ec] border border-[#f8bbd0] rounded-lg p-4 mt-3">
+    <p class="text-red-700 font-semibold">Stats sync failed</p>
+    <p class="text-[#c62828] text-sm mt-1">{{ result.message }}</p>
 </div>
 {% endif %}

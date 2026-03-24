@@ -1,16 +1,16 @@
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% if error %}
 <div class="p-6 text-center">
-    <p class="text-red-400">{{ error }}</p>
-    <button onclick="closePlayerModal()" class="mt-3 text-gray-400 hover:text-white text-sm">Close</button>
+    <p class="text-[#c62828]">{{ error }}</p>
+    <button onclick="closePlayerModal()" class="mt-3 text-txt-secondary hover:text-txt-primary text-sm">Close</button>
 </div>
 {% else %}
 <div class="p-5">
     <!-- Header -->
     <div class="flex justify-between items-start mb-4">
         <div>
-            <h3 class="text-xl font-bold text-white">{{ player.name }}</h3>
-            <p class="text-sm text-gray-400">{{ player.team or "N/A" }} — {{ player.position or "N/A" }}</p>
+            <h3 class="text-xl font-bold text-txt-primary">{{ player.name }}</h3>
+            <p class="text-sm text-txt-secondary">{{ player.team or "N/A" }} — {{ player.position or "N/A" }}</p>
             <div class="mt-1">
                 {% if available_seasons %}
                 <select hx-get="/api/player/{{ player.id }}"
@@ -18,78 +18,78 @@
                         hx-swap="innerHTML"
                         hx-include="this"
                         name="season"
-                        class="bg-gray-700 text-gray-200 text-xs rounded px-2 py-0.5 border border-gray-600 focus:border-blue-500 focus:outline-none cursor-pointer">
+                        class="bg-surface-elevated text-txt-primary text-xs rounded px-2 py-0.5 border border-bdr-subtle focus:border-accent-primary focus:outline-none cursor-pointer">
                     {% for yr in available_seasons %}
                     <option value="{{ yr }}" {% if yr == season %}selected{% endif %}>{{ yr }} Season</option>
                     {% endfor %}
                 </select>
                 {% else %}
-                <span class="text-xs text-gray-500">{{ season }} Season</span>
+                <span class="text-xs text-txt-muted">{{ season }} Season</span>
                 {% endif %}
             </div>
         </div>
         <div class="flex items-center gap-2">
             <button data-compare-player='{{ {"id": player.id, "name": player.name, "team": player.team or "", "position": player.position or "", "headshot_url": "https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/" ~ player.mlbam_id ~ "/headshot/67/current" if player.mlbam_id else none} | tojson }}'
                     onclick="addToCompare(JSON.parse(this.dataset.comparePlayer))"
-                    class="text-gray-400 hover:text-blue-400 text-xs px-2 py-1 rounded border border-gray-600 hover:border-blue-500 transition-colors"
+                    class="text-txt-secondary hover:text-accent-link text-xs px-2 py-1 rounded border border-bdr-subtle hover:border-accent-primary transition-colors"
                     title="Add to comparison">⚖️ Compare</button>
             <button onclick="closePlayerModal()"
-                    class="text-gray-500 hover:text-white text-xl leading-none px-1">&times;</button>
+                    class="text-txt-muted hover:text-txt-primary text-xl leading-none px-1">&times;</button>
         </div>
     </div>
 
     {% if batting %}
     <!-- Batting Stats -->
     <div class="mb-4">
-        <h4 class="text-sm font-semibold text-blue-400 mb-2 uppercase tracking-wide">Batting {{ page_info('player-card') }}</h4>
+        <h4 class="text-sm font-semibold text-accent-link mb-2 uppercase tracking-wide">Batting {{ page_info('player-card') }}</h4>
         <div class="grid grid-cols-4 gap-2">
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">PA {{ stat_info('PA') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.pa|int if batting.pa else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">PA {{ stat_info('PA') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.pa|int if batting.pa else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">HR {{ stat_info('HR') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.hr|int if batting.hr else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">HR {{ stat_info('HR') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.hr|int if batting.hr else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">R {{ stat_info('R') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.r|int if batting.r else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">R {{ stat_info('R') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.r|int if batting.r else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">RBI {{ stat_info('RBI') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.rbi|int if batting.rbi else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">RBI {{ stat_info('RBI') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.rbi|int if batting.rbi else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">SB {{ stat_info('SB') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.sb|int if batting.sb else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">SB {{ stat_info('SB') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.sb|int if batting.sb else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">AVG {{ stat_info('AVG') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(batting.avg) if batting.avg else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">AVG {{ stat_info('AVG') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(batting.avg) if batting.avg else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">OBP {{ stat_info('OBP') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(batting.obp) if batting.obp else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">OBP {{ stat_info('OBP') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(batting.obp) if batting.obp else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">SLG {{ stat_info('SLG') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(batting.slg) if batting.slg else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">SLG {{ stat_info('SLG') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(batting.slg) if batting.slg else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">OPS {{ stat_info('OPS') }}</div>
-                <div class="text-sm text-yellow-300 font-mono font-semibold">{{ "%.3f"|format(batting.ops) if batting.ops else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">OPS {{ stat_info('OPS') }}</div>
+                <div class="text-sm text-[#F57F17] font-mono font-semibold">{{ "%.3f"|format(batting.ops) if batting.ops else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">wOBA {{ stat_info('wOBA') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(batting.woba) if batting.woba else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">wOBA {{ stat_info('wOBA') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(batting.woba) if batting.woba else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">wRC+ {{ stat_info('wRC+') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.wrc_plus|int if batting.wrc_plus else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">wRC+ {{ stat_info('wRC+') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.wrc_plus|int if batting.wrc_plus else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">H {{ stat_info('H') }}</div>
-                <div class="text-sm text-white font-mono">{{ batting.h|int if batting.h else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">H {{ stat_info('H') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ batting.h|int if batting.h else "—" }}</div>
             </div>
         </div>
     </div>
@@ -98,55 +98,55 @@
     {% if pitching %}
     <!-- Pitching Stats -->
     <div class="mb-4">
-        <h4 class="text-sm font-semibold text-green-400 mb-2 uppercase tracking-wide">Pitching {{ page_info('player-card') }}</h4>
+        <h4 class="text-sm font-semibold text-[#2e7d32] mb-2 uppercase tracking-wide">Pitching {{ page_info('player-card') }}</h4>
         <div class="grid grid-cols-4 gap-2">
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">IP {{ stat_info('IP') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(pitching.ip) if pitching.ip else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">IP {{ stat_info('IP') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(pitching.ip) if pitching.ip else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">W {{ stat_info('W') }}</div>
-                <div class="text-sm text-white font-mono">{{ pitching.w|int if pitching.w else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">W {{ stat_info('W') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ pitching.w|int if pitching.w else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">L {{ stat_info('L') }}</div>
-                <div class="text-sm text-white font-mono">{{ pitching.l|int if pitching.l else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">L {{ stat_info('L') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ pitching.l|int if pitching.l else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">SV {{ stat_info('SV') }}</div>
-                <div class="text-sm text-white font-mono">{{ pitching.sv|int if pitching.sv else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">SV {{ stat_info('SV') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ pitching.sv|int if pitching.sv else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">K {{ stat_info('K') }}</div>
-                <div class="text-sm text-white font-mono">{{ pitching.so|int if pitching.so else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">K {{ stat_info('K') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ pitching.so|int if pitching.so else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">ERA {{ stat_info('ERA') }}</div>
-                <div class="text-sm text-yellow-300 font-mono font-semibold">{{ "%.2f"|format(pitching.era) if pitching.era else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">ERA {{ stat_info('ERA') }}</div>
+                <div class="text-sm text-[#F57F17] font-mono font-semibold">{{ "%.2f"|format(pitching.era) if pitching.era else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">WHIP {{ stat_info('WHIP') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.2f"|format(pitching.whip) if pitching.whip else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">WHIP {{ stat_info('WHIP') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.2f"|format(pitching.whip) if pitching.whip else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">K/9 {{ stat_info('K/9') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(pitching.k_per_9) if pitching.k_per_9 else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">K/9 {{ stat_info('K/9') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(pitching.k_per_9) if pitching.k_per_9 else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">BB/9 {{ stat_info('BB/9') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(pitching.bb_per_9) if pitching.bb_per_9 else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">BB/9 {{ stat_info('BB/9') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(pitching.bb_per_9) if pitching.bb_per_9 else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">FIP {{ stat_info('FIP') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.2f"|format(pitching.fip) if pitching.fip else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">FIP {{ stat_info('FIP') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.2f"|format(pitching.fip) if pitching.fip else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xFIP {{ stat_info('xFIP') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.2f"|format(pitching.xfip) if pitching.xfip else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xFIP {{ stat_info('xFIP') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.2f"|format(pitching.xfip) if pitching.xfip else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">HR {{ stat_info('HR') }}</div>
-                <div class="text-sm text-white font-mono">{{ pitching.hr|int if pitching.hr else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">HR {{ stat_info('HR') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ pitching.hr|int if pitching.hr else "—" }}</div>
             </div>
         </div>
     </div>
@@ -155,39 +155,39 @@
     {% if statcast_bat %}
     <!-- Statcast Batting -->
     <div class="mb-4">
-        <h4 class="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wide">Statcast {{ page_info('statcast-tab') }}</h4>
+        <h4 class="text-sm font-semibold text-purple-700 mb-2 uppercase tracking-wide">Statcast {{ page_info('statcast-tab') }}</h4>
         <div class="grid grid-cols-4 gap-2">
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Avg EV {{ stat_info('Avg EV') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_bat.avg_exit_velo) if statcast_bat.avg_exit_velo else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Avg EV {{ stat_info('Avg EV') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_bat.avg_exit_velo) if statcast_bat.avg_exit_velo else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Max EV {{ stat_info('Max EV') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_bat.max_exit_velo) if statcast_bat.max_exit_velo else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Max EV {{ stat_info('Max EV') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_bat.max_exit_velo) if statcast_bat.max_exit_velo else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Barrel% {{ stat_info('Barrel%') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_bat.barrel_pct) if statcast_bat.barrel_pct else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Barrel% {{ stat_info('Barrel%') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_bat.barrel_pct) if statcast_bat.barrel_pct else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Hard Hit% {{ stat_info('Hard Hit%') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_bat.hard_hit_pct) if statcast_bat.hard_hit_pct else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Hard Hit% {{ stat_info('Hard Hit%') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_bat.hard_hit_pct) if statcast_bat.hard_hit_pct else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xBA {{ stat_info('xBA') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(statcast_bat.xba) if statcast_bat.xba else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xBA {{ stat_info('xBA') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(statcast_bat.xba) if statcast_bat.xba else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xSLG {{ stat_info('xSLG') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(statcast_bat.xslg) if statcast_bat.xslg else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xSLG {{ stat_info('xSLG') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(statcast_bat.xslg) if statcast_bat.xslg else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xwOBA {{ stat_info('xwOBA') }}</div>
-                <div class="text-sm text-purple-300 font-mono font-semibold">{{ "%.3f"|format(statcast_bat.xwoba) if statcast_bat.xwoba else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xwOBA {{ stat_info('xwOBA') }}</div>
+                <div class="text-sm text-purple-700 font-mono font-semibold">{{ "%.3f"|format(statcast_bat.xwoba) if statcast_bat.xwoba else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Sweet Spot% {{ stat_info('Sweet Spot%') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_bat.sweet_spot_pct) if statcast_bat.sweet_spot_pct else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Sweet Spot% {{ stat_info('Sweet Spot%') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_bat.sweet_spot_pct) if statcast_bat.sweet_spot_pct else "—" }}</div>
             </div>
         </div>
     </div>
@@ -196,31 +196,31 @@
     {% if statcast_pitch %}
     <!-- Statcast Pitching -->
     <div class="mb-4">
-        <h4 class="text-sm font-semibold text-purple-400 mb-2 uppercase tracking-wide">Statcast (Pitching) {{ page_info('statcast-tab') }}</h4>
+        <h4 class="text-sm font-semibold text-purple-700 mb-2 uppercase tracking-wide">Statcast (Pitching) {{ page_info('statcast-tab') }}</h4>
         <div class="grid grid-cols-4 gap-2">
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Avg EV {{ stat_info('Avg EV') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_pitch.avg_exit_velo) if statcast_pitch.avg_exit_velo else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Avg EV {{ stat_info('Avg EV') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_pitch.avg_exit_velo) if statcast_pitch.avg_exit_velo else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Barrel% {{ stat_info('Barrel%') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_pitch.barrel_pct) if statcast_pitch.barrel_pct else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Barrel% {{ stat_info('Barrel%') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_pitch.barrel_pct) if statcast_pitch.barrel_pct else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">Hard Hit% {{ stat_info('Hard Hit%') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.1f"|format(statcast_pitch.hard_hit_pct) if statcast_pitch.hard_hit_pct else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">Hard Hit% {{ stat_info('Hard Hit%') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.1f"|format(statcast_pitch.hard_hit_pct) if statcast_pitch.hard_hit_pct else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xBA {{ stat_info('xBA') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(statcast_pitch.xba) if statcast_pitch.xba else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xBA {{ stat_info('xBA') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(statcast_pitch.xba) if statcast_pitch.xba else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xSLG {{ stat_info('xSLG') }}</div>
-                <div class="text-sm text-white font-mono">{{ "%.3f"|format(statcast_pitch.xslg) if statcast_pitch.xslg else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xSLG {{ stat_info('xSLG') }}</div>
+                <div class="text-sm text-txt-primary font-mono">{{ "%.3f"|format(statcast_pitch.xslg) if statcast_pitch.xslg else "—" }}</div>
             </div>
-            <div class="bg-gray-700/50 rounded px-2 py-1.5 text-center">
-                <div class="text-xs text-gray-400">xwOBA {{ stat_info('xwOBA') }}</div>
-                <div class="text-sm text-purple-300 font-mono font-semibold">{{ "%.3f"|format(statcast_pitch.xwoba) if statcast_pitch.xwoba else "—" }}</div>
+            <div class="bg-surface-elevated/50 rounded px-2 py-1.5 text-center">
+                <div class="text-xs text-txt-secondary">xwOBA {{ stat_info('xwOBA') }}</div>
+                <div class="text-sm text-purple-700 font-mono font-semibold">{{ "%.3f"|format(statcast_pitch.xwoba) if statcast_pitch.xwoba else "—" }}</div>
             </div>
         </div>
     </div>
@@ -228,8 +228,8 @@
 
     {% if not batting and not pitching and not statcast_bat and not statcast_pitch %}
     <div class="text-center py-4">
-        <p class="text-gray-400 text-sm">No stats available for {{ season }}.</p>
-        <p class="text-gray-500 text-xs mt-1">Try syncing stats first.</p>
+        <p class="text-txt-secondary text-sm">No stats available for {{ season }}.</p>
+        <p class="text-txt-muted text-xs mt-1">Try syncing stats first.</p>
     </div>
     {% endif %}
 </div>

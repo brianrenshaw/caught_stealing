@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block title %}Compare Projections — Fantasy Baseball{% endblock %}
-{% block nav_projections %}bg-gray-700 text-white{% endblock %}
+{% block nav_projections %}nav-item-active{% endblock %}
 
 {% block content %}
 <div class="flex items-center justify-between mb-6">
     <div>
-        <h2 class="text-2xl font-bold text-white">Projection Comparison {{ page_info('projection-comparison') }}</h2>
-        <p class="text-gray-400 text-sm mt-1">Compare up to 4 players side by side</p>
+        <h2 class="font-display text-3xl font-extrabold text-txt-navy">Projection Comparison {{ page_info('projection-comparison') }}</h2>
+        <p class="text-txt-secondary text-sm mt-1">Compare up to 4 players side by side</p>
     </div>
-    <a href="/projections" class="text-blue-400 hover:text-blue-300 text-sm">Back to Projections</a>
+    <a href="/projections" class="text-accent-link hover:text-accent-link text-sm">Back to Projections</a>
 </div>
 
 {# ── Player Search to Add ── #}
-<div class="mb-6 bg-gray-800 rounded-lg border border-gray-700 p-4">
-    <label class="text-sm text-gray-400 block mb-2">Search players to compare:</label>
+<div class="mb-6 bg-surface-card rounded-lg border border-bdr p-4">
+    <label class="text-sm text-txt-secondary block mb-2">Search players to compare:</label>
     <div class="flex gap-3">
         <div class="relative flex-1">
             <input type="search" id="compare-search" placeholder="Type a player name..."
@@ -23,18 +23,18 @@
                    hx-trigger="keyup changed delay:300ms"
                    hx-target="#compare-dropdown"
                    hx-params="q"
-                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2
-                          text-sm text-gray-200 placeholder-gray-500
-                          focus:outline-none focus:border-blue-500">
+                   class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-2
+                          text-sm text-txt-primary placeholder-txt-muted
+                          focus:outline-none focus:border-accent-primary">
             <div id="compare-dropdown" class="relative"></div>
         </div>
     </div>
     <div id="selected-players" class="flex gap-2 mt-3 flex-wrap">
         {% for comp in comparisons %}
-        <span class="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-sm flex items-center gap-2"
+        <span class="bg-accent-primary/20 text-accent-link px-3 py-1 rounded-full text-sm flex items-center gap-2"
               data-player-id="{{ comp.player.id }}">
             {{ comp.player.name }}
-            <button onclick="removePlayer({{ comp.player.id }})" class="text-blue-300 hover:text-white">&times;</button>
+            <button onclick="removePlayer({{ comp.player.id }})" class="text-accent-link hover:text-txt-primary">&times;</button>
         </span>
         {% endfor %}
     </div>
@@ -42,18 +42,18 @@
 
 {% if comparisons %}
 {# ── Side-by-side Table ── #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden mb-6">
+<div class="bg-surface-card rounded-lg border border-bdr overflow-hidden mb-6">
     <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
-                <tr class="text-gray-400 border-b border-gray-700 bg-gray-800/50">
+                <tr class="text-txt-secondary border-b border-bdr bg-surface-card/50">
                     <th class="text-left py-2 px-3">Stat</th>
                     {% for comp in comparisons %}
                     <th class="text-right py-2 px-3">
-                        <a href="/player/{{ comp.player.id }}" class="text-blue-400 hover:text-blue-300">
+                        <a href="/player/{{ comp.player.id }}" class="text-accent-link hover:text-accent-link">
                             {{ comp.player.name }}
                         </a>
-                        <div class="text-xs text-gray-500 font-normal">{{ comp.player.team }} &middot; {{ comp.player.position }}</div>
+                        <div class="text-xs text-txt-muted font-normal">{{ comp.player.team }} &middot; {{ comp.player.position }}</div>
                     </th>
                     {% endfor %}
                 </tr>
@@ -72,11 +72,11 @@
                 {% endfor %}
 
                 {% for stat_name in all_stats %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td class="py-2 px-3 text-gray-300 font-medium">{{ stat_name }}</td>
+                <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30">
+                    <td class="py-2 px-3 text-txt-primary font-medium">{{ stat_name }}</td>
                     {% for comp in comparisons %}
                     {% set blended = comp.projections.get("blended", {}) %}
-                    <td class="text-right py-2 px-3 text-gray-200">
+                    <td class="text-right py-2 px-3 text-txt-primary">
                         {% set val = blended.get(stat_name) %}
                         {% if val is not none %}
                             {% if stat_name in ("AVG", "OBP", "SLG", "OPS", "wOBA", "WHIP") %}
@@ -99,8 +99,8 @@
 </div>
 
 {# ── Radar Chart ── #}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-4">
-    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Visual Comparison</h3>
+<div class="bg-surface-card rounded-lg border border-bdr p-4">
+    <h3 class="text-sm font-semibold text-txt-secondary uppercase tracking-wider mb-3">Visual Comparison</h3>
     <div id="radar-chart" style="height: 450px;"></div>
 </div>
 
@@ -162,8 +162,8 @@
 })();
 </script>
 {% else %}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-12 text-center">
-    <p class="text-gray-400">Search and select players above to compare their projections.</p>
+<div class="bg-surface-card rounded-lg border border-bdr p-12 text-center">
+    <p class="text-txt-secondary">Search and select players above to compare their projections.</p>
 </div>
 {% endif %}
 

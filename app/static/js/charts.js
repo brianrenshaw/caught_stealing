@@ -1,22 +1,22 @@
 /**
  * Reusable Plotly chart builders for the Fantasy Baseball Stats Dashboard.
- * Dark theme matching Tailwind gray-900/800 palette.
+ * Cardinals CSS Design System — light mode.
  */
 
 const CHART_THEME = {
     paper_bgcolor: 'transparent',
-    plot_bgcolor: '#1f2937',
-    font: { color: '#d1d5db', size: 12 },
+    plot_bgcolor: '#FFFFFF',
+    font: { color: '#4A5568', size: 12, family: 'Inter, Helvetica, Arial, sans-serif' },
     margin: { t: 30, r: 30, b: 50, l: 60 },
     hovermode: 'closest',
 };
 
-const GRID_COLOR = '#374151';
+const GRID_COLOR = '#f0eded';
 
 const MARKER_STYLES = {
-    my_team: { symbol: 'star', size: 14, color: '#fbbf24', line: { width: 1, color: '#f59e0b' } },
-    rostered: { symbol: 'circle', size: 8, color: '#60a5fa', opacity: 0.7 },
-    free_agent: { symbol: 'x', size: 8, color: '#34d399', opacity: 0.6 },
+    my_team: { symbol: 'star', size: 14, color: '#FEDB00', line: { width: 1, color: '#C41E3A' } },
+    rostered: { symbol: 'circle', size: 8, color: '#C41E3A', opacity: 0.7 },
+    free_agent: { symbol: 'x', size: 8, color: '#0C2340', opacity: 0.6 },
 };
 
 /**
@@ -48,7 +48,7 @@ function buildScatterChart(containerId, data, config = {}) {
                 color: colorStat ? subset.map(d => d[colorStat] || 0) : style.color,
                 colorscale: colorStat ? 'Viridis' : undefined,
                 showscale: colorStat ? label === 'Free Agent' : false,
-                colorbar: colorStat ? { title: colorStat, tickfont: { color: '#9ca3af' } } : undefined,
+                colorbar: colorStat ? { title: colorStat, tickfont: { color: '#888888' } } : undefined,
                 opacity: style.opacity || 0.8,
                 line: style.line || { width: 0 },
             },
@@ -73,8 +73,8 @@ function buildScatterChart(containerId, data, config = {}) {
             type: 'scatter',
             name: highlighted.name,
             textposition: 'top center',
-            textfont: { color: '#f87171', size: 13, family: 'sans-serif' },
-            marker: { symbol: 'diamond', size: 18, color: '#f87171', line: { width: 2, color: '#ffffff' } },
+            textfont: { color: '#C41E3A', size: 13, family: 'sans-serif' },
+            marker: { symbol: 'diamond', size: 18, color: '#C41E3A', line: { width: 2, color: '#FFFFFF' } },
             hovertemplate: `<b>%{text}</b><br>${xLabel}: %{x}<br>${yLabel}: %{y}<extra></extra>`,
         });
     }
@@ -88,14 +88,14 @@ function buildScatterChart(containerId, data, config = {}) {
             type: 'line',
             x0: minVal, y0: minVal,
             x1: maxVal, y1: maxVal,
-            line: { color: '#6b7280', width: 2, dash: 'dash' },
+            line: { color: '#888888', width: 2, dash: 'dash' },
             layer: 'below',
         });
     }
 
     const layout = {
         ...CHART_THEME,
-        title: { text: title, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: title, font: { size: 14, color: '#0C2340' } },
         xaxis: { title: xLabel, gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
         yaxis: { title: yLabel, gridcolor: GRID_COLOR, zerolinecolor: GRID_COLOR },
         legend: { orientation: 'h', y: -0.15, font: { size: 11 } },
@@ -129,8 +129,8 @@ function buildBarChart(containerId, data, config = {}) {
     const { label = 'Value', title = '', referenceLine = null, highlightPlayerId = null } = config;
 
     const colors = data.map(d => {
-        if (highlightPlayerId && d.player_id === highlightPlayerId) return '#f87171';
-        return d.is_my_team ? '#fbbf24' : (d.is_rostered ? '#60a5fa' : '#34d399');
+        if (highlightPlayerId && d.player_id === highlightPlayerId) return '#C41E3A';
+        return d.is_my_team ? '#FEDB00' : (d.is_rostered ? '#C41E3A' : '#0C2340');
     });
 
     const trace = {
@@ -149,13 +149,13 @@ function buildBarChart(containerId, data, config = {}) {
             type: 'line',
             x0: referenceLine, x1: referenceLine,
             y0: -0.5, y1: data.length - 0.5,
-            line: { color: '#ef4444', width: 2, dash: 'dash' },
+            line: { color: '#C41E3A', width: 2, dash: 'dash' },
         });
     }
 
     const layout = {
         ...CHART_THEME,
-        title: { text: title, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: title, font: { size: 14, color: '#0C2340' } },
         xaxis: { title: label, gridcolor: GRID_COLOR },
         yaxis: { gridcolor: GRID_COLOR, tickfont: { size: 11 } },
         margin: { ...CHART_THEME.margin, l: 120 },
@@ -192,7 +192,7 @@ function buildDistribution(containerId, data, config = {}) {
         x: data.values,
         type: 'histogram',
         nbinsx: bins,
-        marker: { color: '#3b82f6', opacity: 0.7 },
+        marker: { color: '#C41E3A', opacity: 0.7 },
         name: data.stat || 'Primary',
     }];
 
@@ -202,7 +202,7 @@ function buildDistribution(containerId, data, config = {}) {
             x: compareData.values,
             type: 'histogram',
             nbinsx: bins,
-            marker: { color: '#f97316', opacity: 0.5 },
+            marker: { color: '#0C2340', opacity: 0.5 },
             name: compareData.stat || 'Compare',
         });
     }
@@ -214,20 +214,20 @@ function buildDistribution(containerId, data, config = {}) {
             type: 'line',
             x0: data.highlight_value, x1: data.highlight_value,
             y0: 0, y1: 1, yref: 'paper',
-            line: { color: '#fbbf24', width: 3 },
+            line: { color: '#FEDB00', width: 3 },
         });
         annotations.push({
             x: data.highlight_value, y: 1, yref: 'paper',
             text: data.highlight_name || '',
             showarrow: true, arrowhead: 2,
-            font: { color: '#fbbf24', size: 12 },
-            arrowcolor: '#fbbf24',
+            font: { color: '#FEDB00', size: 12 },
+            arrowcolor: '#FEDB00',
         });
     }
 
     const layout = {
         ...CHART_THEME,
-        title: { text: title, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: title, font: { size: 14, color: '#0C2340' } },
         xaxis: { title: data.stat, gridcolor: GRID_COLOR },
         yaxis: { title: 'Count', gridcolor: GRID_COLOR },
         shapes: shapes,
@@ -268,7 +268,7 @@ function buildRollingChart(containerId, data, config = {}) {
 
     const layout = {
         ...CHART_THEME,
-        title: { text: title, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: title, font: { size: 14, color: '#0C2340' } },
         xaxis: { gridcolor: GRID_COLOR },
         yaxis: { gridcolor: GRID_COLOR },
         legend: { orientation: 'h', y: -0.15 },
@@ -300,13 +300,13 @@ function buildRadarChart(containerId, players, config = {}) {
 
     const layout = {
         ...CHART_THEME,
-        title: { text: title, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: title, font: { size: 14, color: '#0C2340' } },
         polar: {
-            bgcolor: '#1f2937',
-            radialaxis: { visible: true, gridcolor: GRID_COLOR, linecolor: GRID_COLOR, tickfont: { color: '#9ca3af' } },
-            angularaxis: { gridcolor: GRID_COLOR, linecolor: GRID_COLOR, tickfont: { color: '#d1d5db' } },
+            bgcolor: '#FFFFFF',
+            radialaxis: { visible: true, gridcolor: GRID_COLOR, linecolor: GRID_COLOR, tickfont: { color: '#888888' } },
+            angularaxis: { gridcolor: GRID_COLOR, linecolor: GRID_COLOR, tickfont: { color: '#0C2340' } },
         },
-        legend: { font: { color: '#d1d5db' } },
+        legend: { font: { color: '#0C2340' } },
     };
 
     const radarEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;

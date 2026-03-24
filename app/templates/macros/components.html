@@ -1,0 +1,137 @@
+{# ══════════════════════════════════════════════════════════════
+   Cardinals CSS Component Macros
+   Usage: {% from "macros/components.html" import card, badge, stat_pill, stat_val, btn_primary, btn_secondary %}
+   ══════════════════════════════════════════════════════════════ #}
+
+{# ── Card ──
+   Wrap content in {% call card("Title", subtitle="Optional") %}...{% endcall %}
+#}
+{% macro card(title="", subtitle="", extra_class="", header_right="") %}
+<div class="card {{ extra_class }}">
+    {% if title %}
+    <div class="card-header flex items-center justify-between">
+        <div>
+            <h3 class="font-display text-sm font-bold" style="color: #0C2340;">{{ title }}</h3>
+            {% if subtitle %}<p class="text-sm mt-0.5" style="color: #4A5568;">{{ subtitle }}</p>{% endif %}
+        </div>
+        {% if header_right %}{{ header_right }}{% endif %}
+    </div>
+    {% endif %}
+    <div class="card-body">
+        {{ caller() }}
+    </div>
+</div>
+{% endmacro %}
+
+{# ── Card (no padding body) ── for tables that need edge-to-edge layout #}
+{% macro card_flush(title="", subtitle="", extra_class="", header_right="") %}
+<div class="card {{ extra_class }}">
+    {% if title %}
+    <div class="card-header flex items-center justify-between">
+        <div>
+            <h3 class="font-display text-sm font-bold" style="color: #0C2340;">{{ title }}</h3>
+            {% if subtitle %}<p class="text-sm mt-0.5" style="color: #4A5568;">{{ subtitle }}</p>{% endif %}
+        </div>
+        {% if header_right %}{{ header_right }}{% endif %}
+    </div>
+    {% endif %}
+    <div>
+        {{ caller() }}
+    </div>
+</div>
+{% endmacro %}
+
+{# ── Badge ──
+   Cardinals CSS sentiment badge system
+   Variants: positive/add/start, negative/drop/sit, warning/stream, info/watch/hold, hot, cold, default
+   {{ badge("BUY LOW", "positive") }}
+#}
+{% macro badge(text, variant="default") %}
+{% set styles = {
+    "positive": "background: #e8f5e9; color: #2e7d32;",
+    "add": "background: #e8f5e9; color: #2e7d32;",
+    "start": "background: #e8f5e9; color: #2e7d32;",
+    "negative": "background: #fce4ec; color: #c62828;",
+    "drop": "background: #fce4ec; color: #c62828;",
+    "sit": "background: #fce4ec; color: #c62828;",
+    "hot": "background: #fce4ec; color: #c62828;",
+    "warning": "background: #FFF8E1; color: #F57F17;",
+    "stream": "background: #FFF8E1; color: #F57F17;",
+    "info": "background: #f5f5f5; color: #616161;",
+    "watch": "background: #f5f5f5; color: #616161;",
+    "hold": "background: #f5f5f5; color: #616161;",
+    "cold": "background: #f5f5f5; color: #0C2340;",
+    "default": "background: #f5f5f5; color: #616161;"
+} %}
+<span class="badge"
+      style="{{ styles.get(variant, styles['default']) }}">{{ text }}</span>
+{% endmacro %}
+
+{# ── Stat Pill ──
+   Compact stat display block for player cards
+   {{ stat_pill("HR", "32", highlight=true) }}
+#}
+{% macro stat_pill(label, value, highlight=false) %}
+<div class="rounded px-3 py-2 text-center" style="background: #FAFAFA;">
+    <div class="text-xs" style="color: #888;">{{ label }}</div>
+    <div class="font-mono text-sm {% if highlight %}font-bold{% endif %}"
+         style="color: {% if highlight %}#C41E3A{% else %}#0C2340{% endif %};">
+        {{ value if value is not none else "—" }}
+    </div>
+</div>
+{% endmacro %}
+
+{# ── Stat Value (auto-colored number) ──
+   {{ stat_val(player.hr, positive_good=true) }}
+   {{ stat_val(player.era, positive_good=false, fmt="%.2f") }}
+#}
+{% macro stat_val(value, positive_good=true, fmt=None) %}
+{% if value is none or value == "" %}
+<span class="font-mono" style="color: #888;">—</span>
+{% else %}
+{% set display = (fmt % value) if fmt else value %}
+{% if value is number %}
+{% if (positive_good and value > 0) or (not positive_good and value < 0) %}
+<span class="font-mono" style="color: #2e7d32;">{{ display }}</span>
+{% elif (positive_good and value < 0) or (not positive_good and value > 0) %}
+<span class="font-mono" style="color: #c62828;">{{ display }}</span>
+{% else %}
+<span class="font-mono" style="color: #333;">{{ display }}</span>
+{% endif %}
+{% else %}
+<span class="font-mono" style="color: #333;">{{ display }}</span>
+{% endif %}
+{% endif %}
+{% endmacro %}
+
+{# ── Buttons ── #}
+{% macro btn_primary(text, extra_class="", type="button") %}
+<button type="{{ type }}" class="px-4 py-2 rounded text-sm font-semibold text-white transition-colors {{ extra_class }}"
+        style="background: #C41E3A;"
+        onmouseover="this.style.background='#A8182F'"
+        onmouseout="this.style.background='#C41E3A'">
+    {{ text }}
+</button>
+{% endmacro %}
+
+{% macro btn_secondary(text, extra_class="", type="button") %}
+<button type="{{ type }}" class="px-4 py-2 rounded text-sm font-semibold transition-colors {{ extra_class }}"
+        style="background: transparent; border: 1px solid #E2D9D9; color: #0C2340;"
+        onmouseover="this.style.background='#FDF5F6'"
+        onmouseout="this.style.background='transparent'">
+    {{ text }}
+</button>
+{% endmacro %}
+
+{# ── Section Header ── #}
+{% macro section_header(title, subtitle="") %}
+<div class="mb-6">
+    <h2 class="font-display text-2xl font-bold" style="color: #0C2340;">{{ title }}</h2>
+    {% if subtitle %}<p class="text-sm mt-1" style="color: #4A5568;">{{ subtitle }}</p>{% endif %}
+</div>
+{% endmacro %}
+
+{# ── Page Title ── #}
+{% macro page_title(title, info_key="") %}
+<h1 class="font-display text-[22px] font-bold" style="color: #0C2340;">{{ title }}</h1>
+{% endmacro %}

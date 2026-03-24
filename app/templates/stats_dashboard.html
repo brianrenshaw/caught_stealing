@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Stats Explorer — Fantasy Baseball{% endblock %}
-{% block nav_stats %}bg-gray-700 text-white{% endblock %}
+{% block nav_stats %}nav-item-active{% endblock %}
 
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-    <h1 class="text-2xl font-bold text-white">Stats Explorer {{ page_info('stats-explorer') }}</h1>
+    <h1 class="font-display text-3xl font-extrabold text-txt-navy">Stats Explorer {{ page_info('stats-explorer') }}</h1>
     <div class="flex items-center gap-3">
         {# ── Player Highlight Search ── #}
         <div class="relative" id="highlight-search-container">
             <input type="search" id="highlight-search" placeholder="Highlight player..."
                    autocomplete="off"
-                   class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-52
-                          focus:outline-none focus:border-blue-500"
+                   class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary w-52
+                          focus:outline-none focus:border-accent-primary"
                    oninput="onPlayerSearch(this.value)">
             <div id="highlight-dropdown" class="absolute z-50 w-64 mt-1"></div>
         </div>
-        <button id="clear-highlight-btn" class="hidden text-xs text-gray-400 hover:text-white px-1"
+        <button id="clear-highlight-btn" class="hidden text-xs text-txt-secondary hover:text-txt-primary px-1"
                 onclick="clearHighlight()">&times; Clear</button>
-        <div class="w-px h-5 bg-gray-600"></div>
-        <label class="text-gray-400 text-sm">Season:</label>
-        <select id="season-select" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+        <div class="w-px h-5 bg-surface-elevated"></div>
+        <label class="text-txt-secondary text-sm">Season:</label>
+        <select id="season-select" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary"
                 onchange="reloadCharts()">
             {% for s in available_seasons %}
             <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
             {% endfor %}
         </select>
-        <label class="text-gray-400 text-sm">Min PA:</label>
+        <label class="text-txt-secondary text-sm">Min PA:</label>
         <input type="number" id="min-pa" value="50" min="0" step="10"
-               class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200 w-20"
+               class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary w-20"
                onchange="reloadCharts()">
-        <div class="w-px h-5 bg-gray-600"></div>
-        <label class="text-gray-400 text-sm">Show:</label>
-        <select id="roster-filter" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-200"
+        <div class="w-px h-5 bg-surface-elevated"></div>
+        <label class="text-txt-secondary text-sm">Show:</label>
+        <select id="roster-filter" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary"
                 onchange="reloadCharts()">
             <option value="free_agents" selected>Free Agents</option>
             <option value="rostered">Rostered</option>
@@ -44,43 +44,43 @@
 
 {# ── Player Spotlight Panel (hidden until player highlighted) ── #}
 <div id="player-spotlight" class="hidden mb-6">
-    <div class="bg-gray-800 rounded-lg border border-blue-600/40 p-5">
+    <div class="bg-surface-card rounded-lg border border-blue-600/40 p-5">
         {# Summary Card #}
         <div class="flex flex-wrap items-center justify-between mb-2 gap-2">
             <div class="flex flex-wrap items-center gap-3">
-                <h3 id="spotlight-name" class="text-xl md:text-2xl font-bold text-white"></h3>
-                <span id="spotlight-meta" class="text-sm md:text-base text-gray-400"></span>
-                <span id="spotlight-owner" class="text-xs md:text-sm px-2 py-0.5 rounded bg-gray-700 text-gray-400"></span>
+                <h3 id="spotlight-name" class="text-xl md:text-2xl font-bold text-txt-primary"></h3>
+                <span id="spotlight-meta" class="text-sm md:text-base text-txt-secondary"></span>
+                <span id="spotlight-owner" class="text-xs md:text-sm px-2 py-0.5 rounded bg-surface-elevated text-txt-secondary"></span>
             </div>
-            <span class="text-xs md:text-sm text-gray-600">Player Spotlight</span>
+            <span class="text-xs md:text-sm text-txt-muted">Player Spotlight</span>
         </div>
-        <p id="spotlight-summary-text" class="text-sm md:text-base text-gray-400 mb-4"></p>
+        <p id="spotlight-summary-text" class="text-sm md:text-base text-txt-secondary mb-4"></p>
         {# Key Stats Row #}
-        <p class="text-xs md:text-sm text-gray-500 mb-1">Key stats — <span class="text-green-400">green</span> = above average, <span class="text-red-400">red</span> = below average</p>
+        <p class="text-xs md:text-sm text-txt-muted mb-1">Key stats — <span class="text-[#2e7d32]">green</span> = above average, <span class="text-[#c62828]">red</span> = below average</p>
         <div id="spotlight-stats" class="grid grid-cols-5 md:grid-cols-10 gap-2 mb-5"></div>
         {# Rolling Trends + Percentiles + Radar #}
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
             <div class="xl:col-span-1">
-                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Trend (Full Season → Last 7 Days)</h4>
-                <p class="text-xs md:text-sm text-gray-500 mb-2">Rising lines = hot streak. Falling = cold streak. Compare full-season baseline to recent windows to spot momentum.</p>
-                <div id="spotlight-rolling" class="bg-gray-900/50 rounded border border-gray-700 p-2" style="height: 280px;"></div>
+                <h4 class="text-xs md:text-sm text-txt-secondary uppercase tracking-wider font-semibold mb-1">Trend (Full Season → Last 7 Days)</h4>
+                <p class="text-xs md:text-sm text-txt-muted mb-2">Rising lines = hot streak. Falling = cold streak. Compare full-season baseline to recent windows to spot momentum.</p>
+                <div id="spotlight-rolling" class="bg-surface-inset/50 rounded border border-bdr p-2" style="height: 280px;"></div>
             </div>
             <div class="xl:col-span-1">
-                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Percentiles vs League</h4>
-                <p class="text-xs md:text-sm text-gray-500 mb-2">Where this player ranks vs all qualified players. <span class="text-green-400">75th+</span> elite · <span class="text-blue-400">50-74th</span> above avg · <span class="text-yellow-400">25-49th</span> below avg · <span class="text-red-400">&lt;25th</span> poor</p>
-                <div id="spotlight-percentiles" class="bg-gray-900/50 rounded border border-gray-700 p-3 overflow-y-auto" style="height: 280px;"></div>
+                <h4 class="text-xs md:text-sm text-txt-secondary uppercase tracking-wider font-semibold mb-1">Percentiles vs League</h4>
+                <p class="text-xs md:text-sm text-txt-muted mb-2">Where this player ranks vs all qualified players. <span class="text-[#2e7d32]">75th+</span> elite · <span class="text-accent-link">50-74th</span> above avg · <span class="text-[#F57F17]">25-49th</span> below avg · <span class="text-[#c62828]">&lt;25th</span> poor</p>
+                <div id="spotlight-percentiles" class="bg-surface-inset/50 rounded border border-bdr p-3 overflow-y-auto" style="height: 280px;"></div>
             </div>
             <div class="xl:col-span-1">
-                <h4 class="text-xs md:text-sm text-gray-400 uppercase tracking-wider font-semibold mb-1">Player Profile</h4>
-                <p class="text-xs md:text-sm text-gray-500 mb-2">Blue = this player, orange = league avg. Bigger shape = better. Spikes = strengths, dips = weaknesses.</p>
-                <div id="spotlight-radar" class="bg-gray-900/50 rounded border border-gray-700 p-2" style="height: 280px;"></div>
+                <h4 class="text-xs md:text-sm text-txt-secondary uppercase tracking-wider font-semibold mb-1">Player Profile</h4>
+                <p class="text-xs md:text-sm text-txt-muted mb-2">Blue = this player, orange = league avg. Bigger shape = better. Spikes = strengths, dips = weaknesses.</p>
+                <div id="spotlight-radar" class="bg-surface-inset/50 rounded border border-bdr p-2" style="height: 280px;"></div>
             </div>
         </div>
     </div>
 </div>
 
 {# ── Tab Navigation ── #}
-<div class="border-b border-gray-700 mb-6">
+<div class="border-b border-bdr mb-6">
     <nav class="flex gap-6 -mb-px" id="stats-tabs">
         <button onclick="switchView('statcast')" class="stats-tab-btn pb-3 text-sm font-medium border-b-2" data-view="statcast">
             Statcast
@@ -95,7 +95,7 @@
 </div>
 
 {% macro stat_select(id, options, default, onchange) %}
-<select id="{{ id }}" class="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-gray-300" onchange="{{ onchange }}">
+<select id="{{ id }}" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary" onchange="{{ onchange }}">
     {% for val, label in options %}
     <option value="{{ val }}" {% if val == default %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
@@ -114,44 +114,44 @@
 <div id="view-statcast" class="stats-view">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {# Card: Statcast Scatter #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
                 {{ stat_select("sc-scatter-x", sc_stats, "avg_exit_velo", "loadStatcastCharts()") }}
-                <span class="text-gray-600 text-sm font-medium">vs</span>
+                <span class="text-txt-muted text-sm font-medium">vs</span>
                 {{ stat_select("sc-scatter-y", sc_stats, "barrel_pct", "loadStatcastCharts()") }}
             </div>
-            <div id="desc-sc-scatter" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="desc-sc-scatter" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
             <div id="chart-ev-barrel" class="flex-shrink-0" style="height: 400px;"></div>
-            <div id="top10-sc-scatter" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-sc-scatter" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
         {# Card: Luck Chart #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
-                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">xwOBA vs wOBA (Luck Chart)</h3>
+                <h3 class="text-sm font-semibold text-txt-primary uppercase tracking-wider">xwOBA vs wOBA (Luck Chart)</h3>
             </div>
-            <div class="text-sm text-gray-500 mb-2 leading-relaxed">
-                <div><strong class="text-gray-300">xwOBA:</strong> Expected performance based on contact quality. <strong class="text-gray-300">wOBA:</strong> Actual results.</div>
-                <div class="text-gray-400 italic">Above the diagonal = overperforming (lucky). Below = underperforming (unlucky). Best way to find trade regression candidates.</div>
+            <div class="text-sm text-txt-muted mb-2 leading-relaxed">
+                <div><strong class="text-txt-primary">xwOBA:</strong> Expected performance based on contact quality. <strong class="text-txt-primary">wOBA:</strong> Actual results.</div>
+                <div class="text-txt-secondary italic">Above the diagonal = overperforming (lucky). Below = underperforming (unlucky). Best way to find trade regression candidates.</div>
                 <div class="flex gap-4 mt-1">
-                    <span class="text-green-400">Good: xwOBA .370+</span>
-                    <span class="text-gray-500">Avg: .310-.369</span>
-                    <span class="text-red-400">Bad: &lt; .310</span>
+                    <span class="text-[#2e7d32]">Good: xwOBA .370+</span>
+                    <span class="text-txt-muted">Avg: .310-.369</span>
+                    <span class="text-[#c62828]">Bad: &lt; .310</span>
                 </div>
-                <div class="text-blue-400 font-medium mt-1">Look for: Players <strong>below</strong> the diagonal — they're underperforming their expected stats and are buy-low targets. Players above are sell-high candidates.</div>
+                <div class="text-accent-link font-medium mt-1">Look for: Players <strong>below</strong> the diagonal — they're underperforming their expected stats and are buy-low targets. Players above are sell-high candidates.</div>
             </div>
             <div id="chart-luck" class="flex-shrink-0" style="height: 400px;"></div>
-            <div id="top10-luck" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-luck" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
     </div>
     {# Card: Statcast Distribution #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+    <div class="bg-surface-card rounded-lg border border-bdr p-4 mt-4">
         <div class="flex items-center gap-2 mb-2 h-8">
-            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            <span class="text-sm font-semibold text-txt-primary uppercase tracking-wider">Distribution:</span>
             {{ stat_select("sc-dist-stat", sc_dist_stats, "xwoba", "loadStatcastCharts()") }}
-            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            <span class="text-txt-muted text-sm ml-2">Compare to:</span>
             {{ stat_select("sc-dist-compare", [("none","None")] + sc_dist_stats, "none", "loadStatcastCharts()") }}
         </div>
-        <div id="desc-sc-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="desc-sc-dist" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
         <div id="chart-sc-dist" style="height: 300px;"></div>
     </div>
 </div>
@@ -160,43 +160,43 @@
 <div id="view-batting" class="stats-view hidden">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {# Card: Batting Leaders #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
-                <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Leaders:</span>
+                <span class="text-sm font-semibold text-txt-primary uppercase tracking-wider">Leaders:</span>
                 {{ stat_select("bat-bar-stat", bat_stats, "wrc_plus", "loadBattingCharts()") }}
             </div>
-            <div id="desc-bat-leaders" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="desc-bat-leaders" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
             <div id="chart-bat-leaders" class="flex-shrink-0" style="min-height: 500px;"></div>
-            <div id="top10-bat-leaders" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-bat-leaders" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
         {# Card: K% vs BB% #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
-                <h3 class="text-sm font-semibold text-gray-300 uppercase tracking-wider">K% vs BB% (Plate Discipline)</h3>
+                <h3 class="text-sm font-semibold text-txt-primary uppercase tracking-wider">K% vs BB% (Plate Discipline)</h3>
             </div>
-            <div class="text-sm text-gray-500 mb-2 leading-relaxed">
-                <div><strong class="text-gray-300">K%:</strong> Strikeout rate — K = -0.5 pts. Lower is better. <strong class="text-gray-300">BB%:</strong> Walk rate — BB = +1 pt. Higher is better.</div>
-                <div class="text-gray-400 italic">Discipline is worth ~1.5 pts per plate appearance event in your league.</div>
+            <div class="text-sm text-txt-muted mb-2 leading-relaxed">
+                <div><strong class="text-txt-primary">K%:</strong> Strikeout rate — K = -0.5 pts. Lower is better. <strong class="text-txt-primary">BB%:</strong> Walk rate — BB = +1 pt. Higher is better.</div>
+                <div class="text-txt-secondary italic">Discipline is worth ~1.5 pts per plate appearance event in your league.</div>
                 <div class="flex gap-4 mt-1">
-                    <span class="text-green-400">Good: K% &lt; 15%, BB% &gt; 12%</span>
-                    <span class="text-gray-500">Avg: K% 15-22%, BB% 8-11%</span>
-                    <span class="text-red-400">Bad: K% &gt; 22%, BB% &lt; 7%</span>
+                    <span class="text-[#2e7d32]">Good: K% &lt; 15%, BB% &gt; 12%</span>
+                    <span class="text-txt-muted">Avg: K% 15-22%, BB% 8-11%</span>
+                    <span class="text-[#c62828]">Bad: K% &gt; 22%, BB% &lt; 7%</span>
                 </div>
-                <div class="text-blue-400 font-medium mt-1">Look for: Players in the <strong>top-left</strong> corner (low K% + high BB%) have the best discipline and earn the most free fantasy points.</div>
+                <div class="text-accent-link font-medium mt-1">Look for: Players in the <strong>top-left</strong> corner (low K% + high BB%) have the best discipline and earn the most free fantasy points.</div>
             </div>
             <div id="chart-kbb-scatter" class="flex-shrink-0" style="height: 400px;"></div>
-            <div id="top10-kbb" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-kbb" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
     </div>
     {# Card: Batting Distribution #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+    <div class="bg-surface-card rounded-lg border border-bdr p-4 mt-4">
         <div class="flex items-center gap-2 mb-2 h-8">
-            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            <span class="text-sm font-semibold text-txt-primary uppercase tracking-wider">Distribution:</span>
             {{ stat_select("bat-dist-stat", bat_dist_stats, "woba", "loadBattingCharts()") }}
-            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            <span class="text-txt-muted text-sm ml-2">Compare to:</span>
             {{ stat_select("bat-dist-compare", [("none","None")] + bat_dist_stats, "none", "loadBattingCharts()") }}
         </div>
-        <div id="desc-bat-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="desc-bat-dist" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
         <div id="chart-bat-dist" style="height: 300px;"></div>
     </div>
 </div>
@@ -205,36 +205,36 @@
 <div id="view-pitching" class="stats-view hidden">
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {# Card: Pitching Scatter #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
                 {{ stat_select("pit-scatter-x", pit_stats, "era", "loadPitchingCharts()") }}
-                <span class="text-gray-600 text-sm font-medium">vs</span>
+                <span class="text-txt-muted text-sm font-medium">vs</span>
                 {{ stat_select("pit-scatter-y", pit_stats, "fip", "loadPitchingCharts()") }}
             </div>
-            <div id="desc-pit-scatter" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="desc-pit-scatter" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
             <div id="chart-pit-scatter" class="flex-shrink-0" style="height: 400px;"></div>
-            <div id="top10-pit-scatter" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-pit-scatter" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
         {# Card: Pitching Leaders #}
-        <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 flex flex-col">
+        <div class="bg-surface-card rounded-lg border border-bdr p-4 flex flex-col">
             <div class="flex items-center gap-2 mb-2 h-8">
-                <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Leaders:</span>
+                <span class="text-sm font-semibold text-txt-primary uppercase tracking-wider">Leaders:</span>
                 {{ stat_select("pit-bar-stat", pit_bar_stats, "k_bb_pct", "loadPitchingCharts()") }}
             </div>
-            <div id="desc-pit-leaders" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+            <div id="desc-pit-leaders" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
             <div id="chart-pit-leaders" class="flex-shrink-0" style="min-height: 500px;"></div>
-            <div id="top10-pit-leaders" class="mt-3 border-t border-gray-700 pt-2"></div>
+            <div id="top10-pit-leaders" class="mt-3 border-t border-bdr pt-2"></div>
         </div>
     </div>
     {# Card: Pitching Distribution #}
-    <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mt-4">
+    <div class="bg-surface-card rounded-lg border border-bdr p-4 mt-4">
         <div class="flex items-center gap-2 mb-2 h-8">
-            <span class="text-sm font-semibold text-gray-300 uppercase tracking-wider">Distribution:</span>
+            <span class="text-sm font-semibold text-txt-primary uppercase tracking-wider">Distribution:</span>
             {{ stat_select("pit-dist-stat", pit_dist_stats, "era", "loadPitchingCharts()") }}
-            <span class="text-gray-500 text-sm ml-2">Compare to:</span>
+            <span class="text-txt-muted text-sm ml-2">Compare to:</span>
             {{ stat_select("pit-dist-compare", [("none","None")] + pit_dist_stats, "none", "loadPitchingCharts()") }}
         </div>
-        <div id="desc-pit-dist" class="text-sm text-gray-500 mb-2 leading-relaxed"></div>
+        <div id="desc-pit-dist" class="text-sm text-txt-muted mb-2 leading-relaxed"></div>
         <div id="chart-pit-dist" style="height: 300px;"></div>
     </div>
 </div>
@@ -316,12 +316,12 @@ function updateStatDesc(descId, chartType, ...selectIds) {
 
     let html = infos.map(info =>
         `<div class="mb-2">
-            <div class="text-sm"><strong class="text-gray-200">${info.name}:</strong> <span class="text-gray-400">${info.desc}</span></div>
-            <div class="text-sm text-gray-400 italic">${info.fantasy}</div>
+            <div class="text-sm"><strong class="text-txt-primary">${info.name}:</strong> <span class="text-txt-secondary">${info.desc}</span></div>
+            <div class="text-sm text-txt-secondary italic">${info.fantasy}</div>
             <div class="flex gap-4 mt-0.5 text-sm">
-                <span class="text-green-400">Good: ${info.good}</span>
-                <span class="text-gray-500">Avg: ${info.avg}</span>
-                <span class="text-red-400">Bad: ${info.bad}</span>
+                <span class="text-[#2e7d32]">Good: ${info.good}</span>
+                <span class="text-txt-muted">Avg: ${info.avg}</span>
+                <span class="text-[#c62828]">Bad: ${info.bad}</span>
             </div>
         </div>`
     ).join('');
@@ -330,19 +330,19 @@ function updateStatDesc(descId, chartType, ...selectIds) {
     if (infos.length === 2 && chartType === 'scatter') {
         const xDir = infos[0].dir === 'higher' ? 'higher' : 'lower';
         const yDir = infos[1].dir === 'higher' ? 'higher' : 'lower';
-        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+        html += `<div class="text-sm font-medium text-accent-link mt-1">
             Look for: Players in the <strong>${xDir === 'higher' ? 'right' : 'left'}-${yDir === 'higher' ? 'top' : 'bottom'}</strong> corner
             (${xDir} ${infos[0].name} + ${yDir} ${infos[1].name}) are the best.
         </div>`;
     } else if (infos.length === 1 && chartType === 'bar') {
-        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+        html += `<div class="text-sm font-medium text-accent-link mt-1">
             Look for: Players at the <strong>top of the chart</strong> lead the league at ${infos[0].name}.
             Gold bars = your team, blue = rostered, green = free agent waiver targets.
         </div>`;
     } else if (infos.length === 1 && chartType === 'dist') {
         const dirText = infos[0].dir === 'lower' ? 'left' : 'right';
         const betterText = infos[0].dir === 'lower' ? 'Further left = better.' : 'Further right = better.';
-        html += `<div class="text-sm font-medium text-blue-400 mt-1">
+        html += `<div class="text-sm font-medium text-accent-link mt-1">
             Look for: The <strong>${dirText} tail</strong> shows elite performers. ${betterText}
             The highlighted line shows where your player ranks vs the entire field.
         </div>`;
@@ -367,18 +367,18 @@ function renderTop10(containerId, data, config) {
         return Math.abs(val) >= 10 ? val.toFixed(1) : val.toFixed(3);
     }
     function colorVal(val, info) {
-        if (!info || val === undefined || val === null || typeof val !== 'number') return 'text-gray-300';
+        if (!info || val === undefined || val === null || typeof val !== 'number') return 'text-txt-primary';
         const goodNum = parseFloat(info.good.replace(/[^0-9.-]/g, ''));
         const badNum = parseFloat(info.bad.replace(/[^0-9.-]/g, ''));
-        if (isNaN(goodNum)) return 'text-gray-300';
+        if (isNaN(goodNum)) return 'text-txt-primary';
         if (info.dir === 'higher') {
-            if (val >= goodNum) return 'text-green-400';
-            if (!isNaN(badNum) && val <= badNum) return 'text-red-400';
+            if (val >= goodNum) return 'text-[#2e7d32]';
+            if (!isNaN(badNum) && val <= badNum) return 'text-[#c62828]';
         } else {
-            if (val <= goodNum) return 'text-green-400';
-            if (!isNaN(badNum) && val >= badNum) return 'text-red-400';
+            if (val <= goodNum) return 'text-[#2e7d32]';
+            if (!isNaN(badNum) && val >= badNum) return 'text-[#c62828]';
         }
-        return 'text-gray-300';
+        return 'text-txt-primary';
     }
 
     let headerHtml, rowsHtml, defaultSort, defaultDir;
@@ -392,13 +392,13 @@ function renderTop10(containerId, data, config) {
             <th class="text-right py-1 px-2" data-sort="${xK}">${config.xLabel}</th>
             <th class="text-right py-1 px-2" data-sort="${yK}">${config.yLabel}</th>`;
         rowsHtml = top.map((d, i) => {
-            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-blue-900/30' : '';
+            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-surface-warm' : '';
             const safeName = (d.name || '').replace(/'/g, "\\'");
-            return `<tr class="border-b border-gray-700/30 hover:bg-gray-700/20 cursor-pointer text-xs ${hl}"
+            return `<tr class="border-b border-bdr/30 hover:bg-surface-elevated/20 cursor-pointer text-xs ${hl}"
                         data-name="${d.name}" data-${xK}="${d[xK]}" data-${yK}="${d[yK]}"
                         onclick="selectHighlightPlayer(${d.player_id}, '${safeName}')">
-                <td class="py-1 px-2 text-gray-600 row-number">${i + 1}</td>
-                <td class="py-1 px-2 text-gray-200">${d.name} <span class="text-gray-600">${d.team || ''}</span></td>
+                <td class="py-1 px-2 text-txt-muted row-number">${i + 1}</td>
+                <td class="py-1 px-2 text-txt-primary">${d.name} <span class="text-txt-muted">${d.team || ''}</span></td>
                 <td class="py-1 px-2 text-right font-medium ${colorVal(d[xK], config.xInfo)}">${fmt(d[xK])}</td>
                 <td class="py-1 px-2 text-right font-medium ${colorVal(d[yK], config.yInfo)}">${fmt(d[yK])}</td>
             </tr>`;
@@ -412,14 +412,14 @@ function renderTop10(containerId, data, config) {
             <th class="text-left py-1 px-2" data-sort="team">Team</th>
             <th class="text-right py-1 px-2" data-sort="${vK}">${config.valueLabel}</th>`;
         rowsHtml = top.map((d, i) => {
-            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-blue-900/30' : '';
+            const hl = highlightPlayerId && d.player_id === highlightPlayerId ? 'bg-surface-warm' : '';
             const safeName = (d.name || '').replace(/'/g, "\\'");
-            return `<tr class="border-b border-gray-700/30 hover:bg-gray-700/20 cursor-pointer text-xs ${hl}"
+            return `<tr class="border-b border-bdr/30 hover:bg-surface-elevated/20 cursor-pointer text-xs ${hl}"
                         data-name="${d.name}" data-team="${d.team || ''}" data-${vK}="${d[vK]}"
                         onclick="selectHighlightPlayer(${d.player_id}, '${safeName}')">
-                <td class="py-1 px-2 text-gray-600 row-number">${i + 1}</td>
-                <td class="py-1 px-2 text-gray-200">${d.name}</td>
-                <td class="py-1 px-2 text-gray-500">${d.team || ''}</td>
+                <td class="py-1 px-2 text-txt-muted row-number">${i + 1}</td>
+                <td class="py-1 px-2 text-txt-primary">${d.name}</td>
+                <td class="py-1 px-2 text-txt-muted">${d.team || ''}</td>
                 <td class="py-1 px-2 text-right font-medium ${colorVal(d[vK], config.statInfo)}">${fmt(d[vK])}</td>
             </tr>`;
         }).join('');
@@ -427,7 +427,7 @@ function renderTop10(containerId, data, config) {
 
     el.innerHTML = `<table class="sortable-table w-full" id="${tableId}"
         data-default-sort="${defaultSort}" data-default-dir="${defaultDir}"><thead>
-        <tr class="text-gray-600 text-[10px] uppercase border-b border-gray-700">
+        <tr class="text-txt-muted text-[10px] uppercase border-b border-bdr">
             ${headerHtml}
         </tr></thead><tbody>${rowsHtml}</tbody></table>`;
 
@@ -455,7 +455,7 @@ function onPlayerSearch(query) {
 
         // Build styled dropdown
         const ul = document.createElement('ul');
-        ul.className = 'bg-gray-700 border border-gray-600 rounded-lg shadow-xl max-h-64 overflow-y-auto';
+        ul.className = 'bg-surface-elevated border border-bdr-subtle rounded-lg shadow-xl max-h-64 overflow-y-auto';
 
         items.forEach(li => {
             const a = li.querySelector('a');
@@ -465,23 +465,23 @@ function onPlayerSearch(query) {
             if (!match) return;
 
             const pid = parseInt(match[1]);
-            const name = a.querySelector('.text-gray-100')?.textContent?.trim() || '';
+            const name = a.querySelector('.text-txt-primary')?.textContent?.trim() || '';
 
             const newLi = document.createElement('li');
-            newLi.className = 'px-3 py-2 hover:bg-gray-600 cursor-pointer text-sm border-b border-gray-600/50 last:border-b-0 flex items-center justify-between';
+            newLi.className = 'px-3 py-2 hover:bg-surface-elevated cursor-pointer text-sm border-b border-bdr-subtle/50 last:border-b-0 flex items-center justify-between';
             newLi.dataset.playerId = pid;
             newLi.dataset.playerName = name;
 
             // Rebuild the content
             const nameSpan = document.createElement('span');
-            nameSpan.className = 'text-gray-100 font-medium';
+            nameSpan.className = 'text-txt-primary font-medium';
             nameSpan.textContent = name;
             newLi.appendChild(nameSpan);
 
-            const metaSpan = a.querySelector('.text-gray-400');
+            const metaSpan = a.querySelector('.text-txt-secondary');
             if (metaSpan) {
                 const meta = metaSpan.cloneNode(true);
-                meta.className = 'text-gray-400 text-xs';
+                meta.className = 'text-txt-secondary text-xs';
                 newLi.appendChild(meta);
             }
 
@@ -505,13 +505,13 @@ document.getElementById('highlight-search').addEventListener('keydown', function
         e.preventDefault();
         statsSearchIdx = Math.min(statsSearchIdx + 1, items.length - 1);
         items.forEach((li, i) => {
-            li.classList.toggle('bg-gray-600', i === statsSearchIdx);
+            li.classList.toggle('bg-surface-elevated', i === statsSearchIdx);
             if (i === statsSearchIdx) li.scrollIntoView({ block: 'nearest' });
         });
     } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         statsSearchIdx = Math.max(statsSearchIdx - 1, -1);
-        items.forEach((li, i) => li.classList.toggle('bg-gray-600', i === statsSearchIdx));
+        items.forEach((li, i) => li.classList.toggle('bg-surface-elevated', i === statsSearchIdx));
     } else if (e.key === 'Enter' && statsSearchIdx >= 0) {
         e.preventDefault();
         items[statsSearchIdx].click();
@@ -545,13 +545,13 @@ function clearHighlight() {
 function switchView(view) {
     document.querySelectorAll('.stats-view').forEach(v => v.classList.add('hidden'));
     document.querySelectorAll('.stats-tab-btn').forEach(b => {
-        b.classList.remove('border-blue-500', 'text-blue-400');
-        b.classList.add('border-transparent', 'text-gray-400');
+        b.classList.remove('border-accent-primary', 'text-accent-link');
+        b.classList.add('border-transparent', 'text-txt-secondary');
     });
     document.getElementById('view-' + view).classList.remove('hidden');
     const btn = document.querySelector('[data-view="' + view + '"]');
-    btn.classList.add('border-blue-500', 'text-blue-400');
-    btn.classList.remove('border-transparent', 'text-gray-400');
+    btn.classList.add('border-accent-primary', 'text-accent-link');
+    btn.classList.remove('border-transparent', 'text-txt-secondary');
 
     if (view === 'statcast') loadStatcastCharts();
     else if (view === 'batting') loadBattingCharts();
@@ -559,7 +559,7 @@ function switchView(view) {
 }
 
 function reloadCharts() {
-    const active = document.querySelector('.stats-tab-btn.text-blue-400');
+    const active = document.querySelector('.stats-tab-btn.text-accent-link');
     if (active) switchView(active.dataset.view);
 }
 
@@ -775,10 +775,10 @@ async function loadSpotlight(playerId) {
         if (data.player.fantasy_team) {
             ownerEl.textContent = data.player.fantasy_team;
             ownerEl.className = 'text-xs px-2 py-0.5 rounded ' +
-                (data.player.is_my_team ? 'bg-blue-900/50 text-blue-400' : 'bg-gray-700 text-gray-400');
+                (data.player.is_my_team ? 'bg-surface-warm text-accent-link' : 'bg-surface-elevated text-txt-secondary');
         } else {
             ownerEl.textContent = 'Free Agent';
-            ownerEl.className = 'text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-600';
+            ownerEl.className = 'text-xs px-2 py-0.5 rounded bg-surface-elevated text-txt-muted';
         }
 
         // Generate plain-English summary
@@ -835,10 +835,10 @@ async function loadSpotlight(playerId) {
         statsEl.innerHTML = '';
         (data.summary || []).forEach(s => {
             const card = document.createElement('div');
-            card.className = 'bg-gray-900/50 rounded border border-gray-700 px-2 py-1.5 text-center';
+            card.className = 'bg-surface-inset/50 rounded border border-bdr px-2 py-1.5 text-center';
             const val = typeof s.value === 'number' ? (s.value % 1 === 0 ? s.value : s.value.toFixed(s.decimals || 1)) : s.value;
-            card.innerHTML = `<div class="text-[10px] text-gray-500 uppercase">${s.label}</div>
-                <div class="text-sm font-bold ${s.color || 'text-gray-200'}">${val}</div>`;
+            card.innerHTML = `<div class="text-[10px] text-txt-muted uppercase">${s.label}</div>
+                <div class="text-sm font-bold ${s.color || 'text-txt-primary'}">${val}</div>`;
             statsEl.appendChild(card);
         });
 
@@ -862,13 +862,13 @@ async function loadSpotlight(playerId) {
             bar.className = 'mb-2';
             bar.innerHTML = `
                 <div class="flex justify-between text-[10px] mb-0.5">
-                    <span class="text-gray-400">${p.display_name}</span>
-                    <span class="text-gray-300 font-medium">${typeof p.value === 'number' ? p.value.toFixed(3) : p.value}</span>
+                    <span class="text-txt-secondary">${p.display_name}</span>
+                    <span class="text-txt-primary font-medium">${typeof p.value === 'number' ? p.value.toFixed(3) : p.value}</span>
                 </div>
-                <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-2 bg-surface-elevated rounded-full overflow-hidden">
                     <div class="${color} h-full rounded-full" style="width: ${pct}%"></div>
                 </div>
-                <div class="text-[9px] text-gray-600 text-right">${pct}th pct</div>`;
+                <div class="text-[9px] text-txt-muted text-right">${pct}th pct</div>`;
             percEl.appendChild(bar);
         });
 

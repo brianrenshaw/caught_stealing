@@ -839,18 +839,21 @@ function _createTooltip() {
   if (tooltipEl) return;
   tooltipEl = document.createElement("div");
   tooltipEl.id = "info-tooltip";
-  tooltipEl.className = "fixed z-[60] max-w-xs bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-3 text-sm";
+  tooltipEl.className = "fixed z-[60] max-w-xs rounded-md p-3 text-sm";
   tooltipEl.style.display = "none";
+  tooltipEl.style.background = "#0E1B2E";
+  tooltipEl.style.color = "#FFFFFF";
+  tooltipEl.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)";
   tooltipEl.innerHTML = `
     <div id="info-tooltip-title" class="font-semibold text-white text-sm"></div>
-    <div id="info-tooltip-desc" class="text-gray-300 text-xs mt-1 leading-relaxed"></div>
-    <div id="info-tooltip-fantasy" class="text-gray-400 text-xs mt-1 italic" style="display:none;"></div>
+    <div id="info-tooltip-desc" class="text-white/90 text-xs mt-1 leading-relaxed"></div>
+    <div id="info-tooltip-fantasy" class="text-white/70 text-xs mt-1 italic" style="display:none;"></div>
     <div id="info-tooltip-benchmarks" class="mt-2 flex gap-3 text-xs" style="display:none;">
-      <span class="text-green-400" id="info-tooltip-good"></span>
-      <span class="text-gray-500" id="info-tooltip-avg"></span>
-      <span class="text-red-400" id="info-tooltip-bad"></span>
+      <span class="text-green-300" id="info-tooltip-good"></span>
+      <span class="text-white/60" id="info-tooltip-avg"></span>
+      <span class="text-red-300" id="info-tooltip-bad"></span>
     </div>
-    <div id="info-tooltip-lookfor" class="text-blue-400 text-xs font-medium mt-1" style="display:none;"></div>
+    <div id="info-tooltip-lookfor" class="text-xs font-medium mt-1" style="display:none; color: #FEDB00;"></div>
   `;
   document.body.appendChild(tooltipEl);
 }

@@ -21,7 +21,7 @@ const ComparisonState = {
     _activeTabController: null,    // AbortController for cancelling in-flight tab fetches
 };
 
-const PLAYER_COLORS = ['#60a5fa', '#f59e0b', '#34d399', '#f472b6', '#a78bfa'];
+const PLAYER_COLORS = ['#C41E3A', '#0C2340', '#FEDB00', '#2e7d32', '#4A5568'];
 
 function saveDockToStorage() {
     try {
@@ -91,14 +91,14 @@ function setupSearch() {
             e.preventDefault();
             compareSelectedIdx = Math.min(compareSelectedIdx + 1, items.length - 1);
             items.forEach((li, i) => {
-                li.classList.toggle('bg-gray-700', i === compareSelectedIdx);
+                li.classList.toggle('bg-surface-elevated', i === compareSelectedIdx);
                 if (i === compareSelectedIdx) li.scrollIntoView({ block: 'nearest' });
             });
         } else if (e.key === 'ArrowUp' && items.length) {
             e.preventDefault();
             compareSelectedIdx = Math.max(compareSelectedIdx - 1, -1);
             items.forEach((li, i) => {
-                li.classList.toggle('bg-gray-700', i === compareSelectedIdx);
+                li.classList.toggle('bg-surface-elevated', i === compareSelectedIdx);
             });
         } else if (e.key === 'Enter' && compareSelectedIdx >= 0 && items.length) {
             e.preventDefault();
@@ -129,7 +129,7 @@ async function doSearch(query) {
         const players = await resp.json();
         renderSearchDropdown(players);
     } catch (e) {
-        dropdown.innerHTML = '<div class="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-red-400">Search failed</div>';
+        dropdown.innerHTML = '<div class="bg-surface-card border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-red-400">Search failed</div>';
         dropdown.classList.remove('hidden');
     }
 }
@@ -137,28 +137,28 @@ async function doSearch(query) {
 function renderSearchDropdown(players) {
     const dropdown = document.getElementById('compare-search-dropdown');
     if (!players.length) {
-        dropdown.innerHTML = '<div class="bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-500">No players found</div>';
+        dropdown.innerHTML = '<div class="bg-surface-card border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-txt-muted">No players found</div>';
         dropdown.classList.remove('hidden');
         return;
     }
 
     const html = players.map(p => {
         const imgHtml = p.headshot_url
-            ? `<img src="${p.headshot_url}" alt="${p.name} headshot" class="w-8 h-8 rounded-full bg-gray-600 object-cover flex-shrink-0" onerror="this.style.display='none'">`
-            : `<div class="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center flex-shrink-0"><span class="text-gray-400 text-xs">?</span></div>`;
+            ? `<img src="${p.headshot_url}" alt="${p.name} headshot" class="w-8 h-8 rounded-full bg-surface-elevated object-cover flex-shrink-0" onerror="this.style.display='none'">`
+            : `<div class="w-8 h-8 rounded-full bg-surface-elevated flex items-center justify-center flex-shrink-0"><span class="text-txt-secondary text-xs">?</span></div>`;
         return `
-            <li class="flex items-center gap-3 px-3 py-2 hover:bg-gray-700 cursor-pointer border-b border-gray-700 last:border-b-0"
+            <li class="flex items-center gap-3 px-3 py-2 hover:bg-surface-elevated cursor-pointer border-b border-bdr last:border-b-0"
                 onclick='addToDockFromSearch(${JSON.stringify(p)})'>
                 ${imgHtml}
                 <div class="flex-1 min-w-0">
-                    <div class="text-sm font-medium text-gray-200 truncate">${p.name}</div>
-                    <div class="text-xs text-gray-400">${p.team || 'FA'} &middot; ${p.position || '?'} &middot; <span class="${p.is_my_team ? 'text-blue-400' : 'text-gray-500'}">${p.fantasy_team ? p.fantasy_team.split(' ')[0] : 'FA'}</span></div>
+                    <div class="text-sm font-medium text-txt-primary truncate">${p.name}</div>
+                    <div class="text-xs text-txt-secondary">${p.team || 'FA'} &middot; ${p.position || '?'} &middot; <span class="${p.is_my_team ? 'text-accent-link' : 'text-txt-muted'}">${p.fantasy_team ? p.fantasy_team.split(' ')[0] : 'FA'}</span></div>
                 </div>
-                <span class="text-xs text-blue-400 flex-shrink-0">+ Add</span>
+                <span class="text-xs text-accent-link flex-shrink-0">+ Add</span>
             </li>`;
     }).join('');
 
-    dropdown.innerHTML = `<ul class="bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-72 overflow-y-auto">${html}</ul>`;
+    dropdown.innerHTML = `<ul class="bg-surface-card border border-bdr-subtle rounded-lg shadow-lg max-h-72 overflow-y-auto">${html}</ul>`;
     dropdown.classList.remove('hidden');
 }
 
@@ -205,14 +205,14 @@ function renderDock() {
 
     ComparisonState.dock.forEach(player => {
         const chip = document.createElement('div');
-        chip.className = 'dock-chip flex items-center gap-1.5 px-2 py-1 bg-gray-700 rounded-full text-sm cursor-grab border border-gray-600 hover:border-blue-500 transition-colors';
+        chip.className = 'dock-chip flex items-center gap-1.5 px-2 py-1 bg-surface-elevated rounded-full text-sm cursor-grab border border-bdr-subtle hover:border-accent-primary transition-colors';
         chip.draggable = true;
         chip.dataset.playerId = player.id;
         chip.innerHTML = `
-            <span class="text-gray-200 text-xs font-medium">${player.name}</span>
-            <span class="text-gray-500 text-xs">${player.team || ''}</span>
-            <span class="text-gray-400 text-xs bg-gray-600 rounded px-1">${player.position || '?'}</span>
-            <button onclick="event.stopPropagation(); removeFromDock(${player.id})" class="text-gray-500 hover:text-red-400 ml-0.5 text-xs">&times;</button>
+            <span class="text-txt-primary text-xs font-medium">${player.name}</span>
+            <span class="text-txt-muted text-xs">${player.team || ''}</span>
+            <span class="text-txt-secondary text-xs bg-surface-elevated rounded px-1">${player.position || '?'}</span>
+            <button onclick="event.stopPropagation(); removeFromDock(${player.id})" class="text-txt-muted hover:text-red-400 ml-0.5 text-xs">&times;</button>
         `;
 
         // Drag events
@@ -235,7 +235,7 @@ function setPositionFilter(pos) {
     ComparisonState.positionFilter = pos;
     document.querySelectorAll('.pos-filter-btn').forEach(btn => {
         const isActive = (pos === null && btn.dataset.pos === 'all') || btn.dataset.pos === pos;
-        btn.className = `pos-filter-btn px-2 py-1 text-xs rounded ${isActive ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`;
+        btn.className = `pos-filter-btn px-2 py-1 text-xs rounded ${isActive ? 'bg-accent-primary text-txt-primary' : 'bg-surface-elevated text-txt-primary hover:bg-surface-elevated'}`;
     });
     // Re-trigger search if input has text
     const input = document.getElementById('compare-search-input');
@@ -384,22 +384,22 @@ function renderSlots() {
             });
 
             const imgHtml = player.headshot_url
-                ? `<img src="${player.headshot_url}" alt="${player.name} headshot" class="w-14 h-14 rounded-full bg-gray-600 object-cover border-2" style="border-color: ${PLAYER_COLORS[i]}" onerror="this.style.display='none'">`
-                : `<div class="w-14 h-14 rounded-full bg-gray-600 flex items-center justify-center border-2" style="border-color: ${PLAYER_COLORS[i]}"><span class="text-gray-400 text-lg">?</span></div>`;
+                ? `<img src="${player.headshot_url}" alt="${player.name} headshot" class="w-14 h-14 rounded-full bg-surface-elevated object-cover border-2" style="border-color: ${PLAYER_COLORS[i]}" onerror="this.style.display='none'">`
+                : `<div class="w-14 h-14 rounded-full bg-surface-elevated flex items-center justify-center border-2" style="border-color: ${PLAYER_COLORS[i]}"><span class="text-txt-secondary text-lg">?</span></div>`;
 
             slot.innerHTML = `
                 <div class="flex items-center gap-3 p-3">
                     ${imgHtml}
                     <div class="flex-1 min-w-0">
-                        <div class="font-medium text-white text-sm truncate">${player.name}</div>
-                        <div class="text-xs text-gray-400">${player.team || 'FA'} &middot; ${player.position || '?'}</div>
+                        <div class="font-medium text-txt-primary text-sm truncate">${player.name}</div>
+                        <div class="text-xs text-txt-secondary">${player.team || 'FA'} &middot; ${player.position || '?'}</div>
                     </div>
-                    <button onclick="event.stopPropagation(); clearSlot(${i})" class="text-gray-500 hover:text-red-400 text-lg">&times;</button>
+                    <button onclick="event.stopPropagation(); clearSlot(${i})" class="text-txt-muted hover:text-red-400 text-lg">&times;</button>
                 </div>
                 <div class="slot-loading hidden px-3 pb-2">
                     <div class="animate-pulse flex gap-2">
-                        <div class="h-2 bg-gray-700 rounded flex-1"></div>
-                        <div class="h-2 bg-gray-700 rounded w-12"></div>
+                        <div class="h-2 bg-surface-elevated rounded flex-1"></div>
+                        <div class="h-2 bg-surface-elevated rounded w-12"></div>
                     </div>
                 </div>
             `;
@@ -407,7 +407,7 @@ function renderSlots() {
             slot.className += ' empty-slot';
             slot.innerHTML = `
                 <div class="slot-empty-content flex items-center justify-center h-full">
-                    <span class="text-gray-500 text-sm">Drop player here</span>
+                    <span class="text-txt-muted text-sm">Drop player here</span>
                 </div>
             `;
             slot.addEventListener('click', () => {
@@ -435,7 +435,7 @@ function switchTab(tab) {
     // Update tab buttons
     document.querySelectorAll('.compare-tab-btn').forEach(btn => {
         const isActive = btn.dataset.tab === tab;
-        btn.className = `compare-tab-btn pb-3 text-sm font-medium border-b-2 ${isActive ? 'border-blue-500 text-blue-400' : 'border-transparent text-gray-400 hover:text-gray-200'}`;
+        btn.className = `compare-tab-btn pb-3 text-sm font-medium border-b-2 ${isActive ? 'border-accent-primary text-accent-link' : 'border-transparent text-txt-secondary hover:text-txt-primary'}`;
     });
 
     // Show/hide tab panels
@@ -528,7 +528,7 @@ function renderOverviewTab() {
 
     const filled = ComparisonState.slots.filter(Boolean);
     if (filled.length < 2) {
-        container.innerHTML = '<div class="text-gray-500 text-sm">Add at least 2 players to compare.</div>';
+        container.innerHTML = '<div class="text-txt-muted text-sm">Add at least 2 players to compare.</div>';
         return;
     }
 
@@ -537,7 +537,7 @@ function renderOverviewTab() {
     // Collect percentile data for all players
     const playersData = filled.map(p => ComparisonState._cache.get(p.id)).filter(Boolean);
     if (playersData.length < 2) {
-        container.innerHTML = '<div class="text-gray-500 text-sm">Loading player data...</div>';
+        container.innerHTML = '<div class="text-txt-muted text-sm">Loading player data...</div>';
         return;
     }
 
@@ -569,7 +569,7 @@ function renderOverviewTab() {
     }
 
     if (filteredStats.length === 0) {
-        container.innerHTML = '<div class="text-gray-500 text-sm">No percentile data available for the selected stat set.</div>';
+        container.innerHTML = '<div class="text-txt-muted text-sm">No percentile data available for the selected stat set.</div>';
         return;
     }
 
@@ -577,7 +577,7 @@ function renderOverviewTab() {
     let html = '';
     filteredStats.forEach(([statName, data], rowIdx) => {
         html += `<div class="percentile-row mb-3">`;
-        html += `<div class="text-xs font-medium text-gray-400 mb-1 uppercase tracking-wider">${data.display_name}</div>`;
+        html += `<div class="text-xs font-medium text-txt-secondary mb-1 uppercase tracking-wider">${data.display_name}</div>`;
 
         data.players.forEach((p, pIdx) => {
             const color = percentileColor(p.percentile);
@@ -586,8 +586,8 @@ function renderOverviewTab() {
                 : '—';
             html += `
                 <div class="flex items-center gap-2 mb-1">
-                    <span class="text-xs text-gray-400 w-24 truncate" style="color: ${PLAYER_COLORS[p.index]}">${p.name.split(' ').pop()}</span>
-                    <div class="flex-1 bg-gray-700 rounded h-6 relative overflow-hidden">
+                    <span class="text-xs text-txt-secondary w-24 truncate" style="color: ${PLAYER_COLORS[p.index]}">${p.name.split(' ').pop()}</span>
+                    <div class="flex-1 bg-surface-elevated rounded h-6 relative overflow-hidden">
                         <div class="percentile-bar-fill" style="width: 0%; background-color: ${color};" data-width="${p.percentile}">
                             <span class="bar-value">${formattedVal}</span>
                         </div>
@@ -642,16 +642,16 @@ function renderTrendChart() {
     });
 
     if (traces.length === 0) {
-        document.getElementById('trend-chart').innerHTML = '<div class="flex items-center justify-center h-full text-gray-500 text-sm">No trend data available for this metric.</div>';
+        document.getElementById('trend-chart').innerHTML = '<div class="flex items-center justify-center h-full text-txt-muted text-sm">No trend data available for this metric.</div>';
         return;
     }
 
     const layout = {
         ...CHART_THEME,
-        title: { text: `${metric.toUpperCase()} Trend`, font: { size: 14, color: '#e5e7eb' } },
+        title: { text: `${metric.toUpperCase()} Trend`, font: { size: 14, color: '#0C2340' } },
         xaxis: { gridcolor: GRID_COLOR },
         yaxis: { title: metric, gridcolor: GRID_COLOR },
-        legend: { orientation: 'h', y: -0.15, font: { color: '#9ca3af' } },
+        legend: { orientation: 'h', y: -0.15, font: { color: '#888888' } },
         hovermode: 'x unified',
     };
 
@@ -671,8 +671,8 @@ function renderSparklines(players) {
 
     metrics.forEach(metric => {
         const div = document.createElement('div');
-        div.className = 'bg-gray-800 rounded border border-gray-700 p-2';
-        div.innerHTML = `<div class="text-xs text-gray-400 mb-1 uppercase">${metric.replace('_', ' ')}</div>`;
+        div.className = 'bg-surface-card rounded border border-bdr p-2';
+        div.innerHTML = `<div class="text-xs text-txt-secondary mb-1 uppercase">${metric.replace('_', ' ')}</div>`;
 
         players.forEach((player, idx) => {
             const card = ComparisonState._cache.get(player.id);
@@ -682,14 +682,14 @@ function renderSparklines(players) {
 
             const trend = vals[vals.length - 1] - vals[0];
             const arrow = trend > 0.005 ? '↑' : trend < -0.005 ? '↓' : '→';
-            const color = trend > 0.005 ? 'text-green-400' : trend < -0.005 ? 'text-red-400' : 'text-gray-400';
+            const color = trend > 0.005 ? 'text-green-400' : trend < -0.005 ? 'text-red-400' : 'text-txt-secondary';
             const latest = vals[vals.length - 1];
             const formatted = latest >= 10 ? latest.toFixed(0) : latest >= 1 ? latest.toFixed(2) : latest.toFixed(3);
 
             div.innerHTML += `
                 <div class="flex items-center gap-1 text-xs">
                     <span style="color: ${PLAYER_COLORS[idx]}" class="w-16 truncate">${player.name.split(' ').pop()}</span>
-                    <span class="font-mono text-gray-200">${formatted}</span>
+                    <span class="font-mono text-txt-primary">${formatted}</span>
                     <span class="${color}">${arrow}</span>
                 </div>`;
         });
@@ -770,19 +770,19 @@ function renderRadarChart() {
     const layout = {
         ...CHART_THEME,
         polar: {
-            bgcolor: '#1f2937',
+            bgcolor: '#FFFFFF',
             radialaxis: {
                 visible: true,
                 range: [0, 100],
-                tickfont: { color: '#6b7280', size: 10 },
-                gridcolor: '#374151',
+                tickfont: { color: '#888888', size: 10 },
+                gridcolor: '#f0eded',
             },
             angularaxis: {
-                tickfont: { color: '#d1d5db', size: 11 },
-                gridcolor: '#374151',
+                tickfont: { color: '#0C2340', size: 11 },
+                gridcolor: '#f0eded',
             },
         },
-        legend: { orientation: 'h', y: -0.1, font: { color: '#9ca3af' } },
+        legend: { orientation: 'h', y: -0.1, font: { color: '#888888' } },
         showlegend: true,
     };
 
@@ -803,7 +803,7 @@ function loadStatTable() {
     const container = document.getElementById('stat-table-content');
     if (!container) return;
 
-    container.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-gray-700 rounded w-full mb-2"></div><div class="h-4 bg-gray-700 rounded w-3/4"></div></div>';
+    container.innerHTML = '<div class="animate-pulse"><div class="h-4 bg-surface-elevated rounded w-full mb-2"></div><div class="h-4 bg-surface-elevated rounded w-3/4"></div></div>';
     fetch(`/api/compare/stat-table?ids=${ids}&season=${ComparisonState.season}&period=${period}&stat_type=${statType}`)
         .then(r => r.text())
         .then(html => { container.innerHTML = html; })
@@ -816,7 +816,7 @@ function loadProjectionsPanel() {
     const container = document.getElementById('projections-content');
     if (!container) return;
 
-    container.innerHTML = '<div class="animate-pulse"><div class="h-24 bg-gray-700 rounded w-full"></div></div>';
+    container.innerHTML = '<div class="animate-pulse"><div class="h-24 bg-surface-elevated rounded w-full"></div></div>';
     fetch(`/api/compare/projections-panel?ids=${ids}&season=${ComparisonState.season}`)
         .then(r => r.text())
         .then(html => { container.innerHTML = html; })
@@ -829,7 +829,7 @@ function loadSplitsPanel() {
     const container = document.getElementById('splits-content');
     if (!container) return;
 
-    container.innerHTML = '<div class="animate-pulse"><div class="h-24 bg-gray-700 rounded w-full"></div></div>';
+    container.innerHTML = '<div class="animate-pulse"><div class="h-24 bg-surface-elevated rounded w-full"></div></div>';
     fetch(`/api/compare/splits-panel?ids=${ids}&season=${ComparisonState.season}`)
         .then(r => r.text())
         .then(html => { container.innerHTML = html; })
@@ -940,7 +940,7 @@ function addToCompare(player) {
 
 function showToast(message) {
     const toast = document.createElement('div');
-    toast.className = 'fixed bottom-20 right-6 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg text-sm z-50 transition-opacity duration-500';
+    toast.className = 'fixed bottom-20 right-6 bg-accent-primary text-txt-primary px-4 py-2 rounded-lg shadow-lg text-sm z-50 transition-opacity duration-500';
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => {

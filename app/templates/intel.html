@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
 {% block title %}Intel — Fantasy Baseball{% endblock %}
-{% block nav_intel %}bg-gray-700 text-white{% endblock %}
+{% block nav_intel %}nav-item-active{% endblock %}
 
 {% from "macros/info_icon.html" import page_info %}
 
 {% block content %}
 <div class="p-6">
     <div class="flex items-center justify-between mb-6">
-        <h2 class="text-2xl font-bold">
+        <h2 class="font-display text-3xl font-extrabold text-txt-navy">
             Intel {{ page_info('intel') }}
         </h2>
         <div class="flex items-center gap-3">
-            <span class="text-xs text-gray-500">{{ report_count }} reports</span>
+            <span class="text-xs text-txt-muted">{{ report_count }} reports</span>
             <button onclick="confirmRefresh()"
-                    class="bg-teal-600 hover:bg-teal-500 text-white text-sm px-4 py-2 rounded-lg
+                    class="bg-accent-primary hover:bg-accent-hover text-white text-sm px-4 py-2 rounded-lg
                            transition-colors flex items-center gap-2">
                 <svg id="refresh-spinner" class="hidden animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -28,25 +28,25 @@
     <div class="flex gap-6">
         <!-- Report selector sidebar -->
         <div class="w-64 flex-shrink-0">
-            <div class="bg-gray-800 rounded-lg border border-gray-700 p-4 sticky top-6">
-                <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Reports</h3>
+            <div class="bg-surface-card rounded-lg border border-bdr p-4 sticky top-6">
+                <h3 class="text-sm font-semibold text-txt-secondary uppercase tracking-wider mb-3">Reports</h3>
 
                 {% if grouped_reports %}
                 <div class="space-y-4">
                     {% for date_label, reports in grouped_reports %}
                     <div>
-                        <p class="text-xs font-medium text-gray-500 mb-1.5">{{ date_label }}</p>
+                        <p class="text-xs font-medium text-txt-muted mb-1.5">{{ date_label }}</p>
                         <div class="space-y-1">
                             {% for report in reports %}
                             <button hx-get="/intel/report?file={{ report.filename }}"
                                     hx-target="#intel-content"
                                     hx-swap="innerHTML"
                                     class="intel-report-btn block w-full text-left px-3 py-2 text-sm rounded-lg
-                                           hover:bg-gray-700 transition-colors text-gray-300 hover:text-white"
+                                           hover:bg-surface-elevated transition-colors text-txt-primary hover:text-txt-primary"
                                     data-filename="{{ report.filename }}">
                                 <span class="block font-medium">{{ report.type_label }}</span>
                                 {% if report.source_count %}
-                                <span class="text-[10px] text-gray-500">{{ report.source_count }} sources</span>
+                                <span class="text-[10px] text-txt-muted">{{ report.source_count }} sources</span>
                                 {% endif %}
                             </button>
                             {% endfor %}
@@ -55,7 +55,7 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-gray-500">No reports yet. Click "Refresh Analysis" to generate.</p>
+                <p class="text-sm text-txt-muted">No reports yet. Click "Refresh Analysis" to generate.</p>
                 {% endif %}
             </div>
         </div>
@@ -69,9 +69,9 @@
                  hx-swap="innerHTML"
                  {% endif %}>
                 {% if not latest_briefing %}
-                <div class="bg-gray-800 rounded-lg border border-gray-700 p-8 text-center">
-                    <p class="text-gray-400 text-lg mb-2">No analysis reports yet</p>
-                    <p class="text-gray-500 text-sm mb-4">
+                <div class="bg-surface-card rounded-lg border border-bdr p-8 text-center">
+                    <p class="text-txt-secondary text-lg mb-2">No analysis reports yet</p>
+                    <p class="text-txt-muted text-sm mb-4">
                         Click "Refresh Analysis" to generate reports from your ingested content,
                         or wait for the daily 3 AM job to create them automatically.
                     </p>
@@ -87,10 +87,10 @@
 document.addEventListener('htmx:afterRequest', function(e) {
     if (e.detail.target && e.detail.target.id === 'intel-content') {
         document.querySelectorAll('.intel-report-btn').forEach(function(btn) {
-            btn.classList.remove('bg-gray-700', 'text-white');
+            btn.classList.remove('bg-surface-elevated', 'text-txt-primary');
         });
         if (e.detail.elt && e.detail.elt.classList.contains('intel-report-btn')) {
-            e.detail.elt.classList.add('bg-gray-700', 'text-white');
+            e.detail.elt.classList.add('bg-surface-elevated', 'text-txt-primary');
         }
     }
 });

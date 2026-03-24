@@ -56,8 +56,8 @@ function processToc(target) {
             var headings = target.querySelectorAll('h2, h3');
             if (headings.length === 0) return;
 
-            var tocHtml = '<div class="table-of-contents bg-gray-900/50 rounded-lg border border-gray-700 p-4 mb-4">';
-            tocHtml += '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Contents</p>';
+            var tocHtml = '<div class="table-of-contents bg-surface-inset/50 rounded-lg border border-bdr p-4 mb-4">';
+            tocHtml += '<p class="text-xs font-semibold text-txt-secondary uppercase tracking-wider mb-2">Contents</p>';
             tocHtml += '<ul class="space-y-1">';
 
             headings.forEach(function(h, i) {
@@ -70,7 +70,7 @@ function processToc(target) {
                         .substring(0, 60);
                 }
                 var indent = h.tagName === 'H3' ? 'ml-4' : '';
-                var weight = h.tagName === 'H2' ? 'font-medium text-gray-200' : 'text-gray-400';
+                var weight = h.tagName === 'H2' ? 'font-medium text-txt-primary' : 'text-txt-secondary';
                 tocHtml += '<li class="' + indent + '">';
                 tocHtml += '<a href="#' + h.id + '" class="text-xs ' + weight + ' hover:text-teal-400 transition-colors">';
                 tocHtml += h.textContent;

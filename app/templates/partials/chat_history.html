@@ -1,20 +1,20 @@
 {% for msg in messages %}
 {% if msg.role == 'user' %}
 <div class="flex justify-end mb-3">
-    <div class="bg-blue-600 rounded-lg px-3 py-2 max-w-[80%]">
-        <p class="text-sm text-white">{{ msg.content }}</p>
+    <div class="bg-accent-primary rounded-lg px-3 py-2 max-w-[80%]">
+        <p class="text-sm text-txt-primary">{{ msg.content }}</p>
     </div>
 </div>
 {% elif msg.role == 'assistant' %}
 <div class="flex justify-start mb-3">
-    <div class="bg-gray-700 rounded-lg px-3 py-2 max-w-[85%]">
-        <div class="text-sm text-gray-100" data-ai-content>
+    <div class="bg-surface-elevated rounded-lg px-3 py-2 max-w-[85%]">
+        <div class="text-sm text-txt-primary" data-ai-content>
             <script type="text/markdown" data-markdown-source>{{ msg.content }}</script>
             <div data-markdown-target class="prose prose-invert prose-sm max-w-none
-                        [&_strong]:text-white [&_p]:my-1.5 [&_ul]:my-1 [&_li]:my-0.5
+                        [&_strong]:text-txt-primary [&_p]:my-1.5 [&_ul]:my-1 [&_li]:my-0.5
                         [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm
-                        [&_code]:bg-gray-800 [&_code]:px-1 [&_code]:rounded
-                        [&_pre]:bg-gray-800 [&_pre]:p-2 [&_pre]:rounded">
+                        [&_code]:bg-surface-card [&_code]:px-1 [&_code]:rounded
+                        [&_pre]:bg-surface-card [&_pre]:p-2 [&_pre]:rounded">
             </div>
         </div>
     </div>

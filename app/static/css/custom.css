@@ -1,16 +1,85 @@
-/* Custom styles for Fantasy Baseball app */
+/* ══════════════════════════════════════════════════════════════
+   Fantasy Baseball — Cardinals CSS Design System
+   Midnight Navy structure · Cardinal Red accents · Editorial sports
+   ══════════════════════════════════════════════════════════════ */
 
-/* Clickable player name links */
+/* ── Theme Custom Properties ── */
+:root {
+    /* Core Brand */
+    --navy: #0C2340;
+    --cardinal-red: #C41E3A;
+    --yellow: #FEDB00;
+
+    /* Surfaces */
+    --surface-base: #FFFFFF;
+    --surface-card: #FFFFFF;
+    --surface-elevated: #FAFAFA;
+    --surface-inset: #FAFAFA;
+    --surface-warm: #FDF5F6;
+    --surface-dark: #0E1B2E;
+
+    /* Borders & Dividers */
+    --border-default: #E2D9D9;
+    --border-subtle: #f0eded;
+    --border-alert: #f0dfe0;
+
+    /* Text */
+    --text-primary: #333333;
+    --text-secondary: #4A5568;
+    --text-muted: #888888;
+    --text-navy: #0C2340;
+
+    /* Accent — Cardinal Red */
+    --accent-primary: #C41E3A;
+    --accent-hover: #A8182F;
+    --accent-link: #C41E3A;
+    --accent-yellow: #FEDB00;
+    --accent-glow: rgba(196, 30, 58, 0.1);
+
+    /* Performance Data Colors */
+    --positive: #2e7d32;
+    --positive-bg: #e8f5e9;
+    --negative: #c62828;
+    --negative-bg: #fce4ec;
+    --neutral: #616161;
+    --neutral-bg: #f5f5f5;
+    --info: #0C2340;
+    --warning: #F57F17;
+    --warning-bg: #FFF8E1;
+}
+
+/* ── Scrollbar ── */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #E2D9D9 transparent;
+}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: #E2D9D9;
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: #888; }
+
+/* ── Global Typography ── */
+body {
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Clickable player name links ── */
 .player-link {
     text-decoration: none;
+    color: var(--text-navy);
+    font-weight: 600;
     border-bottom: 1px dotted transparent;
     transition: border-color 0.15s, color 0.15s;
 }
 .player-link:hover {
-    border-bottom-color: #60a5fa;
+    border-bottom-color: var(--accent-primary);
+    color: var(--accent-primary);
 }
 
-/* Info tooltip icon button reset */
+/* ── Info tooltip icon button reset ── */
 .info-icon {
     background: none;
     border: none;
@@ -22,20 +91,188 @@
     align-items: center;
 }
 
-/* Info tooltip container */
+/* ── Info tooltip container ── */
 #info-tooltip {
     pointer-events: auto;
     transition: opacity 0.15s ease;
 }
 
-/* ── Player Comparison Tool ── */
+/* ══════════════════════════════════════════════════════════════
+   Tables — Core Component
+   ══════════════════════════════════════════════════════════════ */
+
+.table-premium thead th {
+    background: #FFFFFF;
+    color: #888888;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 8px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    border-bottom: 1px solid #E2D9D9;
+}
+
+.table-premium tbody tr {
+    transition: background-color 120ms ease;
+}
+
+.table-premium tbody tr:nth-child(odd) {
+    background: #FAFAFA;
+}
+
+.table-premium tbody tr:hover {
+    background: #FDF5F6;
+}
+
+.table-premium tbody td {
+    padding: 6px 12px;
+    border-bottom: 1px solid #f0eded;
+    font-size: 13px;
+}
+
+/* Active sort column header */
+.table-premium thead th.sort-active {
+    color: var(--accent-primary);
+}
+
+/* Stat number cells */
+.table-premium .stat-cell {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Cards — Shadows replace borders
+   ══════════════════════════════════════════════════════════════ */
+
+.card {
+    background: #FFFFFF;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
+    transition: box-shadow 200ms ease;
+}
+
+.card:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #E2D9D9;
+}
+
+.card-body {
+    padding: 16px 20px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Chart Containers
+   ══════════════════════════════════════════════════════════════ */
+
+.chart-container {
+    background: #FFFFFF;
+    border: 1px solid #f0eded;
+    border-radius: 6px;
+    padding: 8px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Badges — Cardinals CSS Sentiment System
+   ══════════════════════════════════════════════════════════════ */
+
+.badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 700;
+    border-radius: 3px;
+    padding: 2px 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.badge-add, .badge-start, .badge-positive {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.badge-drop, .badge-sit, .badge-negative {
+    background: #fce4ec;
+    color: #c62828;
+}
+
+.badge-watch, .badge-hold, .badge-neutral {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+.badge-stream, .badge-warning {
+    background: #FFF8E1;
+    color: #F57F17;
+}
+
+.badge-position {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Alert & Callout Cards
+   ══════════════════════════════════════════════════════════════ */
+
+.alert-card {
+    background: #FDF5F6;
+    border: 1px solid #f0dfe0;
+    border-radius: 6px;
+    padding: 16px 18px;
+}
+
+.featured-block {
+    background: linear-gradient(135deg, #FDF5F6 0%, #fff 100%);
+    border: 1px solid #f0e0e2;
+    border-top: 3px solid #FEDB00;
+    border-radius: 6px;
+    padding: 18px 20px;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Sidebar Active Nav
+   ══════════════════════════════════════════════════════════════ */
+
+.nav-item-active {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #FFFFFF !important;
+    border-left: 3px solid #C41E3A;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   HTMX Content Entrance
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.htmx-settling {
+    animation: fadeSlideIn 0.2s ease-out;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Player Comparison Tool
+   ══════════════════════════════════════════════════════════════ */
 
 /* Comparison slots */
 .comparison-slot {
     min-height: 80px;
-    border-radius: 0.5rem;
-    border: 2px dashed #4b5563;
-    background: #1f2937;
+    border-radius: 6px;
+    border: 2px dashed #E2D9D9;
+    background: #FFFFFF;
     transition: border-color 0.15s, background-color 0.15s, transform 0.15s;
     display: flex;
     flex-direction: column;
@@ -44,8 +281,9 @@
 
 .comparison-slot.filled-slot {
     border-style: solid;
-    border-color: #374151;
+    border-color: #E2D9D9;
     cursor: grab;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
 .comparison-slot.filled-slot:active {
@@ -57,14 +295,14 @@
 }
 
 .comparison-slot.empty-slot:hover {
-    border-color: #6b7280;
-    background: #1f2937;
+    border-color: #888;
+    background: #FDF5F6;
 }
 
 /* Drop target highlight */
 .drop-target-active {
-    border-color: #3b82f6 !important;
-    background: rgba(59, 130, 246, 0.1) !important;
+    border-color: #C41E3A !important;
+    background: rgba(196, 30, 58, 0.05) !important;
     transform: scale(1.02);
 }
 
@@ -82,14 +320,14 @@
 /* Percentile bars */
 .percentile-bar-fill {
     height: 24px;
-    border-radius: 4px;
+    border-radius: 3px;
     width: 0;
     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
     padding: 0 8px;
     font-size: 11px;
-    font-family: ui-monospace, SFMono-Regular, monospace;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     color: white;
     white-space: nowrap;
     min-width: 0;
@@ -113,17 +351,17 @@
 /* Tab styling */
 .compare-tab-btn {
     border-color: transparent;
-    color: #9ca3af;
+    color: #4A5568;
     cursor: pointer;
     background: none;
     transition: color 0.15s, border-color 0.15s;
 }
 
 .compare-tab-btn:hover {
-    color: #e5e7eb;
+    color: #0C2340;
 }
 
-/* Responsive */
+/* ── Responsive ── */
 @media (max-width: 768px) {
     #comparison-slots {
         grid-template-columns: 1fr !important;

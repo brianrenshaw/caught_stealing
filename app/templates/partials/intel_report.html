@@ -1,18 +1,18 @@
-<div class="bg-gray-800/80 rounded-lg border border-teal-600/40 p-5" data-ai-panel>
+<div class="bg-surface-card/80 rounded-lg border border-teal-600/40 p-5" data-ai-panel>
     <div class="flex items-center justify-between mb-3">
-        <h3 class="text-sm font-semibold text-teal-400">{{ report_title }}</h3>
+        <h3 class="text-sm font-semibold text-teal-700">{{ report_title }}</h3>
         <div class="flex items-center gap-3">
             {% if report_meta.get('source_count') %}
-            <span class="text-[10px] text-gray-500">{{ report_meta.source_count }} sources</span>
+            <span class="text-[10px] text-txt-muted">{{ report_meta.source_count }} sources</span>
             {% endif %}
             {% if report_meta.get('content_date_range') %}
-            <span class="text-[10px] text-gray-500">{{ report_meta.content_date_range }}</span>
+            <span class="text-[10px] text-txt-muted">{{ report_meta.content_date_range }}</span>
             {% endif %}
         </div>
     </div>
 
     {% if refresh_success is defined and refresh_success %}
-    <div class="mb-3 bg-teal-900/30 border border-teal-700/50 rounded-lg px-3 py-2 text-xs text-teal-300">
+    <div class="mb-3 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 text-xs text-teal-700">
         Analysis refreshed — {{ reports_generated }} report(s) generated for today.
     </div>
     {% endif %}
@@ -20,29 +20,29 @@
     {% if report_content %}
     <div data-ai-content>
         <script type="text/markdown" data-markdown-source>{{ report_content }}</script>
-        <div data-markdown-target class="prose prose-invert prose-sm max-w-none text-gray-200 leading-relaxed
-                    [&_strong]:text-white [&_strong]:font-semibold
-                    [&_h1]:text-base [&_h1]:font-bold [&_h1]:text-teal-300 [&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:pb-1 [&_h1]:border-b [&_h1]:border-gray-700
-                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-gray-100 [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:pb-1 [&_h2]:border-b [&_h2]:border-gray-700/50
-                    [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-gray-200 [&_h3]:italic [&_h3]:mt-3 [&_h3]:mb-1
+        <div data-markdown-target class="prose prose-invert prose-sm max-w-none text-txt-primary leading-relaxed
+                    [&_strong]:text-txt-primary [&_strong]:font-semibold
+                    [&_h1]:text-base [&_h1]:font-bold [&_h1]:text-teal-700 [&_h1]:mt-5 [&_h1]:mb-2 [&_h1]:pb-1 [&_h1]:border-b [&_h1]:border-bdr
+                    [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:text-txt-primary [&_h2]:uppercase [&_h2]:tracking-wider [&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:pb-1 [&_h2]:border-b [&_h2]:border-bdr/50
+                    [&_h3]:text-sm [&_h3]:font-medium [&_h3]:text-txt-primary [&_h3]:italic [&_h3]:mt-3 [&_h3]:mb-1
                     [&_ul]:my-2 [&_ul]:space-y-1
                     [&_ol]:my-2 [&_ol]:space-y-1
-                    [&_li]:my-0 [&_li]:text-gray-300
-                    [&_li_strong]:text-white
-                    [&_p]:my-2 [&_p]:text-gray-300
-                    [&_hr]:border-gray-700 [&_hr]:my-4
-                    [&_blockquote]:border-l-2 [&_blockquote]:border-teal-600 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-gray-400
+                    [&_li]:my-0 [&_li]:text-txt-primary
+                    [&_li_strong]:text-txt-primary
+                    [&_p]:my-2 [&_p]:text-txt-primary
+                    [&_hr]:border-bdr [&_hr]:my-4
+                    [&_blockquote]:border-l-2 [&_blockquote]:border-teal-600 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-txt-secondary
                     [&_table]:w-full [&_table]:text-xs
-                    [&_th]:bg-gray-700 [&_th]:text-gray-200 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold
-                    [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-gray-700/50 [&_td]:text-gray-300">
+                    [&_th]:bg-surface-elevated [&_th]:text-txt-primary [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-semibold
+                    [&_td]:px-2 [&_td]:py-1 [&_td]:border-b [&_td]:border-bdr/50 [&_td]:text-txt-primary">
         </div>
     </div>
     {% else %}
-    <p class="text-gray-500 text-sm">Report content could not be loaded.</p>
+    <p class="text-txt-muted text-sm">Report content could not be loaded.</p>
     {% endif %}
 
-    <div class="mt-3 pt-3 border-t border-gray-700/50 flex items-center justify-between">
-        <span class="text-[10px] text-gray-600">
+    <div class="mt-3 pt-3 border-t border-bdr/50 flex items-center justify-between">
+        <span class="text-[10px] text-txt-muted">
             {% if report_meta.get('generated_at') %}
             Generated {{ report_meta.generated_at[:16] }} UTC
             {% endif %}
@@ -52,7 +52,7 @@
         </span>
         <div class="flex items-center gap-3">
             <button onclick="copyAsRichText(this)"
-                    class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                    class="text-xs text-txt-secondary hover:text-txt-primary transition-colors flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
                     <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
@@ -60,7 +60,7 @@
                 Copy
             </button>
             <button onclick="emailAnalysis(this, '{{ report_title }}')"
-                    class="text-xs text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+                    class="text-xs text-txt-secondary hover:text-txt-primary transition-colors flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />

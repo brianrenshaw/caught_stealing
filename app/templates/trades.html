@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
 {% block title %}Trade Analyzer — Fantasy Baseball{% endblock %}
-{% block nav_trades %}bg-gray-700 text-white{% endblock %}
+{% block nav_trades %}nav-item-active{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-2">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
+<h2 class="font-display text-3xl font-extrabold text-txt-navy mb-2">Trade Analyzer {{ page_info('trade-analyzer') }}</h2>
 
 <!-- AI Trade Suggestions -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-4 mb-6">
+<div class="bg-surface-card rounded-lg border border-bdr p-4 mb-6">
     <div class="flex items-center gap-2 mb-2">
-        <h3 class="text-lg font-semibold text-gray-200">AI Trade Suggestions</h3>
+        <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">AI Trade Suggestions</h3>
         {{ page_info('ai-trade-suggestions') }}
     </div>
-    <p class="text-gray-400 text-sm mb-3">
+    <p class="text-txt-secondary text-sm mb-3">
         Scans all opponents' rosters against your weak spots using three projection systems to find realistic trade targets.
     </p>
     <div class="flex items-center gap-3">
@@ -22,70 +22,70 @@
                 hx-target="#trade-suggestions-result"
                 hx-swap="innerHTML"
                 hx-indicator="#suggest-spinner"
-                class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded-lg transition-colors">
+                class="bg-accent-primary hover:bg-accent-hover text-white text-sm px-4 py-2 rounded-lg transition-colors">
             Find Trade Opportunities
         </button>
-        <span id="suggest-spinner" class="htmx-indicator text-indigo-400 text-sm">Analyzing...</span>
+        <span id="suggest-spinner" class="htmx-indicator text-indigo-700 text-sm">Analyzing...</span>
     </div>
     <div id="trade-suggestions-result" class="mt-4"></div>
 </div>
 
 <!-- League Scoring Context -->
-<div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 mb-6">
-    <p class="text-sm text-gray-300 leading-relaxed">
-        All trade values are calculated using your league's <span class="text-blue-400 font-medium">H2H Points scoring</span>.
+<div class="bg-surface-card/60 rounded-lg border border-bdr p-4 mb-6">
+    <p class="text-sm text-txt-primary leading-relaxed">
+        All trade values are calculated using your league's <span class="text-accent-link font-medium">H2H Points scoring</span>.
         Unlike generic fantasy rankings, this analysis accounts for the specific point values that make your league unique.
-        Closers are worth far more here than in most formats (<span class="text-green-400">SV = 7 pts</span>), and
-        high-strikeout hitters carry a hidden penalty (<span class="text-red-400">K = -0.5 pts</span>).
-        A player's <span class="text-white font-medium">Projected Points</span> is their estimated rest-of-season fantasy point total,
-        while <span class="text-white font-medium">Surplus Value</span> shows how many points they're worth above a freely
+        Closers are worth far more here than in most formats (<span class="text-[#2e7d32]">SV = 7 pts</span>), and
+        high-strikeout hitters carry a hidden penalty (<span class="text-[#c62828]">K = -0.5 pts</span>).
+        A player's <span class="text-txt-primary font-medium">Projected Points</span> is their estimated rest-of-season fantasy point total,
+        while <span class="text-txt-primary font-medium">Surplus Value</span> shows how many points they're worth above a freely
         available replacement at the same position — the number that actually matters for trades.
     </p>
-    <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-500">
-        <span>Key values: <span class="text-green-400">SV=7</span> <span class="text-green-400">HLD=4</span> <span class="text-green-400">RW=4</span> OUT=1.5 <span class="text-red-400">ER=-4</span> <span class="text-red-400">K(bat)=-0.5</span> BB=1 HR=4</span>
+    <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-txt-muted">
+        <span>Key values: <span class="text-[#2e7d32]">SV=7</span> <span class="text-[#2e7d32]">HLD=4</span> <span class="text-[#2e7d32]">RW=4</span> OUT=1.5 <span class="text-[#c62828]">ER=-4</span> <span class="text-[#c62828]">K(bat)=-0.5</span> BB=1 HR=4</span>
     </div>
 </div>
 
 <!-- Trade Evaluation Form -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-5 mb-6">
-    <h3 class="text-lg font-semibold mb-4 text-gray-200">Evaluate a Trade</h3>
+<div class="bg-surface-card rounded-lg border border-bdr p-5 mb-6">
+    <h3 class="font-display text-lg font-bold text-txt-navy mb-4 text-txt-primary">Evaluate a Trade</h3>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
         <!-- Side A -->
         <div>
-            <label class="block text-sm font-medium text-blue-400 mb-2">I'm Trading Away (My Team)</label>
+            <label class="block text-sm font-medium text-accent-link mb-2">I'm Trading Away (My Team)</label>
             <div class="mb-2">
                 <select id="trade-select-a" onchange="addFromSelect('a')"
-                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200">
+                        class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-txt-primary">
                     <option value="">Select a player to trade away...</option>
                     {% for p in my_roster %}
                     <option value='{{ p | tojson }}'>{{ p.roster_position }}: {{ p.name }} ({{ p.team }}) — {{ "%.0f"|format(p.projected_points) }} pts</option>
                     {% endfor %}
                 </select>
             </div>
-            <div id="trade-players-a" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
-                <span class="trade-placeholder-a text-gray-500 text-sm py-1">Select players to trade away</span>
+            <div id="trade-players-a" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-surface-inset/50 rounded-lg border border-bdr">
+                <span class="trade-placeholder-a text-txt-muted text-sm py-1">Select players to trade away</span>
             </div>
         </div>
 
         <!-- Side B -->
         <div>
-            <label class="block text-sm font-medium text-green-400 mb-2">I'm Receiving (Their Roster)</label>
+            <label class="block text-sm font-medium text-[#2e7d32] mb-2">I'm Receiving (Their Roster)</label>
             <div class="mb-2">
                 <select id="trade-team-select" onchange="onTeamSelected()"
-                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 mb-2">
+                        class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-txt-primary mb-2">
                     <option value="">Select an opponent team...</option>
                     {% for t in opponent_teams %}
                     <option value="{{ t.team_id }}">{{ t.team_name }}</option>
                     {% endfor %}
                 </select>
                 <select id="trade-select-b" onchange="addFromSelect('b')"
-                        class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 hidden">
+                        class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-txt-primary hidden">
                     <option value="">Select a player to receive...</option>
                 </select>
             </div>
-            <div id="trade-players-b" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
-                <span class="trade-placeholder-b text-gray-500 text-sm py-1">Select an opponent team, then add players</span>
+            <div id="trade-players-b" class="min-h-[44px] flex flex-wrap gap-2 p-2 bg-surface-inset/50 rounded-lg border border-bdr">
+                <span class="trade-placeholder-b text-txt-muted text-sm py-1">Select an opponent team, then add players</span>
             </div>
         </div>
     </div>
@@ -94,12 +94,12 @@
         <button onclick="submitTrade()"
                 id="trade-submit-btn"
                 disabled
-                class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed
-                       text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                class="bg-accent-primary hover:bg-accent-hover disabled:bg-surface-elevated disabled:cursor-not-allowed
+                       text-txt-primary px-4 py-2 rounded-lg text-sm font-medium transition-colors">
             Analyze Trade
         </button>
         <button onclick="clearTradeSides()"
-                class="text-gray-400 hover:text-white text-sm px-3 py-2">
+                class="text-txt-secondary hover:text-txt-primary text-sm px-3 py-2">
             Clear All
         </button>
     </div>
@@ -114,16 +114,16 @@
 </form>
 
 <!-- Trade Value Rankings -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
-    <div class="p-4 border-b border-gray-700">
-        <h3 class="text-lg font-semibold text-gray-200">Trade Value Rankings {{ page_info('trade-value-rankings') }}</h3>
-        <p class="text-gray-400 text-sm mt-2 leading-relaxed">
-            Players ranked by <span class="text-white font-medium">Surplus Value</span> — the projected rest-of-season
+<div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
+    <div class="p-4 border-b border-bdr">
+        <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Trade Value Rankings {{ page_info('trade-value-rankings') }}</h3>
+        <p class="text-txt-secondary text-sm mt-2 leading-relaxed">
+            Players ranked by <span class="text-txt-primary font-medium">Surplus Value</span> — the projected rest-of-season
             fantasy points above what a replacement-level player at the same position would produce. This is the single
             most important number for evaluating trades: a positive surplus means the player is worth more than what's
             freely available on waivers, and the higher the number, the more you should demand in return.
         </p>
-        <p class="text-gray-500 text-xs mt-2">
+        <p class="text-txt-muted text-xs mt-2">
             Note that relievers often rank surprisingly high because saves are worth 7 points each in this format.
             An elite closer producing 35 saves generates 245 points from saves alone — that's hard to replace.
             Similarly, innings-eating starters rank well because every IP generates 4.5 base points from outs.
@@ -131,15 +131,15 @@
         </p>
     </div>
     {% if trade_values %}
-    <div class="p-4 border-b border-gray-700">
+    <div class="p-4 border-b border-bdr">
         <input type="text" data-table-search="rankings-table-body-wrapper" placeholder="Search players..."
-               class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-200 placeholder-gray-500">
+               class="w-full bg-surface-elevated border border-bdr-subtle rounded-lg px-3 py-2 text-sm text-txt-primary placeholder-txt-muted">
     </div>
     <div class="overflow-x-auto">
         <table class="sortable-table w-full text-sm" id="rankings-table-body-wrapper"
                data-default-sort="surplus_value" data-default-dir="desc">
             <thead>
-                <tr class="text-gray-400 border-b border-gray-700">
+                <tr class="text-txt-secondary border-b border-bdr">
                     <th class="text-left py-2 px-3 row-number">#</th>
                     <th class="text-left py-2 px-3" data-sort="name">Player</th>
                     <th class="text-left py-2 px-1" data-sort="position">Pos</th>
@@ -164,42 +164,42 @@
             <tbody id="rankings-table-body">
                 {% for v in trade_values %}
                 {% set v_json %}{"id": {{ v.player_id }}, "name": "{{ v.name | replace('"', '\\"') }}", "team": "{{ v.team }}", "position": "{{ v.position }}"}{% endset %}
-                <tr class="border-b border-gray-700/50 hover:bg-gray-700/30"
+                <tr class="border-b border-bdr/50 hover:bg-surface-elevated/30"
                     data-name="{{ v.name }}" data-team="{{ v.team }}" data-position="{{ v.position }}"
                     data-projected_points="{{ v.get('projected_points', v.get('z_score_total', 0)) }}"
                     data-steamer_ros_points="{{ v.get('steamer_ros_points', 0) }}"
                     data-actual_points="{{ v.get('actual_points', 0) }}"
                     data-surplus_value="{{ v.surplus_value }}"
                     data-positional_rank="{{ v.positional_rank }}">
-                    <td class="py-2 px-3 text-gray-500">{{ loop.index }}</td>
+                    <td class="py-2 px-3 text-txt-muted">{{ loop.index }}</td>
                     <td class="py-2 px-3">
                         {{ player_link(v.player_id, v.name, v.team) }}
                     </td>
-                    <td class="py-2 px-1 text-gray-400 text-xs">{{ v.position }}</td>
-                    <td class="py-2 px-3 text-right text-gray-400">{{ v.positional_rank }}</td>
-                    <td class="py-2 px-3 text-right {% if v.get('projected_points', v.get('z_score_total', 0)) >= 200 %}text-green-400{% elif v.get('projected_points', v.get('z_score_total', 0)) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                    <td class="py-2 px-1 text-txt-secondary text-xs">{{ v.position }}</td>
+                    <td class="py-2 px-3 text-right text-txt-secondary">{{ v.positional_rank }}</td>
+                    <td class="py-2 px-3 text-right {% if v.get('projected_points', v.get('z_score_total', 0)) >= 200 %}text-[#2e7d32]{% elif v.get('projected_points', v.get('z_score_total', 0)) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('projected_points', v.get('z_score_total', 0))) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.get('steamer_ros_points', 0) >= 200 %}text-green-400{% elif v.get('steamer_ros_points', 0) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                    <td class="py-2 px-3 text-right {% if v.get('steamer_ros_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('steamer_ros_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('steamer_ros_points', 0)) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.get('actual_points', 0) >= 200 %}text-green-400{% elif v.get('actual_points', 0) >= 100 %}text-blue-400{% else %}text-gray-300{% endif %}">
+                    <td class="py-2 px-3 text-right {% if v.get('actual_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('actual_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('actual_points', 0)) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.surplus_value > 0 %}text-green-400{% else %}text-red-400{% endif %} font-medium">
+                    <td class="py-2 px-3 text-right {% if v.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %} font-medium">
                         {{ "%.1f"|format(v.surplus_value) }}
                     </td>
                     <td class="py-2 px-3 text-center">
                         {% if v.roster_side == 'a' %}
-                        <button onclick='addToSide({{ v_json }}, "a")' class="text-xs px-2 py-1 rounded bg-blue-700/50 text-blue-300 hover:bg-blue-600">
+                        <button onclick='addToSide({{ v_json }}, "a")' class="text-xs px-2 py-1 rounded bg-accent-hover/50 text-accent-link hover:bg-accent-primary">
                             &larr; Mine
                         </button>
                         {% elif v.roster_side == 'b' %}
-                        <button onclick='addToSide({{ v_json }}, "b")' class="text-xs px-2 py-1 rounded bg-green-700/50 text-green-300 hover:bg-green-600">
+                        <button onclick='addToSide({{ v_json }}, "b")' class="text-xs px-2 py-1 rounded bg-green-700/50 text-[#2e7d32] hover:bg-green-600">
                             Theirs &rarr;
                         </button>
                         {% else %}
-                        <span class="text-xs text-gray-600">FA</span>
+                        <span class="text-xs text-txt-muted">FA</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -209,8 +209,8 @@
     </div>
     {% else %}
     <div class="p-8 text-center">
-        <p class="text-gray-400">No trade values available.</p>
-        <p class="text-gray-500 text-sm mt-2">Run the stats sync first to populate projections.</p>
+        <p class="text-txt-secondary">No trade values available.</p>
+        <p class="text-txt-muted text-sm mt-2">Run the stats sync first to populate projections.</p>
     </div>
     {% endif %}
 </div>
@@ -324,12 +324,12 @@ function renderSideChips(side) {
     list.forEach(p => {
         const chip = document.createElement('div');
         chip.className = 'trade-chip flex items-center gap-1.5 px-2 py-1 rounded-full text-sm ' +
-            (side === 'a' ? 'bg-blue-900/40 border border-blue-700/50 text-blue-200' : 'bg-green-900/40 border border-green-700/50 text-green-200');
+            (side === 'a' ? 'bg-surface-warm border border-blue-700/50 text-blue-700' : 'bg-[#e8f5e9] border border-[#c8e6c9]/50 text-[#2e7d32]');
         chip.innerHTML = `
             <span class="truncate max-w-[120px]">${p.name}</span>
             <span class="text-xs opacity-60">${p.position || ''}</span>
             <button onclick="removeFromSide(${p.id}, '${side}')"
-                    class="ml-1 text-gray-400 hover:text-white text-xs leading-none"
+                    class="ml-1 text-txt-secondary hover:text-txt-primary text-xs leading-none"
                     aria-label="Remove ${p.name}">&times;</button>
         `;
         container.appendChild(chip);

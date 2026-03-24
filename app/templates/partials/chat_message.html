@@ -1,23 +1,23 @@
 <!-- User message -->
 <div class="flex justify-end mb-3">
-    <div class="bg-blue-600 rounded-lg px-3 py-2 max-w-[80%]">
-        <p class="text-sm text-white">{{ user_message }}</p>
+    <div class="bg-accent-primary rounded-lg px-3 py-2 max-w-[80%]">
+        <p class="text-sm text-txt-primary">{{ user_message }}</p>
     </div>
 </div>
 <!-- Assistant response -->
 <div class="flex justify-start mb-3">
-    <div class="bg-gray-700 rounded-lg px-3 py-2 max-w-[85%]">
-        <div class="text-sm text-gray-100" data-ai-content>
+    <div class="bg-surface-elevated rounded-lg px-3 py-2 max-w-[85%]">
+        <div class="text-sm text-txt-primary" data-ai-content>
             <script type="text/markdown" data-markdown-source>{{ response }}</script>
             <div data-markdown-target class="prose prose-invert prose-sm max-w-none
-                        [&_strong]:text-white [&_p]:my-1.5 [&_ul]:my-1 [&_li]:my-0.5
+                        [&_strong]:text-txt-primary [&_p]:my-1.5 [&_ul]:my-1 [&_li]:my-0.5
                         [&_h1]:text-base [&_h2]:text-sm [&_h3]:text-sm
-                        [&_code]:bg-gray-800 [&_code]:px-1 [&_code]:rounded
-                        [&_pre]:bg-gray-800 [&_pre]:p-2 [&_pre]:rounded">
+                        [&_code]:bg-surface-card [&_code]:px-1 [&_code]:rounded
+                        [&_pre]:bg-surface-card [&_pre]:p-2 [&_pre]:rounded">
             </div>
         </div>
         {% if tools_used %}
-        <p class="text-xs text-gray-500 mt-2 border-t border-gray-600 pt-1">
+        <p class="text-xs text-txt-muted mt-2 border-t border-bdr-subtle pt-1">
             Used: {{ tools_used | join(', ') }}
         </p>
         {% endif %}

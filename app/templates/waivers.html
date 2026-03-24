@@ -1,63 +1,63 @@
 {% extends "base.html" %}
 
 {% block title %}Waiver Wire — Fantasy Baseball{% endblock %}
-{% block nav_waivers %}bg-gray-700 text-white{% endblock %}
+{% block nav_waivers %}nav-item-active{% endblock %}
 
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<h2 class="text-2xl font-bold mb-2">Waiver Wire Recommendations {{ page_info('waivers') }}</h2>
+<h2 class="font-display text-3xl font-extrabold text-txt-navy mb-2">Waiver Wire Recommendations {{ page_info('waivers') }}</h2>
 
 <!-- Scoring Context -->
-<div class="bg-gray-800/60 rounded-lg border border-gray-700 p-4 mb-4">
-    <p class="text-sm text-gray-300 leading-relaxed">
-        These recommendations are tailored to your league's <span class="text-blue-400 font-medium">H2H Points scoring</span>.
-        Use the <span class="text-white font-medium">dropdown below</span> to switch between full-season projections and
-        <span class="text-white font-medium">weekly projections</span> for the upcoming 1–2 weeks — the weekly view factors in
+<div class="bg-surface-card/60 rounded-lg border border-bdr p-4 mb-4">
+    <p class="text-sm text-txt-primary leading-relaxed">
+        These recommendations are tailored to your league's <span class="text-accent-link font-medium">H2H Points scoring</span>.
+        Use the <span class="text-txt-primary font-medium">dropdown below</span> to switch between full-season projections and
+        <span class="text-txt-primary font-medium">weekly projections</span> for the upcoming 1–2 weeks — the weekly view factors in
         team schedules, matchups, two-start pitchers, closer vacancies, and injury status so you can make the best week-to-week pickups.
     </p>
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mt-3">
-        <div class="bg-gray-900/50 rounded p-2.5">
-            <h4 class="text-xs font-semibold text-green-400 mb-1">Closers & Setup Men</h4>
-            <p class="text-xs text-gray-400">
-                A save is worth <span class="text-white">7 points</span> and a hold is worth <span class="text-white">4</span>.
+        <div class="bg-surface-inset/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-[#2e7d32] mb-1">Closers & Setup Men</h4>
+            <p class="text-xs text-txt-secondary">
+                A save is worth <span class="text-txt-primary">7 points</span> and a hold is worth <span class="text-txt-primary">4</span>.
                 A closer converting 3 saves in a week generates 37+ points from one roster spot.
                 A setup man with 2 holds quietly produces 20+. Look for the
-                <span class="text-green-400 font-medium">CL</span> and <span class="text-blue-400 font-medium">SU</span>
-                role badges and the <span class="text-green-400 font-medium">Fit</span> score.
+                <span class="text-[#2e7d32] font-medium">CL</span> and <span class="text-accent-link font-medium">SU</span>
+                role badges and the <span class="text-[#2e7d32] font-medium">Fit</span> score.
                 When a closer hits the IL, the
-                <span class="text-emerald-300 font-medium">CLOSER OPP</span> badge flags the next man up.
+                <span class="text-[#2e7d32] font-medium">CLOSER OPP</span> badge flags the next man up.
             </p>
         </div>
-        <div class="bg-gray-900/50 rounded p-2.5">
-            <h4 class="text-xs font-semibold text-blue-400 mb-1">Contact Hitters (Low K%)</h4>
-            <p class="text-xs text-gray-400">
-                Every strikeout costs <span class="text-white">-0.5 points</span>. Over a season, the gap
-                between a 15% K hitter and a 28% K hitter is roughly <span class="text-white">35 points</span> —
+        <div class="bg-surface-inset/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-accent-link mb-1">Contact Hitters (Low K%)</h4>
+            <p class="text-xs text-txt-secondary">
+                Every strikeout costs <span class="text-txt-primary">-0.5 points</span>. Over a season, the gap
+                between a 15% K hitter and a 28% K hitter is roughly <span class="text-txt-primary">35 points</span> —
                 equivalent to 9 extra home runs. High plate discipline and low K rates are
                 systematically undervalued. The
-                <span class="text-orange-400 font-medium">BREAKOUT</span> badge flags hitters whose
+                <span class="text-orange-700 font-medium">BREAKOUT</span> badge flags hitters whose
                 Statcast metrics (barrel%, hard-hit%) are surging.
             </p>
         </div>
-        <div class="bg-gray-900/50 rounded p-2.5">
-            <h4 class="text-xs font-semibold text-yellow-400 mb-1">Two-Start Pitchers</h4>
-            <p class="text-xs text-gray-400">
-                Each inning pitched generates <span class="text-white">4.5 base points</span> from outs alone.
-                A starter with <span class="text-white">two starts</span> in one week can produce
-                <span class="text-white">40–60+ points</span> — often more than any single hitter.
-                The <span class="text-green-400 font-medium">2-START</span> badge shows confirmed
+        <div class="bg-surface-inset/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-[#F57F17] mb-1">Two-Start Pitchers</h4>
+            <p class="text-xs text-txt-secondary">
+                Each inning pitched generates <span class="text-txt-primary">4.5 base points</span> from outs alone.
+                A starter with <span class="text-txt-primary">two starts</span> in one week can produce
+                <span class="text-txt-primary">40–60+ points</span> — often more than any single hitter.
+                The <span class="text-[#2e7d32] font-medium">2-START</span> badge shows confirmed
                 two-start pitchers with their opponents listed. This is the single highest-value
                 weekly waiver strategy.
             </p>
         </div>
-        <div class="bg-gray-900/50 rounded p-2.5">
-            <h4 class="text-xs font-semibold text-purple-400 mb-1">Schedule & Injuries</h4>
-            <p class="text-xs text-gray-400">
-                In weekly mode, the <span class="text-white font-medium">Games</span> column shows how many
+        <div class="bg-surface-inset/50 rounded p-2.5">
+            <h4 class="text-xs font-semibold text-purple-700 mb-1">Schedule & Injuries</h4>
+            <p class="text-xs text-txt-secondary">
+                In weekly mode, the <span class="text-txt-primary font-medium">Games</span> column shows how many
                 games each team plays — hitters on 7-game teams get ~30% more PA than 5-game teams.
-                <span class="text-yellow-400 font-medium">DTD</span> players have their weekly projection
-                cut 50%. <span class="text-red-400 font-medium">IL</span> players are excluded entirely.
-                Injury data comes from the <span class="text-gray-300">MLB Official Injury Report</span>.
+                <span class="text-[#F57F17] font-medium">DTD</span> players have their weekly projection
+                cut 50%. <span class="text-[#c62828] font-medium">IL</span> players are excluded entirely.
+                Injury data comes from the <span class="text-txt-primary">MLB Official Injury Report</span>.
             </p>
         </div>
     </div>
@@ -71,14 +71,14 @@
                 hx-swap="innerHTML"
                 hx-include="#period-select"
                 hx-indicator="#analyze-spinner"
-                class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
+                class="bg-accent-primary hover:bg-accent-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd" />
             </svg>
             Analyze My Roster
         </button>
-        <span class="text-xs text-gray-500">AI-powered pickup/drop recommendations based on your roster, injuries, and matchups</span>
-        <span id="analyze-spinner" class="htmx-indicator text-indigo-400 text-sm flex items-center gap-1.5">
+        <span class="text-xs text-txt-muted">AI-powered pickup/drop recommendations based on your roster, injuries, and matchups</span>
+        <span id="analyze-spinner" class="htmx-indicator text-indigo-700 text-sm flex items-center gap-1.5">
             <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -94,7 +94,7 @@
 
 <!-- Period Selector -->
 <div class="flex flex-wrap items-center gap-3 mb-3">
-    <label class="text-sm text-gray-400">Projection Period:</label>
+    <label class="text-sm text-txt-secondary">Projection Period:</label>
     <select id="period-select"
             hx-get="/waivers/table"
             hx-target="#waiver-table-container"
@@ -102,7 +102,7 @@
             hx-trigger="change"
             hx-indicator="#table-spinner"
             name="period"
-            class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm text-gray-200 focus:ring-1 focus:ring-blue-500 focus:border-blue-500">
+            class="bg-surface-elevated border border-bdr-subtle rounded px-3 py-1.5 text-sm text-txt-primary focus:ring-1 focus:ring-blue-500 focus:border-accent-primary">
         <option value="ros" {% if period == 'ros' %}selected{% endif %}>Full Season (ROS)</option>
         <option value="week_1" {% if period == 'week_1' %}selected{% endif %}>
             This Week ({{ week1_start.strftime('%b %d') }}–{{ week1_end.strftime('%b %d') }})
@@ -112,49 +112,49 @@
         </option>
     </select>
     {{ stat_info('waiver_period') }}
-    <span id="table-spinner" class="htmx-indicator text-blue-400 text-sm">Loading...</span>
+    <span id="table-spinner" class="htmx-indicator text-accent-link text-sm">Loading...</span>
 </div>
 
 <!-- Column & Badge Legend -->
-<div class="bg-gray-800/40 rounded-lg border border-gray-700/50 p-3 mb-4">
+<div class="bg-surface-card/40 rounded-lg border border-bdr/50 p-3 mb-4">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2">
         <!-- Column descriptions -->
         <div>
-            <h4 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Columns</h4>
-            <div class="flex flex-col gap-1 text-xs text-gray-500">
-                <span><span class="text-blue-400 font-medium">Score</span> — Composite waiver score (0-100): projection 35%, trend 25%, position 15%, fit 15%, schedule 10%</span>
+            <h4 class="text-[10px] font-semibold text-txt-muted uppercase tracking-wider mb-1.5">Columns</h4>
+            <div class="flex flex-col gap-1 text-xs text-txt-muted">
+                <span><span class="text-accent-link font-medium">Score</span> — Composite waiver score (0-100): projection 35%, trend 25%, position 15%, fit 15%, schedule 10%</span>
                 {% if period != 'ros' %}
-                <span><span class="text-white font-medium">Week Pts</span> — Projected fantasy points for the selected week (rate × games)</span>
+                <span><span class="text-txt-primary font-medium">Week Pts</span> — Projected fantasy points for the selected week (rate × games)</span>
                 {% else %}
-                <span><span class="text-white font-medium">Consensus</span> — Blended average of five projection systems (Steamer, ZiPS, ATC, Depth Charts, THE BAT X) rest-of-season projections, converted to league scoring. Falls back to pace-based projection when unavailable.</span>
-                <span><span class="text-white font-medium">My Proj</span> — App projection: actual stats scaled to remaining games. During offseason, shows full-season projection from prior year. After Week 2, uses live data.</span>
+                <span><span class="text-txt-primary font-medium">Consensus</span> — Blended average of five projection systems (Steamer, ZiPS, ATC, Depth Charts, THE BAT X) rest-of-season projections, converted to league scoring. Falls back to pace-based projection when unavailable.</span>
+                <span><span class="text-txt-primary font-medium">My Proj</span> — App projection: actual stats scaled to remaining games. During offseason, shows full-season projection from prior year. After Week 2, uses live data.</span>
                 {% endif %}
-                <span><span class="text-gray-300 font-medium">Rate</span> — Points per plate appearance (hitters) or per inning pitched (pitchers)</span>
+                <span><span class="text-txt-primary font-medium">Rate</span> — Points per plate appearance (hitters) or per inning pitched (pitchers)</span>
                 {% if period != 'ros' %}
-                <span><span class="text-gray-300 font-medium">Games</span> — Team games this week. <span class="text-gray-400">(2S)</span> = number of pitcher starts</span>
+                <span><span class="text-txt-primary font-medium">Games</span> — Team games this week. <span class="text-txt-secondary">(2S)</span> = number of pitcher starts</span>
                 {% endif %}
-                <span><span class="text-green-400 font-medium">Fit</span> — League scoring format fit (50=neutral, 75+=premium). Boosted for 2-start SPs and closer vacancies</span>
-                <span><span class="font-medium"><span class="text-green-400">HOT</span>/<span class="text-red-400">COLD</span></span> — Last-14-day Statcast xwOBA trend vs full season</span>
+                <span><span class="text-[#2e7d32] font-medium">Fit</span> — League scoring format fit (50=neutral, 75+=premium). Boosted for 2-start SPs and closer vacancies</span>
+                <span><span class="font-medium"><span class="text-[#2e7d32]">HOT</span>/<span class="text-[#c62828]">COLD</span></span> — Last-14-day Statcast xwOBA trend vs full season</span>
             </div>
         </div>
         <!-- Badge descriptions -->
         <div>
-            <h4 class="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Badges</h4>
-            <div class="flex flex-col gap-1 text-xs text-gray-500">
-                <span><span class="text-green-400 bg-green-900/30 px-1 py-0.5 rounded text-[10px] font-medium">2-START</span> — Pitcher has two starts this week (hover for opponents)</span>
-                <span><span class="text-emerald-300 bg-emerald-900/30 px-1 py-0.5 rounded text-[10px] font-medium">CLOSER OPP</span> — Setup man on team with injured closer — save opportunity</span>
-                <span><span class="text-orange-400 bg-orange-900/30 px-1 py-0.5 rounded text-[10px] font-medium">BREAKOUT</span> — Statcast metrics surging: barrel%, hard-hit%, or xwOBA (hover for details)</span>
-                <span><span class="text-green-400 bg-green-900/30 px-1 py-0.5 rounded text-[10px] font-medium">BUY LOW</span> — Expected stats (xwOBA) significantly exceed actual results</span>
-                <span><span class="text-yellow-400 bg-yellow-900/30 px-1 py-0.5 rounded text-[10px] font-medium">DTD</span> — Day-to-day injury (weekly projection reduced 50%)
-                    &nbsp;&nbsp;<span class="text-red-400 bg-red-900/30 px-1 py-0.5 rounded text-[10px] font-medium">IL</span> — Injured list (excluded from weekly views)</span>
-                <span>Role: <span class="text-green-400 font-medium">CL</span> closer &nbsp;<span class="text-blue-400 font-medium">SU</span> setup &nbsp;<span class="text-gray-400">MR</span> middle &nbsp;<span class="text-gray-400">LR</span> long relief</span>
+            <h4 class="text-[10px] font-semibold text-txt-muted uppercase tracking-wider mb-1.5">Badges</h4>
+            <div class="flex flex-col gap-1 text-xs text-txt-muted">
+                <span><span class="text-[#2e7d32] bg-[#e8f5e9] px-1 py-0.5 rounded text-[10px] font-medium">2-START</span> — Pitcher has two starts this week (hover for opponents)</span>
+                <span><span class="text-[#2e7d32] bg-[#e8f5e9] px-1 py-0.5 rounded text-[10px] font-medium">CLOSER OPP</span> — Setup man on team with injured closer — save opportunity</span>
+                <span><span class="text-orange-700 bg-orange-50 px-1 py-0.5 rounded text-[10px] font-medium">BREAKOUT</span> — Statcast metrics surging: barrel%, hard-hit%, or xwOBA (hover for details)</span>
+                <span><span class="text-[#2e7d32] bg-[#e8f5e9] px-1 py-0.5 rounded text-[10px] font-medium">BUY LOW</span> — Expected stats (xwOBA) significantly exceed actual results</span>
+                <span><span class="text-[#F57F17] bg-[#FFF8E1] px-1 py-0.5 rounded text-[10px] font-medium">DTD</span> — Day-to-day injury (weekly projection reduced 50%)
+                    &nbsp;&nbsp;<span class="text-[#c62828] bg-[#fce4ec] px-1 py-0.5 rounded text-[10px] font-medium">IL</span> — Injured list (excluded from weekly views)</span>
+                <span>Role: <span class="text-[#2e7d32] font-medium">CL</span> closer &nbsp;<span class="text-accent-link font-medium">SU</span> setup &nbsp;<span class="text-txt-secondary">MR</span> middle &nbsp;<span class="text-txt-secondary">LR</span> long relief</span>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Waiver Table -->
-<div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+<div class="bg-surface-card rounded-lg border border-bdr overflow-hidden">
     <div id="waiver-table-container">
         {% include "partials/waiver_table.html" %}
     </div>

@@ -17,33 +17,33 @@
 <div class="overflow-x-auto">
     {% for split_key, split_label in split_types %}
     <div class="mb-6">
-        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">{{ split_label }}</h3>
+        <h3 class="text-sm font-semibold text-txt-secondary uppercase tracking-wider mb-2">{{ split_label }}</h3>
         <table class="w-full text-sm">
             <thead>
-                <tr class="border-b border-gray-700">
-                    <th class="text-left py-1 px-3 text-gray-400 font-medium w-24">Stat</th>
+                <tr class="border-b border-bdr">
+                    <th class="text-left py-1 px-3 text-txt-secondary font-medium w-24">Stat</th>
                     {% for card in cards %}
-                    <th class="text-center py-1 px-3 text-gray-300 font-medium text-xs">{{ card.player.name }}</th>
+                    <th class="text-center py-1 px-3 text-txt-primary font-medium text-xs">{{ card.player.name }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
                 {% for stat_key, stat_label in split_stats %}
-                <tr class="border-b border-gray-700/50">
-                    <td class="py-1 px-3 text-gray-400 text-xs">{{ stat_label }}</td>
+                <tr class="border-b border-bdr/50">
+                    <td class="py-1 px-3 text-txt-secondary text-xs">{{ stat_label }}</td>
                     {% for card in cards %}
                     {% set split_data = card.splits.get(split_key, {}) %}
                     {% set val = split_data.get(stat_key) %}
                     <td class="text-center py-1 px-3 font-mono text-xs
                         {% if val is not none %}
                             {% if stat_key == 'ops' %}
-                                {{ 'text-green-300' if val > 0.800 else 'text-red-300' if val < 0.650 else 'text-gray-200' }}
+                                {{ 'text-[#2e7d32]' if val > 0.800 else 'text-red-700' if val < 0.650 else 'text-txt-primary' }}
                             {% elif stat_key == 'avg' %}
-                                {{ 'text-green-300' if val > 0.280 else 'text-red-300' if val < 0.220 else 'text-gray-200' }}
+                                {{ 'text-[#2e7d32]' if val > 0.280 else 'text-red-700' if val < 0.220 else 'text-txt-primary' }}
                             {% elif stat_key == 'k_pct' %}
-                                {{ 'text-green-300' if val < 0.180 else 'text-red-300' if val > 0.280 else 'text-gray-200' }}
-                            {% else %}text-gray-200{% endif %}
-                        {% else %}text-gray-500{% endif %}">
+                                {{ 'text-[#2e7d32]' if val < 0.180 else 'text-red-700' if val > 0.280 else 'text-txt-primary' }}
+                            {% else %}text-txt-primary{% endif %}
+                        {% else %}text-txt-muted{% endif %}">
                         {% if val is not none %}{{ "%.3f"|format(val) }}{% else %}&mdash;{% endif %}
                     </td>
                     {% endfor %}
@@ -55,11 +55,11 @@
     {% endfor %}
 </div>
 {% else %}
-<div class="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-    <p class="text-gray-400 text-sm mb-2">Splits data not yet available for these players.</p>
-    <p class="text-gray-500 text-xs">Splits are fetched on-demand from Baseball Reference. Try refreshing or selecting different players.</p>
+<div class="bg-surface-card rounded-lg border border-bdr p-6 text-center">
+    <p class="text-txt-secondary text-sm mb-2">Splits data not yet available for these players.</p>
+    <p class="text-txt-muted text-xs">Splits are fetched on-demand from Baseball Reference. Try refreshing or selecting different players.</p>
 </div>
 {% endif %}
 {% else %}
-<div class="text-gray-500 text-sm py-4 text-center">Select players to compare splits.</div>
+<div class="text-txt-muted text-sm py-4 text-center">Select players to compare splits.</div>
 {% endif %}

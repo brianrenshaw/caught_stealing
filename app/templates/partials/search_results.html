@@ -1,18 +1,18 @@
 {% if players %}
-<ul class="absolute z-50 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl mt-1 max-h-64 overflow-y-auto">
+<ul class="absolute z-50 w-full bg-surface-elevated border border-bdr-subtle rounded-lg shadow-xl mt-1 max-h-64 overflow-y-auto">
     {% for player in players %}
     <li>
         <a href="/player/{{ player.id }}"
-           class="flex items-center justify-between px-3 py-2 hover:bg-gray-600 transition-colors text-sm"
+           class="flex items-center justify-between px-3 py-2 hover:bg-surface-elevated transition-colors text-sm"
            onclick="document.getElementById('search-dropdown').innerHTML = ''">
-            <span class="text-gray-100 font-medium">{{ player.name }}</span>
-            <span class="text-gray-400 text-xs flex items-center gap-1.5">
+            <span class="text-txt-primary font-medium">{{ player.name }}</span>
+            <span class="text-txt-secondary text-xs flex items-center gap-1.5">
                 {{ player.team or "—" }} &middot; {{ player.position or "—" }}
                 {% if player.fantasy_team %}
                 &middot;
-                <span class="{% if player.is_my_team %}text-blue-400{% else %}text-gray-500{% endif %}">{{ player.fantasy_team.split()[0] }}</span>
+                <span class="{% if player.is_my_team %}text-accent-link{% else %}text-txt-muted{% endif %}">{{ player.fantasy_team.split()[0] }}</span>
                 {% else %}
-                &middot; <span class="text-gray-600">FA</span>
+                &middot; <span class="text-txt-muted">FA</span>
                 {% endif %}
             </span>
         </a>
@@ -20,7 +20,7 @@
     {% endfor %}
 </ul>
 {% elif query %}
-<div class="absolute z-50 w-full bg-gray-700 border border-gray-600 rounded-lg shadow-xl mt-1 px-3 py-2 text-sm text-gray-400">
+<div class="absolute z-50 w-full bg-surface-elevated border border-bdr-subtle rounded-lg shadow-xl mt-1 px-3 py-2 text-sm text-txt-secondary">
     No players found for "{{ query }}"
 </div>
 {% endif %}
