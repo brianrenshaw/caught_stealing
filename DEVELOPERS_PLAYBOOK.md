@@ -18,6 +18,9 @@ A comprehensive technical guide to the Fantasy Baseball Analysis App — its arc
 10. [Scheduler & Automation](#10-scheduler--automation)
 11. [Testing](#11-testing)
 12. [Development Commands](#12-development-commands)
+13. [Backtesting Infrastructure](#13-backtesting-infrastructure)
+14. [Quality Gate Process](#14-quality-gate-process)
+15. [Phase 5: Self-Optimization (April 30 Hold)](#15-phase-5-self-optimization-april-30-hold)
 
 ---
 
@@ -128,20 +131,43 @@ app/
 | `get_team_matchups()` | Current H2H matchup |
 | `get_league_scoreboard_by_week()` | Weekly matchup scores |
 
-### FanGraphs (`app/services/fangraphs_service.py`)
+### FanGraphs (`app/services/fangraphs_service.py`, `app/services/external_projections.py`)
 
-**What it provides:** Traditional and advanced batting/pitching stats — AVG, OBP, SLG, wOBA, wRC+, ISO, BABIP, FIP, xFIP, SIERA, K%, BB%, WAR, and more.
+**What it provides:** Two categories of data:
+1. **Actual stats** — AVG, OBP, SLG, wOBA, wRC+, ISO, BABIP, FIP, xFIP, SIERA, K%, BB%, WAR, and more
+2. **Consensus ROS projections** — Rest-of-season counting stat projections from Steamer, ZiPS, and ATC, blended into a consensus forecast
 
-**Why:** FanGraphs is the gold standard for advanced baseball analytics. Their metrics (FIP, xFIP, SIERA, wRC+) are better predictors of future performance than raw stats. We use these for projection blending — traditional stats get 50% of the projection weight.
+**Why:** FanGraphs is the gold standard for advanced baseball analytics. Their metrics (FIP, xFIP, SIERA, wRC+) are better predictors of future performance than raw stats. For projections, research shows consensus blending of multiple independent systems outperforms any single system — it was literally the #1 most accurate approach in recent accuracy studies.
 
-**How it works:**
-- Actual stats fetched via `pybaseball` library (which scrapes FanGraphs leaderboards)
+**How it works — two separate methods:**
+
+#### Method 1: pybaseball scraping (actual stats)
+- `fangraphs_service.py` uses the `pybaseball` library, which scrapes FanGraphs leaderboard pages
+- Under the hood, pybaseball hits FanGraphs' internal JSON endpoints and parses the responses into DataFrames
 - Retry logic: 3 attempts with 5-second delays between failures
 - Column name mapping normalizes FanGraphs output to our DB schema
-- Fetches full-season, last-30-day, and last-14-day windows for recency weighting
 - `qual=0` (no minimum PA/IP) to capture all rostered players
 
-**Steamer ROS projections** are fetched separately via the FanGraphs projections API (`https://www.fangraphs.com/api/projections?type=steamer`) using `httpx`. This returns full counting stats (HR, 2B, BB, K, IP, SV, HLD, ER, etc.) which are converted to league-specific fantasy points using our scoring rules. Stored in the `projections` table with `system='steamer_ros'` and on `player_points.steamer_ros_points` after conversion. Matched to players via `fangraphs_id` or `mlbam_id` (the API returns `xMLBAMID`).
+#### Method 2: FanGraphs internal JSON API (projections)
+- `external_projections.py` calls `https://www.fangraphs.com/api/projections` directly using `httpx`
+- This is the same endpoint that FanGraphs' own projections page calls in the browser — we mimic a browser request with User-Agent headers
+- Supports multiple projection systems via the `type=` parameter: `steamer`, `zips`, `atc`
+- Returns JSON with full counting stats (HR, 2B, BB, K, IP, SV, HLD, ER, etc.)
+- Each system is fetched individually with a 2-second delay between calls to avoid rate limiting
+- Results are blended into consensus projections (equal weight across available systems) and stored in the `projections` table with `system='consensus'`
+- Steamer is also stored separately as `system='steamer_ros'` for comparison
+- Matched to players via `fangraphs_id` or `mlbam_id` (the API returns `xMLBAMID`)
+
+#### API Dependency Risk
+
+**FanGraphs does not offer an official public API.** Both methods above use unofficial access:
+
+| Method | Risk | Mitigation |
+|--------|------|------------|
+| pybaseball scraping | Page format changes can break parsing (e.g., the `320 columns passed` error seen in early-season 2026) | Retry logic, pybaseball caching, graceful fallback to consensus projections when stats fail |
+| Internal JSON API | Endpoint could change or be blocked | Browser-like headers, rate limiting (2s delays), consensus degrades gracefully if one system fails |
+
+**Context:** pybaseball has 18k+ GitHub stars and is the standard community tool for accessing FanGraphs data. FanGraphs has tolerated this access pattern for years. The internal projections API in particular has been stable and is the same API FanGraphs' own React frontend uses — it would break their own site if they changed it without a replacement. That said, this is an undocumented dependency and should be treated as one.
 
 ### Statcast / Baseball Savant (`app/services/statcast_service.py`)
 
@@ -307,8 +333,8 @@ The ETL system lives in `app/etl/` and has two independent pipelines.
 5. Fetch Statcast pitcher summaries (xERA, whiff%, chase%)
 6. Fetch sprint speed data (merged into batter records)
 7. Bulk-update player ages from MLB-StatsAPI
-8. Fetch Steamer ROS projections from FanGraphs projections API (full counting stats, converted to league-specific fantasy points)
-9. Calculate player points from loaded stats (includes attaching Steamer ROS points)
+8. Fetch consensus ROS projections from FanGraphs API — Steamer, ZiPS, and ATC fetched individually, blended with equal weights, stored as `system='consensus'` in projections table. Steamer also stored separately as `system='steamer_ros'` for comparison.
+9. Calculate player points from consensus projections (primary) with Steamer ROS attached for comparison. Early season: when no actual stats exist, PlayerPoints are populated entirely from consensus projections.
 
 **Loading patterns:**
 - Match players by `fangraphs_id` or `mlbam_id`
@@ -319,48 +345,53 @@ The ETL system lives in `app/etl/` and has two independent pipelines.
 
 ## 5. Services Deep Dive
 
-### Projection Engine (`app/services/projection_service.py`)
+### Projection Engine — Unified Consensus Architecture
 
-The projection engine blends traditional stats with Statcast expected stats to produce rest-of-season (ROS) projections.
+The projection engine uses a **consensus blending** approach: professional projection systems (Steamer, ZiPS, ATC) are fetched from FanGraphs and blended with equal weights to produce a single consensus projection. This consensus is the single source of truth for all downstream features.
 
-**Weight System:**
+**Why consensus?** Backtesting (see `docs/BACKTESTING_METHODOLOGY.md`, Section 8.6) demonstrated that custom blending from season-level stats cannot beat the Marcel baseline. Professional systems use proprietary multi-year regression, aging curves, and park adjustments that are impractical to replicate. Research consistently shows that averaging multiple independent projection systems outperforms any single system. The app's value-add is in league-specific scoring conversion and matchup adjustments, not raw stat projection.
 
-| Data Source | Weight | Why |
-|-------------|--------|-----|
-| Full season traditional stats | 25% | Baseline performance |
-| Last 30 days traditional stats | 15% | Recent form |
-| Last 14 days traditional stats | 10% | Hot/cold streaks |
-| Full season Statcast expected stats | 30% | Best long-term predictor |
-| Last 30 days Statcast expected stats | 20% | Recent quality-of-contact trends |
+**Consensus Pipeline (`app/services/external_projections.py`):**
+1. Fetch Steamer, ZiPS, and ATC ROS projections from FanGraphs API
+2. Blend with equal weights (1/3 each) across all counting and rate stats
+3. Store in the `Projection` table with `system="consensus"`
+4. Each source system is also stored individually (`system="steamer_ros"`, etc.) for comparison
 
-Traditional stats get 50% total weight, Statcast gets 50%. This is intentional — Statcast expected stats (xBA, xSLG, xwOBA) strip out luck (BABIP variance, defensive alignment) and measure the true quality of a player's at-bats.
+**What consensus provides:**
+- ROS counting stats (HR, R, RBI, SB, IP, K, SV, etc.)
+- ROS rate stats (AVG, OBP, SLG, ERA, WHIP, etc.)
+- Per-PA and per-IP rates derived from consensus counting stats
 
-**Counting stats projection (HR, R, RBI, SB):**
-1. Calculate per-PA rates from full season, last 30, and last 14 data
-2. Weighted-average the rates using the weights above
-3. Estimate remaining plate appearances based on season progress
-4. Multiply rate × remaining PA, then add already-accumulated totals
+**Points conversion (`app/services/points_service.py`):**
+- `PlayerPoints.projected_ros_points` derives from consensus counting stats scored with league weights
+- Rate stats (`points_per_pa`, `points_per_ip`) calculated from consensus, not pace-scaling
+- Fallback: if consensus is unavailable for a player, falls back to pace-based projection from actual stats
 
-**Rate stats projection (AVG, OBP, SLG):**
-- Blends traditional rates with Statcast expected stats (xBA, xSLG, xwOBA) using the same weight system
-
-**Pitcher ERA projection:**
-- Weights: actual ERA (15%), FIP (25%), xFIP (25%), last-30 ERA (10%), last-30 FIP (10%), last-14 ERA (5%)
-- FIP/xFIP are weighted more heavily than actual ERA because they're better predictors (strip out defense and sequencing luck)
-
-**Remaining IP estimation:**
-- Starters: 6 IP/start × 32 starts = 192 IP full-season baseline
-- Relievers: 1 IP/appearance × 65 appearances = 65 IP baseline
-- Prorated by season progress
-
-**Confidence score (0–100%):**
-- PA/IP contribution: min(PA/400, 1.0) × 60% (more data = more confident)
-- Statcast availability bonus: +20% if expected stats exist
-- Season progress: 0–20% scaled by how far into the season we are
-
-**Buy/sell signals:**
+**Buy/sell signals (still active):**
 - Buy low: xwOBA exceeds actual wOBA by ≥ 0.030 (player is unlucky, regression coming)
 - Sell high: actual wOBA exceeds xwOBA by ≥ 0.030 (player is lucky, regression coming)
+
+### Unified Projection Flow
+
+All features derive from the same consensus base. This eliminates inconsistencies where the trade analyzer and weekly optimizer could disagree about a player's value.
+
+```
+Steamer + ZiPS + ATC → Consensus → PlayerPoints.projected_ros_points
+     (equal weights)    (system=       (league scoring applied)
+                        "consensus")          │
+                   ┌──────────────────────────┼───────────────────────────┐
+                   │                          │                           │
+                   ▼                          ▼                           ▼
+             Trade Analyzer           Weekly Optimizer               Waivers
+             (surplus_value =         (consensus rates ×         (projected_score
+              projected_pts -          schedule games ×           from consensus,
+              replacement)             matchup quality)           trend-adjusted)
+```
+
+**How each feature uses consensus:**
+- **Trade Analyzer:** `surplus_value` = consensus `projected_ros_points` minus replacement-level points at position
+- **Weekly Optimizer:** Base per-game rates from consensus, then multiplied by team game count and adjusted for matchup quality (opponent pitcher ERA, park factors)
+- **Waiver Wire:** Consensus `projected_score` as the primary value signal (35% weight), with trend and positional need overlaid
 
 ### Trade Analyzer (`app/services/trade_service.py`)
 
@@ -392,11 +423,11 @@ Replacement level is defined as the Nth-ranked player at each position, where N 
 - Points differential translated to real-world context ("this gap equals ~3 saves")
 
 **Triple projection display:** The trade rankings table shows three projection columns:
-- **App Projected** — Internal blended projection (Statcast + traditional stats, see Projection Engine)
-- **Steamer ROS** — FanGraphs Steamer projections converted to league scoring
+- **Consensus Projected** — Blended Steamer/ZiPS/ATC projection converted to league scoring (see Projection Engine)
+- **Steamer ROS** — FanGraphs Steamer projections alone, converted to league scoring
 - **Actual Points** — What the player has scored this season
 
-Disagreements between App Projected and Steamer highlight buy-low/sell-high opportunities.
+Disagreements between Consensus and Actual highlight buy-low/sell-high opportunities (Statcast xwOBA delta signals).
 
 **AI Trade Suggestions** (`suggest_trades_ai()`):
 - Scans ALL opponent rosters against user's roster
@@ -468,7 +499,7 @@ Scores free agents on a 0–100 composite scale. **Only unrostered players** are
 
 **Two modes:**
 
-1. **ROS mode** (`score_free_agents`): Uses Steamer ROS projections (with regression) when available, falls back to app projection. Both displayed as dual columns (Steamer + My Proj) in the waiver table.
+1. **ROS mode** (`score_free_agents`): Uses consensus projections (Steamer+ZiPS+ATC blend) when available, falls back to pace-based app projection. Both displayed as dual columns (Consensus + Steamer) in the waiver table.
 2. **Weekly mode** (`score_free_agents_weekly`): Matchup-aware projections with:
    - Two-start pitcher detection
    - Team game count weighting
@@ -497,7 +528,7 @@ Combines the optimizer, schedule data, and AI to produce a comprehensive weekly 
 2. Fetch team game counts for the week from schedule service
 3. Get probable starters from MLB-StatsAPI
 4. Fetch injury data
-5. Compute weekly projections (matchup-aware)
+5. Compute weekly projections: consensus base rates (points per game from `PlayerPoints`) × team game count, then adjusted for matchup quality (opponent pitcher ERA, park factors)
 6. Run the PuLP optimizer with weekly points
 7. Detect two-start pitchers and injuries
 8. Build swap suggestions (which bench player to start, expected point gain)
@@ -513,7 +544,19 @@ Combines the optimizer, schedule data, and AI to produce a comprehensive weekly 
 - Cardinals Corner (STL players on my team, opponent, and Ithilien rosters)
 - Ithilien Watch (brother's team tracking)
 
-**AI content rendering:** All AI-generated content (weekly outlook, waiver analysis, lineup analysis, chat) renders via Marked.js client-side markdown. Copy and Email buttons on analysis partials copy rich HTML to clipboard / open mailto with subject pre-filled.
+**AI content rendering:** All AI-generated content (weekly outlook, waiver analysis, lineup analysis, Intel reports, chat) renders via Marked.js client-side markdown. The `markdown-actions.js` script also processes `[[toc]]` markers into clickable table-of-contents widgets. Copy and Email buttons on analysis partials copy rich HTML to clipboard / open mailto with subject pre-filled.
+
+### Content Intelligence Pipeline (`scripts/`)
+
+Automated pipeline that ingests expert fantasy baseball content and generates AI analysis reports:
+
+- **`blog_ingest.py`** — RSS feed fetcher (FanGraphs, Pitcher List, RotoWire). Saves markdown with YAML frontmatter to `data/content/blogs/`.
+- **`podcast_transcriber.py`** — Downloads podcast audio (CBS, FantasyPros, Locked On, In This League) to MacWhisper watch folder with JSON metadata sidecars.
+- **`transcript_collector.py`** — Filesystem watcher (via `watchdog`) that auto-collects MacWhisper `.txt` output, wraps in markdown, saves to `data/content/transcripts/`. Runs as launchd daemon.
+- **`daily_analysis.py`** — Reads content + league data from SQLite, sends to Claude Opus API in a single call, splits response into section files with per-section player/source linking. Supports daily (3 sections), Monday (+ recap), and weekly (10 sections) modes.
+- **`daily_content_ingest.sh`** — Wrapper script run by launchd at 3 AM: collects transcripts → fetches blogs → downloads podcasts → generates analysis.
+
+**Intel tab** (`app/routes/intel.py`) — Renders analysis reports in the web app with date-grouped sidebar, HTMX partial loading, and refresh button. See `docs/INTEL_PIPELINE.md` for full architecture documentation.
 
 ### Points Service (`app/services/points_service.py`)
 
@@ -535,10 +578,11 @@ Handles IP → outs conversion (5.1 IP = 16 outs, not 5.1 × 3).
 
 | Method | Function | How It Works |
 |--------|----------|-------------|
-| **App Projection** | `project_batter_ros_points()` / `project_pitcher_ros_points()` | Same scaling method as the weekly dashboard: actual counting stats scaled proportionally to remaining games, scored with league weights. During offseason (< 30 games remaining), projects a full 162-game season from prior year rates. After Week 2 of the new season, switches to live ROS. |
-| **Steamer ROS** | `_build_steamer_points_map()` | Reads Steamer projections from `projections` table (system='steamer_ros'), groups counting stats by player, runs through `calculate_batter_points()` / `calculate_pitcher_points()`. Includes regression to the mean and aging curves. Stored on `player_points.steamer_ros_points`. |
+| **Consensus Projection** | `_build_consensus_points_map()` | Reads consensus projections from `projections` table (`system="consensus"`), groups counting stats by player, runs through `calculate_batter_points()` / `calculate_pitcher_points()`. This is the primary source for `player_points.projected_ros_points`. |
+| **Steamer ROS** | `_build_steamer_points_map()` | Reads Steamer projections from `projections` table (`system='steamer_ros'`), groups counting stats by player, runs through the same scoring functions. Stored on `player_points.steamer_ros_points` for comparison. |
+| **Pace-Based Fallback** | `project_batter_ros_points()` / `project_pitcher_ros_points()` | Only used when consensus is unavailable for a player. Scales actual counting stats proportionally to remaining games, scored with league weights. During offseason (< 30 games remaining), projects a full 162-game season from prior year rates. |
 
-The waiver wire prefers Steamer (more accurate for long-term projections) and shows both columns. The weekly dashboard uses its own 4-phase matchup-adjusted model which is more accurate for per-week decisions.
+The consensus projection is the default for all features. The waiver wire shows both Consensus and Steamer columns. The weekly dashboard uses consensus base rates with matchup adjustments layered on top.
 
 ### Schedule Service (`app/services/schedule_service.py`)
 
@@ -891,6 +935,36 @@ uv add <package-name>
 
 # Add a dev dependency
 uv add --dev <package-name>
+
+# --- Backtesting scripts ---
+
+# Run historical data pipeline (downloads 2015-2025 data)
+uv run python -m scripts.data_pipeline
+
+# Run single season
+uv run python -m scripts.data_pipeline --season 2024
+
+# Re-download cached data (force refresh)
+uv run python -m scripts.data_pipeline --force
+
+# Run backtesting harness
+uv run python -m scripts.backtest_harness
+
+# Run backtesting for specific seasons
+uv run python -m scripts.backtest_harness --seasons 2021-2024
+
+# Run analysis scripts (output Excel files to analysis/)
+uv run python -m scripts.analysis.analyze_dampening
+uv run python -m scripts.analysis.analyze_park_factors
+uv run python -m scripts.analysis.analyze_xwoba_regression
+uv run python -m scripts.analysis.analyze_platoon_replacement
+uv run python -m scripts.analysis.analyze_dynamic_weights
+
+# Run parameter optimization (validation mode)
+uv run python -m scripts.optimize_parameters --mode validation
+
+# Run parameter optimization for specific seasons
+uv run python -m scripts.optimize_parameters --mode validation --seasons 2024,2025
 ```
 
 ### Environment Variables (`.env`)
@@ -930,3 +1004,209 @@ ASSISTANT_MODEL=claude-sonnet-4-20250514     # Optional override
 | `/league` | League standings dashboard |
 | `/chat` | AI chat assistant |
 | `/player/{id}` | Player profile page |
+
+---
+
+## 13. Backtesting Infrastructure
+
+The backtesting system is a standalone suite of scripts in `scripts/` that validates the projection engine against historical outcomes. All scripts read from `backtest_data.sqlite` (separate from the production `fantasy_baseball.db`) and are designed to run independently of the web application.
+
+### Directory Structure
+
+```
+scripts/
+├── __init__.py
+├── data_pipeline.py           # Historical data downloader
+├── backtest_harness.py        # Walk-forward projection testing
+├── optimize_parameters.py     # Automated parameter tuning (scipy)
+└── analysis/
+    ├── __init__.py
+    ├── analyze_dampening.py       # Opposing pitcher quality adjustments
+    ├── analyze_park_factors.py    # Park factor strength multipliers
+    ├── analyze_xwoba_regression.py # xwOBA vs wOBA predictive power
+    ├── analyze_platoon_replacement.py # Platoon vs pitcher-quality adjustments
+    └── analyze_dynamic_weights.py # Optimal blend weights by PA checkpoint
+```
+
+### Data Pipeline (`scripts/data_pipeline.py`)
+
+Downloads 11 years of historical baseball data (2015–2025) from pybaseball and the Chadwick Bureau, storing everything in `backtest_data.sqlite`.
+
+**What it downloads:**
+
+| Data Source | Table Created | Key Columns |
+|-------------|--------------|-------------|
+| FanGraphs batting leaderboards | `batting_season` | `fangraphs_id`, `season`, PA, AB, H, HR, R, RBI, SB, BB, SO, AVG, OBP, SLG, wOBA, wRC+, ISO, BABIP, K%, BB%, WAR |
+| FanGraphs pitching leaderboards | `pitching_season` | `fangraphs_id`, `season`, W, L, SV, HLD, IP, ERA, WHIP, FIP, xFIP, SIERA, K%, BB%, K-BB%, WAR |
+| Statcast expected stats | `statcast_season` | `mlbam_id`, `season`, xBA, xSLG, xwOBA, barrel%, hard_hit%, avg_exit_velo, sprint_speed |
+| FanGraphs park factors | `park_factors` | `team`, `season`, HR factor, basic factor, SO, BB, H, doubles, triples |
+| Chadwick Bureau player IDs | `player_ids` | `fangraphs_id`, `mlbam_id`, `bbref_id`, `retro_id`, name fields |
+
+**Caching:** Raw downloads are saved to `data/raw/` as CSV/Parquet files. Subsequent runs skip downloads for seasons that already have cached files unless `--force` is passed.
+
+**Retry logic:** 3 attempts per download with 5-second delays between failures (same pattern as the production stats pipeline).
+
+**CLI flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--season` | All (2015–2025) | Download a single season only |
+| `--force` | Off | Re-download even if cached files exist |
+
+**Statcast note:** Statcast data starts from 2016 (2015 data is sparse and excluded by default).
+
+### Backtest Harness (`scripts/backtest_harness.py`)
+
+Walk-forward backtesting that evaluates 4 projection methods at 3 season checkpoints across 7 test seasons (2019–2025).
+
+**Walk-forward methodology:** For each test season T, the harness uses only data from seasons prior to T to build projections. It never looks ahead — the same constraint the production engine faces during the season. This prevents overfitting to future data.
+
+**Projection methods tested:**
+
+| Method | How It Projects |
+|--------|----------------|
+| **Current Model** | The app's production projection engine — blends traditional stats (50%) with Statcast expected stats (50%) using the 5-component weight system (full season 25%, last-30 15%, last-14 10%, full Statcast 30%, last-30 Statcast 20%) |
+| **Marcel** | Bill James' Marcel method — weights prior seasons (year-1 at 5x, year-2 at 4x, year-3 at 3x) then regresses toward league average with 1200 PA denominator |
+| **Naive (Last Year)** | Uses the player's most recent full-season stats with no adjustment — the simplest possible baseline |
+| **League Average** | Projects every player at the league-average rate for each stat — the "no information" baseline |
+
+**Season checkpoints:**
+
+| Checkpoint | Hitter PA | Pitcher IP | Simulates |
+|------------|-----------|------------|-----------|
+| `may15` | 200 PA | 50 IP | Early-season (small sample) |
+| `jul01` | 350 PA | 100 IP | Mid-season (moderate data) |
+| `aug15` | 450 PA | 140 IP | Late-season (large sample) |
+
+At each checkpoint, the harness simulates having only partial-season data by truncating player stats to the checkpoint PA/IP level, then projects end-of-season outcomes.
+
+**Stats evaluated:**
+
+| Player Type | Stats |
+|-------------|-------|
+| Hitters | wOBA, HR rate, K%, BB%, SB rate, AVG, OPS |
+| Pitchers | ERA, FIP, K%, BB%, WHIP |
+
+**Metrics computed per (season, checkpoint, method, stat) combination:**
+- RMSE (root mean squared error)
+- MAE (mean absolute error)
+- R-squared (correlation with actual outcomes)
+- N (number of players in the test set)
+
+**Output:** Results are saved to `data/results/` as JSON and CSV files with per-player detail rows for drill-down analysis.
+
+### Analysis Scripts (`scripts/analysis/`)
+
+Five targeted analysis scripts that each investigate a specific projection parameter or technique. All output professionally formatted Excel workbooks (via openpyxl) with conditional formatting, formulas, and cell comments to the `analysis/` directory.
+
+| Script | What It Tests | Key Parameters |
+|--------|--------------|----------------|
+| `analyze_dampening.py` | Opposing pitcher quality adjustments — tests 7 dampening levels (0.40–0.70) across 7 SIERA ratio buckets | Optimal dampening factor for matchup adjustments |
+| `analyze_park_factors.py` | Park factor strength multipliers — tests 9 levels (0.60–1.00) for HR and R rate adjustments | How aggressively to apply park factors |
+| `analyze_xwoba_regression.py` | Statcast predictive power — tests whether prior-season xwOBA predicts future wOBA better than traditional wOBA, with blend ratios from 100/0 to 30/70 | Optimal xwOBA vs wOBA blend |
+| `analyze_platoon_replacement.py` | Platoon-only vs pitcher-quality-only vs multiplicative adjustment approaches for wOBA prediction | Best matchup adjustment method |
+| `analyze_dynamic_weights.py` | Optimal traditional/Statcast blend weights at each PA checkpoint (200/350/450) using scipy optimization | Whether static 50/50 weights should vary by sample size |
+
+Each script reads from `backtest_data.sqlite` and uses walk-forward validation (same as the harness — never uses future data). The Excel outputs include summary sheets with RMSE comparisons and detail sheets for manual inspection.
+
+### Parameter Optimizer (`scripts/optimize_parameters.py`)
+
+Uses `scipy.optimize` (Nelder-Mead method) to find optimal values for the projection engine's 8 tunable parameters by minimizing RMSE against historical end-of-season outcomes.
+
+**Parameters optimized:**
+
+| Parameter | Current Value | Bounds | What It Controls |
+|-----------|--------------|--------|-----------------|
+| `w_full_season_trad` | 0.25 | 0.05–1.00 | Full-season traditional stats weight |
+| `w_last_30_trad` | 0.15 | 0.05–1.00 | Last-30-day traditional stats weight |
+| `w_last_14_trad` | 0.10 | 0.05–1.00 | Last-14-day traditional stats weight |
+| `w_full_season_statcast` | 0.30 | 0.05–1.00 | Full-season Statcast weight |
+| `w_last_30_statcast` | 0.20 | 0.05–1.00 | Last-30-day Statcast weight |
+| `phase1_dampening` | 0.50 | 0.20–0.80 | Early-season regression dampening |
+| `phase2_dampening` | 0.35 | 0.20–0.80 | Mid-season regression dampening |
+| `signal_threshold` | 0.030 | 0.010–0.060 | Buy/sell signal sensitivity (xwOBA - wOBA delta) |
+
+**Constraint:** The 5 blend weights (first 5 parameters) must sum to 1.0. The optimizer enforces this via re-normalization after each iteration.
+
+**Walk-forward evaluation:** For each test season, simulates partial-season data at 3 PA checkpoints (200/350/450 PA for hitters, 50/100/140 IP for pitchers) blended with prior-season data, then measures prediction error against actual end-of-season results.
+
+**Objective function weighting:** Hitter error counts for 60%, pitcher error for 40% — reflecting the larger roster share of position players.
+
+**Output:** Results saved to `data/optimization/` with before/after parameter comparisons and per-stat RMSE improvements.
+
+---
+
+## 14. Quality Gate Process
+
+The backtesting infrastructure enforces a quality gate before any projection engine changes reach production.
+
+**Thresholds:**
+
+| Gate | Threshold | Consequence |
+|------|-----------|-------------|
+| Overall RMSE improvement | Current Model must beat Marcel by >= 5% | If not met: PAUSE and rework the projection engine |
+| Per-stat regression | No individual stat may regress > 3% vs Marcel | If any stat regresses beyond 3%: investigate and fix before proceeding |
+
+**How it works:**
+
+1. Run `scripts/backtest_harness.py` to generate RMSE/MAE/R-squared metrics for all 4 projection methods
+2. Compare the Current Model's aggregate RMSE against Marcel's across all seasons and checkpoints
+3. If the Current Model's RMSE is not at least 5% lower than Marcel's, the projection engine needs rework before proceeding to Phase 2 enhancements
+4. Check each individual stat (wOBA, HR rate, K%, BB%, etc.) — none may show > 3% RMSE regression compared to Marcel
+
+**Executive methodology document:** The full backtesting rationale, methodology, and results interpretation guide lives at `docs/BACKTESTING_METHODOLOGY.md`. This document explains walk-forward validation, why Marcel is the benchmark, and how to interpret the harness output.
+
+**Decision flow:**
+
+```
+Run backtest_harness.py
+        │
+        ▼
+Overall RMSE >= 5% better than Marcel?
+        │
+   No ──┤──── PAUSE: rework projection engine
+        │
+   Yes  ▼
+Any stat regressed > 3% vs Marcel?
+        │
+   Yes ─┤──── Fix regressed stats before continuing
+        │
+   No   ▼
+Proceed to Phase 2 enhancements
+```
+
+---
+
+## 15. Phase 5: Self-Optimization (April 30 Hold)
+
+The parameter optimizer (`scripts/optimize_parameters.py`) can automatically tune the projection engine's 8 parameters using historical data. However, automatically applying optimized parameters to production is gated behind a date and feature flag.
+
+### Why the Hold
+
+Optimized parameters derived from historical backtesting (2019–2025) could overfit to past patterns. The April 30, 2026 hold ensures enough 2026 in-season projection log data exists to validate that optimized parameters actually improve live projections — not just historical ones.
+
+### Two Modes
+
+| Mode | Command | What It Does |
+|------|---------|-------------|
+| **Validation** | `--mode validation` | Runs optimization against historical data only. Outputs recommended parameters to `data/optimization/` for manual review. Safe to run anytime. |
+| **Production** | `--mode production` | Would apply optimized parameters to `app/config.py`. **Blocked until April 30, 2026** — the script checks `date.today()` and refuses to run in production mode before then. |
+
+### Feature Flag
+
+The `ENABLE_AUTO_TUNING` flag in `app/config.py` controls whether the production app accepts auto-tuned parameters. Until set to `True`, the app uses the hardcoded default weights defined in the projection service.
+
+**Current state:** `ENABLE_AUTO_TUNING = False` (default). Will be evaluated for activation after April 30, 2026, pending validation results.
+
+### Parameters Tuned
+
+The optimizer tunes the same 8 parameters listed in [Section 13](#parameter-optimizer-scriptsoptimize_parameterspy). The 5 blend weights are constrained to sum to 1.0, and all parameters are bounded to prevent extreme values.
+
+### Workflow
+
+1. Run the data pipeline to ensure `backtest_data.sqlite` is current
+2. Run the optimizer in validation mode: `uv run python -m scripts.optimize_parameters --mode validation`
+3. Review output in `data/optimization/` — compare optimized vs current RMSE
+4. After April 30, 2026: run against early-season 2026 projection logs to confirm improvement
+5. If validated: set `ENABLE_AUTO_TUNING = True` in config and run in production mode
+6. If not validated: keep current parameters and investigate why historical gains don't transfer

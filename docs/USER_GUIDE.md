@@ -22,6 +22,7 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
   - [Matchups](#matchups)
   - [Compare Players](#compare-players)
   - [Player Popup (Quick Look)](#player-popup-quick-look)
+  - [Intel](#intel)
   - [Chat Assistant](#chat-assistant)
 - [Understanding the Stats](#understanding-the-stats)
   - [Batting Stats — The Basics](#batting-stats--the-basics)
@@ -31,7 +32,7 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
   - [Statcast Metrics](#statcast-metrics)
 - [Key Concepts](#key-concepts)
   - [Buy Low / Sell High Signals](#buy-low--sell-high-signals)
-  - [Projection Blending](#projection-blending)
+  - [Projection Blending (Consensus Projections)](#projection-blending-consensus-projections)
   - [Confidence Scores](#confidence-scores)
   - [Z-Scores and Trade Values](#z-scores-and-trade-values)
   - [VORP and Surplus Value](#vorp-and-surplus-value)
@@ -39,6 +40,12 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
   - [Streaming and Stacking](#streaming-and-stacking)
 - [Glossary](#glossary)
 - [Tips for Getting the Most Out of This App](#tips-for-getting-the-most-out-of-this-app)
+- [Backtesting & Analysis Tools](#backtesting--analysis-tools)
+  - [Running the Data Pipeline](#running-the-data-pipeline)
+  - [Running the Backtest](#running-the-backtest)
+  - [Analysis Reports](#analysis-reports)
+  - [Parameter Optimization](#parameter-optimization)
+  - [Understanding the Results](#understanding-the-results)
 
 ---
 
@@ -70,7 +77,7 @@ Syncs can take a minute or two depending on how much data is being pulled. There
 
 ### Navigation
 
-- **Sidebar** (left side): Links to all major pages — Dashboard, Roster, Trades, Waivers, Stats Explorer, Projections, and Matchups.
+- **Sidebar** (left side): Links to all major pages — Dashboard, Roster, Trades, Waivers, Stats Explorer, Projections, Matchups, and Intel.
 - **Player Search** (top of sidebar): Type any player name to search across the entire database. Results appear as a dropdown — click a name to open their full Player Detail page.
 - **Chat Assistant** (bottom-right corner): A blue chat bubble that opens an AI-powered analysis panel. Ask questions about your roster, get trade advice, or request player comparisons.
 
@@ -89,7 +96,7 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 | **Weekly Outlook** | AI-generated professional analysis column (ESPN/Athletic style). Covers H2H matchup storyline with dual projections (Yahoo vs app), key players with fantasy team tags, schedule/weather, injuries, standings, Cardinals Corner, and Ithilien Watch. Rendered as rich markdown with **Copy** (clipboard as rich text) and **Email** (copies + opens mail client) buttons. |
 | **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week; actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
-| **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by 4-phase matchup adjustments. Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
+| **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by consensus rate stats (Steamer + ZiPS + ATC average) adjusted through 4-phase matchup modeling (opposing pitcher quality, opponent offense, park factors, platoon splits). Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
 | **Buy Low / Sell High Signals** | Cards highlighting players whose expected performance (xwOBA) significantly differs from their actual results (wOBA). These are trade opportunity alerts. |
 | **Category Leaders** | A 4-column grid showing the top players in HR, SB, AVG, and K — the marquee fantasy categories. |
 | **Top Hitters** | A sortable, filterable table of the best hitters. Columns: PA, HR, R, RBI, SB, AVG, OBP, SLG, OPS, wOBA, wRC+. Click any column header to sort. |
@@ -112,7 +119,7 @@ Below the summary, each team's full roster is shown player-by-player with per-ca
 
 #### My Projected — Detailed Methodology
 
-The "My Projected" model uses a four-layer approach to generate matchup-aware weekly projections. All methodology choices are sourced from FanGraphs research and Tom Tango's *The Book*.
+The "My Projected" model uses consensus rate stats (averaged from Steamer, ZiPS, and ATC) as its base, then applies a four-layer approach to generate matchup-aware weekly projections. All methodology choices are sourced from FanGraphs research and Tom Tango's *The Book*.
 
 **Base Volume (Schedule-Aware):**
 
@@ -239,15 +246,15 @@ The trade analyzer shows three projection columns for every player:
 
 | Column | Source | What It Tells You |
 |--------|--------|-------------------|
-| **App Projected** | Custom blend of actual stats and Statcast expected metrics, weighted toward recent performance | Our best estimate of true talent — accounts for quality-of-contact regression that other systems miss |
-| **Steamer ROS** | FanGraphs Steamer rest-of-season projections, converted to league fantasy points | Industry-standard baseline using multi-year track record — conservative and reliable |
+| **Consensus Projected** | Average of Steamer + ZiPS + ATC rest-of-season projections, converted to league fantasy points | The primary valuation — averaging three independent systems is more accurate than any single one. This is the same projection base used by waivers and the optimizer. |
+| **App Projected** | Custom blend of actual stats and Statcast expected metrics, weighted toward recent performance | Supplementary estimate that accounts for quality-of-contact regression and recent trends |
 | **Actual Points** | Fantasy points actually scored this season using league scoring rules | What the player has actually produced — compare to projections to spot over/underperformers |
 
 **Reading disagreements between columns:**
-- **App Projected >> Actual**: The player is underperforming their contact quality — buy low candidate
-- **Actual >> App Projected**: The player is outperforming their Statcast metrics — sell high candidate
-- **Steamer >> App Projected**: Our model sees recent decline that Steamer's multi-year approach hasn't captured yet
-- **App Projected >> Steamer**: Recent Statcast improvements suggest the player is better than their historical track record
+- **Consensus >> Actual**: The player is underperforming professional projections — buy low candidate
+- **Actual >> Consensus**: The player is outperforming projections — sell high candidate or genuine breakout
+- **App Projected >> Consensus**: Recent Statcast improvements suggest the player is better than their historical track record
+- **Consensus >> App Projected**: The consensus sees long-term value that recent trends don't reflect
 
 #### AI Trade Suggestions
 
@@ -292,8 +299,8 @@ A ranked table of waiver wire recommendations scored from 0 to 100, specifically
 | **Pos** | Primary position. Relievers also show a role badge: **CL** (closer, green), **SU** (setup, blue), **MR** (middle), **LR** (long). |
 | **Score** | Composite waiver score (0–100), weighted: projected points (35%), trend (25%), position scarcity (15%), scoring fit (15%), schedule volume (10%). |
 | **Week Pts** | (Weekly view only) Projected fantasy points for the selected week (rate × games). |
-| **Steamer** | (ROS view) Steamer ROS projection from FanGraphs with regression to the mean. The primary ROS projection — most accurate for preseason and early-season. Falls back to app projection when Steamer data is unavailable. |
-| **My Proj** | (ROS view) App projection: actual counting stats scaled to remaining games using the same method as the weekly dashboard. During offseason, shows a full 162-game projection from prior year stats. After Week 2 of the new season, switches to live ROS data. Comparing Steamer vs My Proj reveals over/under-performers. |
+| **Consensus** | (ROS view) Consensus projection from averaging Steamer, ZiPS, and ATC rest-of-season projections. The same projection base used by trades and the optimizer, ensuring consistent valuations. |
+| **My Proj** | (ROS view) App projection: actual counting stats scaled to remaining games. Comparing Consensus vs My Proj reveals over/under-performers — disagreements highlight where recent performance diverges from professional projections. |
 | **Rate** | Points per plate appearance (hitters) or per inning pitched (pitchers). |
 | **Games** | (Weekly only) Number of team games that week, with pitcher starts shown as "(2S)". |
 | **Fit** | League scoring fit (50=neutral, 75+=premium). Boosted for two-start pitchers (+20) and closer vacancy pickups (+25). |
@@ -363,7 +370,7 @@ An interactive charting dashboard with three tabbed views, each featuring Plotly
 
 **What it shows:**
 
-Rest-of-season projections for all qualified players, generated by the app's custom [blended projection engine](#projection-blending).
+Rest-of-season projections for all qualified players, generated by the app's [consensus projection engine](#projection-blending-consensus-projections) (averaging Steamer, ZiPS, and ATC from FanGraphs).
 
 - **Hitter/Pitcher Toggle** — Switch between hitter and pitcher projection views.
 - **Position Filter Pills** — For hitters: All, C, 1B, 2B, 3B, SS, OF, DH. For pitchers: All, SP, RP.
@@ -611,6 +618,33 @@ Close the popup by clicking the X button, pressing Escape, or clicking outside t
 
 ---
 
+### Intel
+
+**What it shows:**
+
+Daily and weekly AI-generated intelligence reports built from expert fantasy baseball content — blogs (FanGraphs, Pitcher List, RotoWire) and podcast transcripts (CBS Fantasy Baseball Today, FantasyPros, Locked On Fantasy Baseball, In This League). The reports cross-reference expert opinions with your actual league data: roster, projections, standings, and matchup opponent.
+
+Reports are organized by date in the left sidebar. Click any report to view it. The "Refresh Briefing" button generates a fresh daily report on demand.
+
+**Report sections include:**
+
+- **My Roster Intel** — Every player on your roster with a metadata table (Sentiment, Lineup action, Confidence rating, Games This Week, Week-over-Week Trend) and analysis paragraph citing specific expert sources.
+- **Injury Watch** — Rostered players with injury concerns, including status, source, and fantasy impact.
+- **Matchup Preview** (weekly) — H2H opponent analysis with position-by-position comparison.
+- **Waiver Targets** (weekly) — Expert-mentioned free agents cross-referenced with consensus projections.
+- **Trade Signals** (weekly) — Buy-low/sell-high opportunities based on expert sentiment vs projection data.
+- **Projection Watch** (weekly) — Where expert opinions disagree with Steamer/consensus projections for your players.
+- **Around the League** — Big-picture summary of everything discussed across expert sources.
+- **Cardinals Corner** (weekly) — Cardinals-relevant news and analysis.
+- **Sibling Rivalry** (weekly) — Intel on Ithilien's roster, trade leverage angles, and suggested trade packages.
+- **Action Items** — A checklist of specific moves to make, copy-paste ready.
+
+**Schedule:** Daily briefings run automatically at 3 AM (Tue-Fri). Monday reports add a last-week recap with standings and matchup results. Saturday generates the full weekly comprehensive report. All reports also appear in the Obsidian vault if configured.
+
+**Why it matters for fantasy:** Expert analysis from podcasts and blogs often catches things that raw projections miss — spring training velocity changes, role changes, manager quotes, prospect call-up timelines. This page synthesizes all of that and tells you exactly how it affects your team, with linked player names (to FanGraphs) and source citations (to original articles).
+
+---
+
 ### Chat Assistant
 
 **What it shows:**
@@ -749,30 +783,29 @@ A composite score above +.020 triggers a Buy Low badge; below -.020 triggers Sel
 
 ---
 
-### Projection Blending
+### Projection Blending (Consensus Projections)
 
-The app doesn't rely on a single data source. Instead, it blends five inputs with carefully chosen weights:
+The app builds a **consensus projection** by averaging three professional rest-of-season projection systems from FanGraphs:
 
-| Source | Weight | Why This Weight |
-|--------|--------|----------------|
-| Full Season Traditional Stats | 25% | Largest sample of actual performance. Captures overall skill level. |
-| Last 30 Days Traditional Stats | 15% | Detects recent changes — lineup moves, return from injury, approach adjustments. |
-| Last 14 Days Traditional Stats | 10% | Most recent form, but small sample size warrants lower weight. |
-| Full Season Statcast (xBA, xSLG, xwOBA) | 30% | **Highest weight** because batted-ball quality is the best predictor of future performance. Strips away luck. |
-| Last 30 Days Statcast | 20% | Recent trends in contact quality. Catches mechanical changes before they show up in traditional stats. |
+| System | Description |
+|--------|-------------|
+| **Steamer** | Multi-year track record with aging curves and regression to the mean. The industry-standard baseline. |
+| **ZiPS** | Dan Szymborski's system using weighted multi-year data and aging models. Excels at identifying breakouts. |
+| **ATC** | Average Total Cost — a crowd-sourced composite of multiple projection systems. Tends to be the most stable. |
 
-**How counting stats are projected (HR, R, RBI, SB, K):**
-1. Convert each source's counting stats to per-PA (or per-IP) rates
-2. Blend the rates using the weights above
-3. Estimate remaining plate appearances for the season (based on pace)
-4. Projected total = stats already accumulated + (blended rate × remaining PA)
+These three systems are blended with **equal weights** (33.3% each) into a single consensus projection. Research consistently shows that averaging multiple independent projection systems outperforms any single system — the errors of one system tend to be offset by the others.
 
-**How rate stats are projected (AVG, ERA, WHIP):**
-1. Directly blend the rate values from each source
-2. For batting average, Statcast xBA substitutes for traditional AVG in the Statcast-weighted components
-3. For pitchers, ERA projections weight FIP (25%) and xFIP (25%) more heavily than actual ERA (15%) because FIP-based metrics are better predictors of future ERA
+**How consensus projections become fantasy points:**
+1. The app fetches Steamer, ZiPS, and ATC rest-of-season projections during stats sync
+2. Raw stat projections (HR, R, RBI, K, IP, SV, etc.) are averaged across all three systems
+3. The blended stats are converted to fantasy points using the league's scoring rules (SV=7, HLD=4, OUT=1.5, ER=-4, K=-0.5, etc.)
+4. This produces a single projected ROS fantasy points number for every player
 
-**Multi-system blending:** If external projection systems are loaded (Steamer, ZiPS, ATC, THE BAT), the app can also blend these with configurable weights (default: Steamer 30%, ZiPS 25%, ATC 25%, THE BAT 20%). These appear as separate rows on the Player Detail Projections tab.
+**Consistency across features:** All features in the app — trades, waivers, the optimizer, and weekly matchup projections — derive from this same consensus projection base. A player's projected value is consistent everywhere in the app, so you never see conflicting recommendations.
+
+The Projections page and Player Detail Projections tab also show each system individually, so you can see where Steamer, ZiPS, and ATC agree or disagree on a player.
+
+**Supplementary analytics:** The app also uses Statcast expected stats (xwOBA, xBA, xSLG) and recent performance trends to generate Buy Low / Sell High signals and analytics-adjusted projections (Adj FP column). These supplement the consensus projections with contact-quality context but don't replace them as the primary valuation base.
 
 ---
 
@@ -799,21 +832,16 @@ The app's primary valuation method uses **projected fantasy points** based on th
 
 **How projected points are calculated:**
 
-The app uses two projection sources, choosing the best available:
-
-| Source | When Used | Method |
-|--------|-----------|--------|
-| **Steamer ROS** (primary) | When Steamer projections are synced | FanGraphs Steamer projections with regression to the mean and aging curves. Converted to fantasy points using league scoring weights. Most accurate for preseason and early-season ROS projections. |
-| **App Projection** (fallback) | When Steamer is unavailable | Same method as the weekly dashboard: actual counting stats scaled proportionally to remaining games. During offseason, projects a full 162-game season from prior year stats. After Week 2 of the new season, switches to live ROS using current year data. |
-
-Both sources apply the league scoring formula:
+The app uses **consensus projections** — an equal-weight average of Steamer, ZiPS, and ATC rest-of-season projections from FanGraphs (see [Projection Blending](#projection-blending)). These are fetched automatically during stats sync and converted to fantasy points using the league scoring formula:
 
 - **Hitters:** R×1 + 1B×1 + 2B×2 + 3B×3 + HR×4 + RBI×1 + SB×2 + CS×(-1) + BB×1 + HBP×1 + K×(-0.5)
 - **Pitchers:** OUT×1.5 + K×0.5 + SV×7 + HLD×4 + RW×4 + QS×2 + H×(-0.75) + ER×(-4) + BB×(-0.75) + HBP×(-0.75)
 
-This produces a single number — projected rest-of-season fantasy points — that directly measures how much value each player is expected to generate.
+Note: **RW (Relief Wins)** counts only wins earned by relievers. Starter wins do not score points in this league format.
 
-**Why two sources?** Steamer is better for long-term value — it regresses outlier seasons and adjusts for aging. The app projection is better for recent performance context — it directly reflects what a player is actually doing right now. During the season, comparing both tells you if a player is over/under-performing expectations.
+This produces a single number — projected rest-of-season fantasy points — that directly measures how much value each player is expected to generate. The same consensus projection base is used by the trade analyzer, waiver recommendations, and lineup optimizer, ensuring consistent valuations across the entire app.
+
+When consensus projections are unavailable (e.g., before the first stats sync), the app falls back to an internal projection based on actual counting stats scaled to remaining games.
 
 **Surplus Value** = Projected Points − Replacement-Level Points at that position.
 
@@ -851,7 +879,7 @@ Every waiver recommendation receives a composite score from 0 to 100, calculated
 
 | Component | Weight | What It Measures | How It's Scored |
 |-----------|--------|-----------------|-----------------|
-| **Projected Points** | 35% | Projected fantasy points (ROS or weekly) | ROS: uses Steamer ROS projections (with regression) when available, falls back to app projection. Normalized to 0-100 vs top projection. Weekly: rate × games, using per-start projections for SP and per-appearance for RP. |
+| **Projected Points** | 35% | Projected fantasy points (ROS or weekly) | ROS: uses the same consensus projections (Steamer + ZiPS + ATC average) as the trade analyzer and optimizer. Normalized to 0-100 vs top projection. Weekly: consensus rate stats × games, using per-start projections for SP and per-appearance for RP. |
 | **Trend** | 25% | Is the player getting better or worse recently? | Compares last-14-day Statcast xwOBA to full-season xwOBA. If xwOBA improved by .030+, score = 80 (HOT). Includes **BREAKOUT detection**: barrel% +3%, hard-hit% +5%, or xwOBA +.030 (any 2 of 3 = breakout bonus of +15). |
 | **Positional Scarcity** | 15% | How hard is it to replace this player's position? | Scarce positions in a 10-team league (C, 1B, 2B, 3B, SS — 10 rostered each) score 70. Mid-depth (SP, RP — 20 each) score 60. Deep (OF — 30) score 40. |
 | **Scoring Fit** | 15% | Does this player specifically excel in your scoring format? | **Closers** with saves score 85 (SV=7 is premium). **Setup men** with holds score 75 (HLD=4). **Low-K hitters** (K% < 18%) score 75. **Two-start pitchers** get +20 bonus. **Closer vacancy pickups** get +25 bonus. |
@@ -959,7 +987,7 @@ Quick-reference for every abbreviation and concept used in the app, listed alpha
 | **SLG** | Slugging percentage: total bases divided by at-bats. |
 | **SO** | Strikeouts (pitching). |
 | **Sprint Speed** | Running speed in feet per second. Above 28 ft/s is fast. |
-| **Surplus Value** | A player's z-score total minus the replacement-level z-score at their position. Positive = valuable above replacement. |
+| **Surplus Value** | A player's projected fantasy points (from consensus projections) minus the replacement-level points at their position. Positive = valuable above replacement. |
 | **SV** | Saves. Only closers accumulate them. |
 | **Sweet Spot %** | Percentage of batted balls at optimal launch angle (8–32°). |
 | **VORP** | Value over replacement player: how much better a player is than the best freely available alternative at their position. |
@@ -995,6 +1023,10 @@ Quick-reference for every abbreviation and concept used in the app, listed alpha
 
 - **The FIP vs ERA scatter plot on Stats Explorer is a cheat code for pitchers.** Find pitchers whose ERA is much higher than their FIP — they are almost certainly going to improve. Target them in trades before their ERA drops and their price goes up.
 
+- **Check the Intel tab every morning.** The daily briefing tells you what experts said about your players overnight — it's the fastest way to spot emerging concerns (like a closer losing velocity) or opportunities (like a breakout confirmed by multiple sources) before your league-mates react.
+
+- **Use the Action Items checklist.** Every Intel report ends with a concrete to-do list of roster moves. Copy it into your notes app and check items off as you execute them.
+
 - **The Chat Assistant knows your roster.** Don't just use it for general questions — ask it specifically about your team. "Should I drop [player X] for [player Y]?" will give you a personalized answer based on your actual roster composition and league context.
 
 ---
@@ -1011,7 +1043,7 @@ The **League Points** page is designed specifically for the Galactic Empire H2H 
 | Single (1B) | 1 | Strikeout (K) | 0.5 |
 | Double (2B) | 2 | Save (SV) | **7** |
 | Triple (3B) | 3 | Hold (HLD) | **4** |
-| Home Run (HR) | **4** | Relief Win (RW) | **4** |
+| Home Run (HR) | **4** | Relief Win (RW) | **4** (reliever only — starter wins do not score) |
 | RBI | 1 | Quality Start (QS) | 2 |
 | Stolen Base (SB) | 2 | Hit Allowed (H) | -0.75 |
 | Caught Stealing (CS) | -1 | Earned Run (ER) | **-4** |
@@ -1064,3 +1096,144 @@ The scoring weights directly drive which matchup adjustments matter most:
 - **Reliever Watch** — Closers and setup men ranked by projected points. Role badges show Closer/Setup/Middle.
 - **Contact Kings** — Low-K hitters with the best Pts/PA. The "Pts Lost to Ks" column shows the hidden cost of strikeouts.
 - **Points Calculator** — Enter any stat line to calculate fantasy points. Use presets to internalize the scoring system.
+
+---
+
+## Backtesting & Analysis Tools
+
+These command-line tools let you validate the projection model against real historical data. Think of it as a scorecard for the app's predictions: did the projections actually pan out? If you want to understand *why* the app recommends a certain player, these tools show the evidence behind the math.
+
+### Running the Data Pipeline
+
+**What it does:** Downloads up to 10 years of historical MLB data (batting stats, pitching stats, Statcast metrics, park factors, and player IDs) from FanGraphs, Baseball Reference, and the Chadwick Bureau. This data is stored locally so the backtesting tools can evaluate projections against what actually happened.
+
+**How to run it:**
+
+```bash
+# Download all seasons (2015-2025) — takes 10-15 minutes on first run
+uv run python -m scripts.data_pipeline
+
+# Download a single season (faster, useful for updates)
+uv run python -m scripts.data_pipeline --season 2024
+
+# Force re-download even if cached data exists
+uv run python -m scripts.data_pipeline --force
+```
+
+**What you get:**
+- `backtest_data.sqlite` — A local database with all the historical data, stored in the project root
+- `data/raw/` — Cached CSV files so you don't have to re-download every time
+
+**When to run it:** Once to set up, then again when you want to include a new completed season. The pipeline caches everything locally, so subsequent runs only download what's missing.
+
+---
+
+### Running the Backtest
+
+**What it does:** Puts the projection model through a rigorous test. For each season from 2019 through 2025, it pretends it's the start of that season, builds projections using only data from prior years (no peeking at the answers!), and then checks how close those projections were to what actually happened. This is called "walk-forward" testing — the gold standard for validating prediction models.
+
+**How to run it:**
+
+```bash
+# Run the full backtest (all test seasons)
+uv run python -m scripts.backtest_harness
+
+# Test specific seasons only
+uv run python -m scripts.backtest_harness --seasons 2021-2024
+
+# Use a custom database path
+uv run python -m scripts.backtest_harness --db-path path/to/backtest_data.sqlite
+```
+
+**What it shows:**
+
+The backtest compares four projection methods head-to-head:
+
+| Method | What it is |
+|--------|-----------|
+| **Current Model** | The app's projection engine (the one you actually use) |
+| **Marcel** | A well-known baseline method that weights recent seasons (5x last year, 4x two years ago, 3x three years ago) and regresses toward league average — named after the monkey, because "a monkey could do it" |
+| **Naive (Last Year)** | Simply assumes a player will repeat last season's stats |
+| **League Average** | Predicts every player will be league average (the ultimate sanity check) |
+
+**Quality gate:** The backtest includes an automatic PASS/FAIL check. The current model must beat Marcel by at least 5% on RMSE (prediction error), and no individual stat category can regress more than 3% versus Marcel. If you see PASS, the projections are working. If you see FAIL, something needs investigation.
+
+**What you get:**
+- CSV files in `data/results/` with detailed per-player, per-season accuracy data
+- A JSON summary with overall scores for each method
+
+---
+
+### Analysis Reports
+
+**What they do:** Five specialized scripts that each test a specific assumption the projection model makes. Each one produces an Excel workbook with live formulas — you can open them in Excel or Google Sheets and see (and modify) the actual math.
+
+**How to run them:**
+
+```bash
+# Run from the project root — each creates an Excel file in analysis/
+uv run python -m scripts.analysis.analyze_dampening
+uv run python -m scripts.analysis.analyze_dynamic_weights
+uv run python -m scripts.analysis.analyze_park_factors
+uv run python -m scripts.analysis.analyze_platoon_replacement
+uv run python -m scripts.analysis.analyze_xwoba_regression
+```
+
+**The five analyses:**
+
+| Script | What it tests |
+|--------|--------------|
+| `analyze_dampening` | How much should we adjust hitter projections based on the quality of opposing pitchers? Tests different dampening levels to find the sweet spot between overreacting and ignoring matchups. |
+| `analyze_dynamic_weights` | How should we blend traditional stats (AVG, OBP) with Statcast data (exit velocity, barrel rate) at different points in the season? Early on, prior-year data matters more; later, current-season data takes over. |
+| `analyze_park_factors` | How aggressively should park effects be applied? Playing at Coors Field boosts HR projections, but by how much? Tests multiple multiplier strengths. |
+| `analyze_platoon_replacement` | Should we adjust for lefty/righty matchups, pitcher quality, or both? Compares three approaches: platoon splits only, pitcher quality only, and a combined multiplicative method. |
+| `analyze_xwoba_regression` | Does Statcast's xwOBA (expected weighted on-base average, based on exit velocity and launch angle) predict future performance better than traditional wOBA? Tests pure xwOBA, pure wOBA, and various blends. |
+
+**Where to find the output:** Each script saves an Excel file in the `analysis/` directory. The spreadsheets contain conditional formatting (green = good, red = bad) and cell comments explaining the formulas, so you can explore the results without needing to read code.
+
+---
+
+### Parameter Optimization
+
+**What it does:** Uses mathematical optimization (Nelder-Mead algorithm via scipy) to search for the best possible projection parameters. Instead of guessing at weights and thresholds, it systematically tries thousands of combinations and finds the ones that would have produced the most accurate projections historically.
+
+The parameters it tunes include:
+- How much weight to give full-season vs. last-30-days vs. last-14-days stats
+- How much weight to give traditional stats vs. Statcast metrics
+- How aggressively to adjust for opposing pitcher quality (dampening factors)
+- The minimum signal threshold before making an adjustment
+
+**How to run it:**
+
+```bash
+# Run in validation mode (safe — tests against historical data only)
+uv run python -m scripts.optimize_parameters --mode validation
+
+# Test specific seasons
+uv run python -m scripts.optimize_parameters --mode validation --seasons 2024,2025
+
+# Increase iterations for a more thorough search (slower but more precise)
+uv run python -m scripts.optimize_parameters --max-iter 1000
+```
+
+**Important note:** The optimizer is currently in **validation mode only**, meaning it tests parameter changes against historical data but does not apply them to the live projection engine. Production mode activates on **April 30, 2026**, once enough real 2026 in-season data exists to validate against.
+
+**What you get:** A JSON report in `data/optimization/` showing the best parameters found, how much they improve over the current defaults, and per-stat breakdowns.
+
+---
+
+### Understanding the Results
+
+**Where to learn more:** For a deep dive into the methodology, statistical approach, and design decisions, see `docs/BACKTESTING_METHODOLOGY.md`.
+
+**Key metrics you'll see in the results:**
+
+| Metric | What it means | Good values |
+|--------|--------------|-------------|
+| **RMSE** (Root Mean Squared Error) | Average prediction error, in the same units as the stat. An RMSE of 0.025 for wOBA means projections are typically off by about 25 points of wOBA. | Lower is better. Compare across methods — if our model's RMSE is lower than Marcel's, we're adding value. |
+| **R-squared** (R²) | How much of the variation in actual results the model explains. An R² of 0.60 means the model explains 60% of player-to-player differences. | Higher is better. Above 0.50 is solid for baseball projections; above 0.70 is excellent. |
+| **MAE** (Mean Absolute Error) | Similar to RMSE but doesn't penalize big misses as harshly. Useful as a "typical error" measure. | Lower is better. Usually a bit smaller than RMSE. |
+
+**What PASS/FAIL means:**
+- **PASS** — The projection model beats the Marcel baseline by at least 5% on overall RMSE, and no individual stat (HR rate, K%, wOBA, ERA, etc.) regresses more than 3% versus Marcel. The model is adding real value beyond what a simple historical average would give you.
+- **FAIL** — Either the overall improvement is below 5%, or one or more stats regressed. This doesn't mean the projections are bad — Marcel is already a decent method — but it means the model needs tuning before the added complexity is justified.
