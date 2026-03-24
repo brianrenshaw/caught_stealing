@@ -16,8 +16,29 @@ function renderMarkdown(container) {
     }
 }
 
+// Remove Obsidian-only markers that shouldn't render in the app
+function cleanObsidianMarkers(target) {
+    var paragraphs = target.querySelectorAll('p');
+    paragraphs.forEach(function(p) {
+        var text = p.textContent.trim();
+        // Remove [[toc-levels:N]], [[no-header]], and similar Obsidian directives
+        if (text.match(/^\[\[(toc-levels|no-header)[^\]]*\]\]$/i)) {
+            p.remove();
+        }
+    });
+    // Remove <!-- omit from toc --> comments (rendered as empty text nodes or stripped by marked)
+    // Also remove the "Contents:" h2 that's only for Obsidian
+    var headings = target.querySelectorAll('h2');
+    headings.forEach(function(h) {
+        if (h.textContent.trim() === 'Contents:') {
+            h.remove();
+        }
+    });
+}
+
 // Replace [[toc]] placeholder with a generated table of contents
 function processToc(target) {
+    cleanObsidianMarkers(target);
     var tocMarkers = target.querySelectorAll('p');
     tocMarkers.forEach(function(p) {
         if (p.textContent.trim().match(/^\[\[toc[^\]]*\]\]$/i)) {

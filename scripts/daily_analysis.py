@@ -1023,8 +1023,12 @@ content_date_range: "{date_range}"
 
     full_content = (
         f"{full_frontmatter}\n\n# {title}\n\n"
-        f"> All sources are linked at the end of this document.\n\n"
-        f"[[toc-levels:2]]\n[[toc]]\n\n"
+        f"*All podcast and blog resources are at the end of this document*\n\n"
+        f"<!-- omit from toc -->\n"
+        f"## Contents:\n\n"
+        f"[[toc]]\n"
+        f"[[toc-levels:2]]\n"
+        f"[[no-header]]\n\n"
         f"{linked_full_text}\n\n"
         f"---\n\n{sources_section}\n"
     )
