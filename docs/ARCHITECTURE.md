@@ -1,6 +1,6 @@
 # Developer's Playbook
 
-A comprehensive technical guide to the Fantasy Baseball Analysis App — its architecture, data sources, algorithms, and how everything fits together.
+A comprehensive technical guide to Caught Stealing — its architecture, data sources, algorithms, and how everything fits together.
 
 ---
 
@@ -18,9 +18,10 @@ A comprehensive technical guide to the Fantasy Baseball Analysis App — its arc
 10. [Scheduler & Automation](#10-scheduler--automation)
 11. [Testing](#11-testing)
 12. [Development Commands](#12-development-commands)
-13. [Backtesting Infrastructure](#13-backtesting-infrastructure)
-14. [Quality Gate Process](#14-quality-gate-process)
-15. [Phase 5: Self-Optimization (April 30 Hold)](#15-phase-5-self-optimization-april-30-hold)
+13. [Fly.io Deployment](#13-flyio-deployment)
+14. [Backtesting Infrastructure](#14-backtesting-infrastructure)
+15. [Quality Gate Process](#15-quality-gate-process)
+16. [Phase 5: Self-Optimization (April 30 Hold)](#16-phase-5-self-optimization-april-30-hold)
 
 ---
 
@@ -1007,7 +1008,18 @@ ASSISTANT_MODEL=claude-sonnet-4-20250514     # Optional override
 
 ---
 
-## 13. Backtesting Infrastructure
+## 13. Fly.io Deployment
+
+- **URL**: https://fantasy-baseball-br.fly.dev/
+- **Config**: fly.toml with persistent volume at /data
+- **Env vars**: DATABASE_URL, CACHE_DIR, DATA_DIR, CONTENT_DIR, HEADLESS, CORS_ORIGINS
+- **Secrets**: YAHOO_CLIENT_ID, YAHOO_CLIENT_SECRET, YAHOO_LEAGUE_ID, ANTHROPIC_API_KEY, AUTH_PASSWORD, YAHOO_ACCESS_TOKEN_JSON
+- **Health check**: GET /health every 30s
+- **Deploy**: `flyctl deploy` from project root
+
+---
+
+## 14. Backtesting Infrastructure
 
 The backtesting system is a standalone suite of scripts in `scripts/` that validates the projection engine against historical outcomes. All scripts read from `backtest_data.sqlite` (separate from the production `fantasy_baseball.db`) and are designed to run independently of the web application.
 
@@ -1136,7 +1148,7 @@ Uses `scipy.optimize` (Nelder-Mead method) to find optimal values for the projec
 
 ---
 
-## 14. Quality Gate Process
+## 15. Quality Gate Process
 
 The backtesting infrastructure enforces a quality gate before any projection engine changes reach production.
 
@@ -1177,7 +1189,7 @@ Proceed to Phase 2 enhancements
 
 ---
 
-## 15. Phase 5: Self-Optimization (April 30 Hold)
+## 16. Phase 5: Self-Optimization (April 30 Hold)
 
 The parameter optimizer (`scripts/optimize_parameters.py`) can automatically tune the projection engine's 8 parameters using historical data. However, automatically applying optimized parameters to production is gated behind a date and feature flag.
 

@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
     cache_dir: str = ".cache"
     data_dir: str = "."
+    content_dir: str = "data/content"
     headless: bool = False
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

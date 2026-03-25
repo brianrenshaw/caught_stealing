@@ -19,6 +19,7 @@ primary_region = 'ord'
   DATABASE_URL = 'sqlite+aiosqlite:////data/fantasy_baseball.db'
   CACHE_DIR = '/data/cache'
   DATA_DIR = '/data'
+  CONTENT_DIR = '/data/content'
   HEADLESS = 'true'
   CORS_ORIGINS = 'https://fantasy-baseball-br.fly.dev,http://localhost:8000,http://127.0.0.1:8000'
 
@@ -28,7 +29,7 @@ primary_region = 'ord'
     port = 8080
     path = '/health'
     interval = '30s'
-    timeout = '5s'
+    timeout = '15s'
 
 [[vm]]
   memory = '1gb'

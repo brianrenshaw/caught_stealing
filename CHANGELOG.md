@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the Fantasy Baseball Analysis App are documented here.
+All notable changes to Caught Stealing (fantasy baseball analysis app) are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -13,22 +13,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## 2026-03-25
 
 ### Added
+- **Renamed to "Caught Stealing"** — all page titles, sidebar, mobile bar, login page, browser tabs
 - **Fly.io deployment** — app live at fantasy-baseball-br.fly.dev with persistent SQLite volume, always-on machine, health checks, and HTTPS
 - **Yahoo OAuth token persistence** — refreshed tokens auto-saved to persistent volume, survive restarts without re-authentication
 - **Yahoo headless auth** — `YAHOO_ACCESS_TOKEN_JSON` secret + `capture_yahoo_token` script for server-side Yahoo API access
 - **iPhone-optimized mobile layout** — viewport-fit=cover, safe area insets for Dynamic Island, 16px input font (prevents Safari zoom), tap highlight disabled, dvh viewport units
 - **Touch-friendly tooltips** — tap to open, tap outside or × button to dismiss (fixes stuck tooltips on iOS)
+- **Intel mobile dropdown** — mobile users see a dropdown report selector instead of the sidebar list; full-width report content below
+- **Chat floating icon on mobile** — red circle visible on all screen sizes, respects safe area bottom inset
+- **Sidebar touch targets** — larger nav items (py-3.5), more spacing (space-y-1.5), bigger icons (w-5 h-5) on mobile
 - **Responsive tables** — trades and league standings hide less-important columns on mobile, tighter cell padding
 - **Responsive Stats Explorer** — search bar full-width on mobile, filter controls wrap, Plotly toolbar hidden on small screens
-- **Configurable deployment settings** — CORS origins, cache dir, data dir, headless mode via environment variables
+- **Daily content Fly sync** — `daily_content_ingest.sh` auto-uploads new reports to Fly volume after each overnight run
+- **Configurable deployment settings** — CORS origins, cache dir, data dir, content dir, headless mode via environment variables
 
 ### Changed
+- Dashboard header cleaned up for mobile — title on its own line, season selector moved to sync buttons row
 - League dashboard scoring reference stacks single-column on mobile
 - Trades table shows only Player, Steamer, Surplus, and Add on mobile (Pos, Rank, App Proj, Actual hidden)
 - League standings hides "This Week (Actual)" and "vs" columns on mobile
 - Chart containers use shorter height (240px) on mobile
+- Table row padding increased on mobile (8px vs 5px) for better touch targets
 
 ### Fixed
+- **Intel tab empty on Fly.io** — path mismatch fixed via `content_dir` config setting (`CONTENT_DIR=/data/content`)
 - **Intel refresh timeout** — updated estimate from "30 seconds" to "2-3 minutes (Claude Opus)"
 - **Tooltips stuck on iPhone** — added touchstart dismiss listener + close button + scroll-to-dismiss
 - **Plotly toolbar overlap** — hidden on mobile via CSS

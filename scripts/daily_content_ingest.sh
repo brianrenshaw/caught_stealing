@@ -49,6 +49,27 @@ uv run python -m scripts.daily_analysis || {
     echo "WARNING: Daily analysis generation failed"
 }
 
+# Step 5: Upload new reports to Fly.io volume
+echo ""
+echo "--- Syncing Reports to Fly.io ---"
+ANALYSIS_DIR="$PROJECT_DIR/data/content/analysis"
+TODAY=$(date +%Y-%m-%d)
+UPLOADED=0
+for f in "$ANALYSIS_DIR/${TODAY}"_*.md; do
+    [ -f "$f" ] || continue
+    BASENAME=$(basename "$f")
+    flyctl ssh sftp shell --app fantasy-baseball-br <<EOF
+put $f /data/content/analysis/$BASENAME
+EOF
+    if [ $? -eq 0 ]; then
+        echo "  Uploaded: $BASENAME"
+        UPLOADED=$((UPLOADED + 1))
+    else
+        echo "  WARNING: Failed to upload $BASENAME"
+    fi
+done
+echo "Uploaded $UPLOADED report(s) to Fly.io"
+
 echo ""
 echo "=========================================="
 echo "Content ingest finished: $(date)"

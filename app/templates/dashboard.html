@@ -1,121 +1,99 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard — Fantasy Baseball{% endblock %}
+{% block title %}Dashboard — Lankford Legends{% endblock %}
 {% block nav_dashboard %}nav-item-active{% endblock %}
 
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-    <div class="flex items-center gap-4">
-        <h2 class="font-display text-2xl md:text-3xl font-extrabold text-txt-navy">Dashboard {{ page_info('dashboard') }}</h2>
+<!-- Compact toolbar: season selector + overflow menu -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+        <h2 class="font-display text-xl md:text-2xl font-extrabold text-txt-navy">Dashboard</h2>
         {% if available_seasons %}
         <select onchange="window.location.href='/?season=' + this.value"
-                class="bg-surface-elevated text-txt-primary text-sm rounded-lg px-3 py-1.5 border border-bdr-subtle focus:border-accent-primary focus:outline-none">
+                class="bg-surface-elevated text-txt-primary text-sm rounded-lg px-2.5 py-2 border border-bdr-subtle focus:border-accent-primary focus:outline-none">
             {% for yr in available_seasons %}
             <option value="{{ yr }}" {% if yr == selected_season %}selected{% endif %}>{{ yr }}</option>
             {% endfor %}
         </select>
         {% endif %}
     </div>
-    <div class="flex flex-wrap items-center gap-3">
+    <!-- Desktop: inline sync buttons -->
+    <div class="hidden md:flex items-center gap-2">
         {% if not setup_needed %}
-        <button hx-post="/api/sync"
-                hx-target="#sync-result"
-                hx-indicator="#sync-spinner"
-                hx-disabled-elt="this"
-                class="text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                style="background: #0C2340;"
-                onmouseover="this.style.background='#1E3A5F'"
-                onmouseout="this.style.background='#0C2340'">
+        <button hx-post="/api/sync" hx-target="#sync-result" hx-indicator="#sync-spinner" hx-disabled-elt="this"
+                class="bg-[#0C2340] hover:bg-[#1E3A5F] text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
             Sync Yahoo
         </button>
         {% endif %}
-        <div class="relative" id="sync-stats-group">
-            <button hx-post="/api/sync/stats"
-                    hx-target="#sync-result"
-                    hx-indicator="#sync-spinner"
-                    hx-disabled-elt="this"
-                    hx-swap="innerHTML"
-                    class="bg-[#0C2340] hover:bg-[#1E3A5F] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+        <button hx-post="/api/sync/stats" hx-target="#sync-result" hx-indicator="#sync-spinner" hx-disabled-elt="this" hx-swap="innerHTML"
+                class="bg-[#0C2340] hover:bg-[#1E3A5F] text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50">
+            Sync Stats
+        </button>
+        <span id="sync-spinner-desktop" class="htmx-indicator text-txt-secondary text-sm">Syncing...</span>
+    </div>
+    <!-- Mobile: overflow menu -->
+    <div class="md:hidden relative">
+        <button onclick="document.getElementById('dash-menu').classList.toggle('hidden')"
+                class="p-2.5 rounded-lg text-txt-secondary hover:bg-surface-elevated transition-colors">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 12.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5ZM12 18.75a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z"/></svg>
+        </button>
+        <div id="dash-menu" class="hidden absolute right-0 top-full mt-1 bg-surface-card border border-bdr-subtle rounded-lg shadow-xl z-30 py-1 w-52">
+            {% if not setup_needed %}
+            <button hx-post="/api/sync" hx-target="#sync-result" hx-indicator="#sync-spinner" hx-disabled-elt="this"
+                    onclick="document.getElementById('dash-menu').classList.add('hidden')"
+                    class="w-full text-left px-4 py-3 text-sm text-txt-primary hover:bg-surface-elevated flex items-center gap-2">
+                <svg class="w-4 h-4 text-txt-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
+                Sync Yahoo
+            </button>
+            {% endif %}
+            <button hx-post="/api/sync/stats" hx-target="#sync-result" hx-indicator="#sync-spinner" hx-disabled-elt="this" hx-swap="innerHTML"
+                    onclick="document.getElementById('dash-menu').classList.add('hidden')"
+                    class="w-full text-left px-4 py-3 text-sm text-txt-primary hover:bg-surface-elevated flex items-center gap-2">
+                <svg class="w-4 h-4 text-txt-muted" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
                 Sync Stats
             </button>
-            <button onclick="document.getElementById('season-picker').classList.toggle('hidden')"
-                    type="button"
-                    class="bg-[#1E3A5F] hover:bg-[#0C2340] text-white px-2 py-2 rounded-lg text-sm font-medium transition-colors ml-0.5"
-                    title="Sync multiple seasons">
-                &#9662;
-            </button>
-            <!-- Multi-season picker dropdown -->
-            <div id="season-picker" class="hidden absolute right-0 top-full mt-1 bg-surface-card border border-bdr-subtle rounded-lg shadow-xl z-30 p-3 w-56">
-                <p class="text-xs text-txt-secondary mb-2 font-medium">Select seasons to sync:</p>
-                <form hx-post="/api/sync/stats/multi"
-                      hx-target="#sync-result"
-                      hx-indicator="#sync-spinner"
-                      hx-swap="innerHTML"
-                      hx-disabled-elt="find button[type=submit]">
-                    <div class="space-y-1 max-h-48 overflow-y-auto">
-                        {% for yr in sync_seasons %}
-                        <label class="flex items-center gap-2 text-sm text-txt-primary hover:text-txt-primary cursor-pointer py-0.5">
-                            <input type="checkbox" name="seasons" value="{{ yr }}"
-                                   {% if yr == selected_season %}checked{% endif %}
-                                   class="rounded bg-surface-elevated border-bdr-subtle text-[#0C2340] focus:ring-[#0C2340] focus:ring-offset-0">
-                            {{ yr }}
-                        </label>
-                        {% endfor %}
-                    </div>
-                    <div class="flex justify-between items-center mt-3 pt-2 border-t border-bdr">
-                        <button type="button" onclick="toggleAllSeasons(this)" class="text-xs text-txt-secondary hover:text-txt-primary">Select all</button>
-                        <button type="submit"
-                                onclick="document.getElementById('season-picker').classList.add('hidden')"
-                                class="bg-[#0C2340] hover:bg-[#1E3A5F] text-white px-3 py-1 rounded text-xs font-medium transition-colors">
-                            Sync Selected
-                        </button>
-                    </div>
-                </form>
+            {% if last_sync %}
+            <div class="border-t border-bdr-subtle mt-1 pt-1 px-4 py-2">
+                <span class="text-[11px] text-txt-muted">Last sync: {{ last_sync }}</span>
             </div>
+            {% endif %}
         </div>
-        <span id="sync-spinner" class="htmx-indicator text-txt-secondary text-sm">Syncing...</span>
+        <span id="sync-spinner" class="htmx-indicator text-txt-secondary text-sm absolute right-12 top-2">Syncing...</span>
+    </div>
+</div>
+
+<!-- Multi-season picker (shared between desktop/mobile) -->
+<div class="relative" id="sync-stats-group">
+    <div id="season-picker" class="hidden absolute right-0 top-0 mt-1 bg-surface-card border border-bdr-subtle rounded-lg shadow-xl z-30 p-3 w-56">
+        <p class="text-xs text-txt-secondary mb-2 font-medium">Select seasons to sync:</p>
+        <form hx-post="/api/sync/stats/multi" hx-target="#sync-result" hx-indicator="#sync-spinner" hx-swap="innerHTML" hx-disabled-elt="find button[type=submit]">
+            <div class="space-y-1 max-h-48 overflow-y-auto">
+                {% for yr in sync_seasons %}
+                <label class="flex items-center gap-2 text-sm text-txt-primary cursor-pointer py-0.5">
+                    <input type="checkbox" name="seasons" value="{{ yr }}" {% if yr == selected_season %}checked{% endif %}
+                           class="rounded bg-surface-elevated border-bdr-subtle text-[#0C2340] focus:ring-[#0C2340] focus:ring-offset-0">
+                    {{ yr }}
+                </label>
+                {% endfor %}
+            </div>
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-bdr">
+                <button type="button" onclick="toggleAllSeasons(this)" class="text-xs text-txt-secondary hover:text-txt-primary">Select all</button>
+                <button type="submit" onclick="document.getElementById('season-picker').classList.add('hidden')"
+                        class="bg-[#0C2340] hover:bg-[#1E3A5F] text-white px-3 py-1 rounded text-xs font-medium transition-colors">
+                    Sync Selected
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 
 <div id="sync-result"></div>
 
-<!-- Weekly Outlook -->
-<div class="mb-6">
-    <div class="flex items-center gap-3 mb-2">
-        <button hx-post="/api/weekly-outlook"
-                hx-target="#weekly-outlook-container"
-                hx-swap="innerHTML"
-                hx-indicator="#outlook-spinner"
-                class="bg-accent-primary hover:bg-accent-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
-            </svg>
-            Weekly Outlook
-        </button>
-        <span class="text-xs text-txt-muted">AI-generated matchup preview, key players, standings, and schedule analysis</span>
-        <span id="outlook-spinner" class="htmx-indicator text-purple-700 text-sm flex items-center gap-1.5">
-            <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Writing outlook...
-        </span>
-        {{ page_info('weekly-outlook') }}
-    </div>
-    <div id="weekly-outlook-container">
-        <!-- Weekly outlook will be loaded here via HTMX -->
-    </div>
-</div>
-
-<!-- Stats summary bar -->
+<!-- Stats summary (desktop only) -->
 {% if stats_summary.batters > 0 %}
-<div class="flex flex-wrap gap-2 md:gap-4 mb-6 text-sm">
-    <div class="bg-surface-card border border-bdr rounded-lg px-4 py-2 flex items-center gap-2">
-        <span class="text-txt-secondary">Season:</span>
-        <span class="text-txt-primary font-semibold">{{ selected_season }}</span>
-    </div>
+<div class="hidden md:flex flex-wrap gap-2 md:gap-4 mb-6 text-sm">
     <div class="bg-surface-card border border-bdr rounded-lg px-4 py-2 flex items-center gap-2">
         <span class="text-txt-secondary">Batters:</span>
         <span class="text-accent-link font-semibold">{{ stats_summary.batters }}</span>
@@ -128,12 +106,6 @@
         <span class="text-txt-secondary">Statcast:</span>
         <span class="text-purple-700 font-semibold">{{ stats_summary.statcast }}</span>
     </div>
-    {% if last_sync %}
-    <div class="bg-surface-card border border-bdr rounded-lg px-4 py-2 flex items-center gap-2">
-        <span class="text-txt-secondary">Last sync:</span>
-        <span class="text-txt-primary">{{ last_sync }}</span>
-    </div>
-    {% endif %}
 </div>
 {% endif %}
 
@@ -156,58 +128,61 @@
 
 {% if not setup_needed %}
 
-{# ── Weekly Matchup Analysis (full-width, player-centric) ── #}
+{# ── Weekly Matchup — Hero Scoreboard ── #}
 {% if matchup_data %}
-<div class="bg-surface-card rounded-lg border border-bdr p-5 mb-6">
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">
-            Week {{ matchup_data.week }}: vs {{ matchup_data.opponent_name }} {{ page_info('matchup-analysis') }}
-        </h3>
+<div class="bg-surface-card rounded-lg border border-bdr mb-4" style="box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+    <!-- Week label -->
+    <div class="text-center pt-4 pb-1">
+        <span class="text-[11px] font-mono uppercase tracking-wider text-txt-muted">Week {{ matchup_data.week }}</span>
     </div>
 
-    <!-- Summary totals: Yahoo Proj / My Proj / Actual -->
-    <div class="overflow-x-auto mb-5">
-        <table class="w-full text-sm">
-            <thead>
-                <tr class="text-txt-muted border-b border-bdr">
-                    <th class="text-left py-1.5 px-3 w-40"></th>
-                    <th class="text-center py-1.5 px-3 text-accent-link font-medium">{{ matchup_data.my_team_name or 'My Team' }}</th>
-                    <th class="text-center py-1.5 px-3 text-[#c62828] font-medium">{{ matchup_data.opponent_name }}</th>
-                    <th class="text-center py-1.5 px-3 text-txt-secondary w-24">Diff</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="border-b border-bdr/50">
-                    <td class="py-1.5 px-3 text-txt-secondary">Yahoo Projected {{ stat_info('matchup-yahoo-proj') }}</td>
-                    <td class="py-1.5 px-3 text-center text-accent-link font-semibold text-lg">{{ "%.1f"|format(matchup_data.my_yahoo_projected) }}</td>
-                    <td class="py-1.5 px-3 text-center text-red-700 font-semibold text-lg">{{ "%.1f"|format(matchup_data.opp_yahoo_projected) }}</td>
-                    {% set diff_yahoo = matchup_data.my_yahoo_projected - matchup_data.opp_yahoo_projected %}
-                    <td class="py-1.5 px-3 text-center font-semibold {% if diff_yahoo > 0 %}text-[#2e7d32]{% elif diff_yahoo < 0 %}text-[#c62828]{% else %}text-txt-secondary{% endif %}">{{ "%+.1f"|format(diff_yahoo) }}</td>
-                </tr>
-                <tr class="border-b border-bdr/50">
-                    <td class="py-1.5 px-3 text-txt-secondary">
-                        My Projected {{ stat_info('matchup-my-proj') }}
-                        {% if matchup_data.snapshot_created_at %}
-                        <span class="block text-[10px] text-txt-muted">
-                            Snapshot: {{ matchup_data.snapshot_created_at.strftime('%b %d, %-I:%M %p') }}
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td class="py-1.5 px-3 text-center text-blue-700 font-semibold text-lg">{{ "%.1f"|format(matchup_data.my_projected) }}</td>
-                    <td class="py-1.5 px-3 text-center text-red-700 font-semibold text-lg">{{ "%.1f"|format(matchup_data.opp_projected) }}</td>
-                    {% set diff_proj = matchup_data.my_projected - matchup_data.opp_projected %}
-                    <td class="py-1.5 px-3 text-center font-semibold {% if diff_proj > 0 %}text-[#2e7d32]{% elif diff_proj < 0 %}text-[#c62828]{% else %}text-txt-secondary{% endif %}">{{ "%+.1f"|format(diff_proj) }}</td>
-                </tr>
-                <tr>
-                    <td class="py-1.5 px-3 text-txt-primary font-medium">Actual</td>
-                    <td class="py-1.5 px-3 text-center text-txt-primary font-bold text-lg">{{ "%.1f"|format(matchup_data.my_actual) }}</td>
-                    <td class="py-1.5 px-3 text-center text-txt-primary font-bold text-lg">{{ "%.1f"|format(matchup_data.opp_actual) }}</td>
-                    {% set diff_actual = matchup_data.my_actual - matchup_data.opp_actual %}
-                    <td class="py-1.5 px-3 text-center font-bold {% if diff_actual > 0 %}text-[#2e7d32]{% elif diff_actual < 0 %}text-[#c62828]{% else %}text-txt-secondary{% endif %}">{{ "%+.1f"|format(diff_actual) }}</td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Scoreboard: big actual scores -->
+    {% set diff_actual = matchup_data.my_actual - matchup_data.opp_actual %}
+    <div class="flex items-center justify-center gap-2 px-4 pb-3">
+        <div class="flex-1 text-right">
+            <p class="text-xs font-semibold text-txt-navy truncate">{{ matchup_data.my_team_name or 'My Team' }}</p>
+            <p class="text-3xl md:text-4xl font-display font-bold text-txt-navy leading-tight">{{ "%.1f"|format(matchup_data.my_actual) }}</p>
+        </div>
+        <div class="flex flex-col items-center px-2">
+            <span class="text-[10px] font-bold text-txt-muted uppercase">vs</span>
+            <span class="text-xs font-mono font-semibold mt-0.5 {% if diff_actual > 0 %}text-[#2e7d32]{% elif diff_actual < 0 %}text-[#c62828]{% else %}text-txt-muted{% endif %}">
+                {{ "%+.1f"|format(diff_actual) }}
+            </span>
+        </div>
+        <div class="flex-1 text-left">
+            <p class="text-xs font-semibold text-[#c62828] truncate">{{ matchup_data.opponent_name }}</p>
+            <p class="text-3xl md:text-4xl font-display font-bold text-txt-primary leading-tight">{{ "%.1f"|format(matchup_data.opp_actual) }}</p>
+        </div>
     </div>
+
+    <!-- Projected sub-row -->
+    <div class="flex items-center justify-center gap-4 md:gap-6 text-[11px] text-txt-muted border-t border-bdr-subtle mx-4 pt-2 pb-3">
+        <div class="text-center">
+            <span class="block text-txt-secondary font-medium">{{ "%.1f"|format(matchup_data.my_yahoo_projected) }}</span>
+            <span class="text-[10px]">Yahoo</span>
+        </div>
+        <div class="text-center">
+            <span class="block text-txt-secondary font-medium">{{ "%.1f"|format(matchup_data.my_projected) }}</span>
+            <span class="text-[10px]">App</span>
+        </div>
+        <div class="w-px h-5 bg-bdr-subtle"></div>
+        <div class="text-center">
+            <span class="block text-txt-secondary font-medium">{{ "%.1f"|format(matchup_data.opp_yahoo_projected) }}</span>
+            <span class="text-[10px]">Yahoo</span>
+        </div>
+        <div class="text-center">
+            <span class="block text-txt-secondary font-medium">{{ "%.1f"|format(matchup_data.opp_projected) }}</span>
+            <span class="text-[10px]">App</span>
+        </div>
+    </div>
+
+    <!-- Player breakdown (collapsed on mobile) -->
+    <details class="border-t border-bdr-subtle">
+        <summary class="px-4 py-3 text-xs text-accent-link font-medium cursor-pointer flex items-center justify-center gap-1.5 hover:bg-surface-elevated/30">
+            <svg class="w-3.5 h-3.5 chevron-icon" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5"/></svg>
+            Player Breakdown
+        </summary>
+        <div class="px-3 md:px-5 pb-4">
 
     {# ── Macro: render a team's player table with proj/actual per category ── #}
     {% macro player_matchup_table(team_label, hitters, pitchers, batting_cats, pitching_cats, accent_color) %}
@@ -341,13 +316,44 @@
         matchup_data.pitching_categories,
         "red"
     ) }}
+        </div>
+    </details>
 </div>
 {% endif %}
 
+<!-- Weekly Outlook — card button -->
+<div class="bg-surface-card rounded-lg border border-bdr mb-4 overflow-hidden" style="box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+    <button hx-post="/api/weekly-outlook"
+            hx-target="#weekly-outlook-container"
+            hx-swap="innerHTML"
+            hx-indicator="#outlook-spinner"
+            class="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-surface-elevated/50 transition-colors">
+        <div class="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style="background: rgba(196, 30, 58, 0.1);">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" style="color: #C41E3A;" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+            </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+            <span class="text-sm font-semibold text-txt-navy block">Weekly Outlook</span>
+            <span class="text-xs text-txt-muted block">AI matchup preview, key players &amp; schedule analysis</span>
+        </div>
+        <span id="outlook-spinner" class="htmx-indicator">
+            <svg class="animate-spin h-5 w-5" style="color: #C41E3A;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </span>
+        <svg class="w-4 h-4 text-txt-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+    </button>
+    <div id="weekly-outlook-container">
+        <!-- HTMX loads content here -->
+    </div>
+</div>
+
 <!-- League Cards Row -->
-<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-    <!-- League Standings -->
-    <div class="bg-surface-card rounded-lg border border-bdr p-5">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+    <!-- League Standings (last on mobile, first on desktop) -->
+    <div class="order-3 md:order-1 bg-surface-card rounded-lg border border-bdr p-4 md:p-5">
         <h3 class="font-display text-lg font-bold text-txt-navy mb-3 text-txt-primary">League Standings {{ page_info('league-standings') }}</h3>
         {% if standings %}
         <table class="w-full text-sm">
@@ -378,8 +384,8 @@
         {% endif %}
     </div>
 
-    <!-- Weekly Lineup -->
-    <div class="bg-surface-card rounded-lg border border-bdr p-5">
+    <!-- Weekly Lineup (second on mobile) -->
+    <div class="order-2 bg-surface-card rounded-lg border border-bdr p-4 md:p-5">
         <div class="flex justify-between items-center mb-1">
             <h3 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Weekly Lineup {{ page_info('weekly-lineup') }}</h3>
             {% if my_roster %}<a href="/roster" class="text-accent-link text-xs hover:text-accent-link">Full roster</a>{% endif %}
@@ -596,8 +602,8 @@
         {% endif %}
     </div>
 
-    <!-- Signals Column -->
-    <div class="space-y-6">
+    <!-- Signals Column (first on mobile — actionable content) -->
+    <div class="order-1 md:order-3 space-y-4 md:space-y-6">
         <!-- Buy Low -->
         <div class="bg-surface-card rounded-lg border border-bdr p-5">
             <div class="flex justify-between items-center mb-3">
@@ -814,8 +820,8 @@
 </div>
 {% endif %}
 
-<!-- Quick Actions -->
-<div class="bg-surface-card rounded-lg border border-bdr p-5">
+<!-- Quick Actions (desktop only — redundant with sidebar on mobile) -->
+<div class="hidden md:block bg-surface-card rounded-lg border border-bdr p-5">
     <h3 class="font-display text-lg font-bold text-txt-navy mb-3 text-txt-primary">Quick Actions</h3>
     <div class="flex flex-wrap gap-4">
         <a href="/roster" class="text-accent-link hover:text-accent-link text-sm">View full roster</a>
@@ -835,12 +841,16 @@ function toggleAllSeasons(btn) {
     btn.textContent = allChecked ? 'Select all' : 'Deselect all';
 }
 
-// Close season picker when clicking outside
+// Close dropdowns when clicking outside
 document.addEventListener('click', function(e) {
     const picker = document.getElementById('season-picker');
     const group = document.getElementById('sync-stats-group');
     if (picker && group && !group.contains(e.target)) {
         picker.classList.add('hidden');
+    }
+    const dashMenu = document.getElementById('dash-menu');
+    if (dashMenu && !e.target.closest('#dash-menu') && !e.target.closest('[onclick*="dash-menu"]')) {
+        dashMenu.classList.add('hidden');
     }
 });
 

@@ -118,6 +118,15 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
+# Cache static assets for 7 days
+@app.middleware("http")
+async def add_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        response.headers["Cache-Control"] = "public, max-age=604800"
+    return response
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

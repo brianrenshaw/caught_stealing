@@ -11,10 +11,12 @@ from pathlib import Path
 from fastapi import APIRouter, Request
 from fastapi.templating import Jinja2Templates
 
+from app.config import settings
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
-ANALYSIS_DIR = Path("data/content/analysis")
+ANALYSIS_DIR = Path(settings.content_dir) / "analysis"
 
 logger = logging.getLogger(__name__)
 

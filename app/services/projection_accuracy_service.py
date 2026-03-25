@@ -11,12 +11,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.league_week_snapshot import LeagueWeekSnapshot
+from app.config import settings
 from app.models.weekly_matchup import WeeklyMatchupSnapshot
 from app.services.weekly_matchup_service import build_matchup_display
 
 logger = logging.getLogger(__name__)
 
-ANALYSIS_DIR = Path("data/content/analysis")
+ANALYSIS_DIR = Path(settings.content_dir) / "analysis"
 
 
 def _error_pct(projected: float, actual: float) -> str:

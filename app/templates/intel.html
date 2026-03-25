@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Intel — Fantasy Baseball{% endblock %}
+{% block title %}Intel — Lankford Legends{% endblock %}
 {% block nav_intel %}nav-item-active{% endblock %}
 
 {% from "macros/info_icon.html" import page_info %}
 
 {% block content %}
-<div class="p-6">
-    <div class="flex items-center justify-between mb-6">
-        <h2 class="font-display text-3xl font-extrabold text-txt-navy">
+<div>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-5">
+        <h2 class="font-display text-2xl md:text-3xl font-extrabold text-txt-navy">
             Intel {{ page_info('intel') }}
         </h2>
         <div class="flex items-center gap-3">
@@ -26,9 +26,29 @@
         </div>
     </div>
 
+    <!-- Mobile: dropdown report selector -->
+    {% if grouped_reports %}
+    <div class="md:hidden mb-4">
+        <select id="mobile-report-select"
+                onchange="loadReport(this.value)"
+                class="w-full bg-surface-card border border-bdr rounded-lg px-3 py-3 text-sm text-txt-primary focus:border-accent-primary focus:outline-none">
+            {% for date_label, reports in grouped_reports %}
+            <optgroup label="{{ date_label }}">
+                {% for report in reports %}
+                <option value="{{ report.filename }}"
+                        {% if latest_briefing and report.filename == latest_briefing.filename %}selected{% endif %}>
+                    {{ report.type_label }}{% if report.source_count %} ({{ report.source_count }} sources){% endif %}
+                </option>
+                {% endfor %}
+            </optgroup>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+
     <div class="flex gap-6">
-        <!-- Report selector sidebar -->
-        <div class="w-64 flex-shrink-0">
+        <!-- Desktop: report selector sidebar -->
+        <div class="hidden md:block w-64 flex-shrink-0">
             <div class="bg-surface-card rounded-lg border border-bdr p-4 sticky top-6">
                 <h3 class="text-sm font-semibold text-txt-secondary uppercase tracking-wider mb-3">Reports</h3>
 
@@ -56,7 +76,7 @@
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-sm text-txt-muted">No reports yet. Click "Refresh Analysis" to generate.</p>
+                <p class="text-sm text-txt-muted">No reports yet. Click "Refresh Briefing" to generate.</p>
                 {% endif %}
             </div>
         </div>
@@ -73,7 +93,7 @@
                 <div class="bg-surface-card rounded-lg border border-bdr p-8 text-center">
                     <p class="text-txt-secondary text-lg mb-2">No analysis reports yet</p>
                     <p class="text-txt-muted text-sm mb-4">
-                        Click "Refresh Analysis" to generate reports from your ingested content,
+                        Click "Refresh Briefing" to generate reports from your ingested content,
                         or wait for the daily 3 AM job to create them automatically.
                     </p>
                 </div>
@@ -84,7 +104,22 @@
 </div>
 
 <script>
-// Highlight active report in sidebar
+// Load report via HTMX (used by mobile dropdown)
+function loadReport(filename) {
+    htmx.ajax('GET', '/intel/report?file=' + encodeURIComponent(filename), {
+        target: '#intel-content',
+        swap: 'innerHTML'
+    });
+    // Sync desktop sidebar highlight
+    document.querySelectorAll('.intel-report-btn').forEach(function(btn) {
+        btn.classList.remove('bg-surface-elevated');
+        if (btn.dataset.filename === filename) {
+            btn.classList.add('bg-surface-elevated');
+        }
+    });
+}
+
+// Highlight active report in desktop sidebar
 document.addEventListener('htmx:afterRequest', function(e) {
     if (e.detail.target && e.detail.target.id === 'intel-content') {
         document.querySelectorAll('.intel-report-btn').forEach(function(btn) {
@@ -92,6 +127,9 @@ document.addEventListener('htmx:afterRequest', function(e) {
         });
         if (e.detail.elt && e.detail.elt.classList.contains('intel-report-btn')) {
             e.detail.elt.classList.add('bg-surface-elevated', 'text-txt-primary');
+            // Sync mobile dropdown
+            var select = document.getElementById('mobile-report-select');
+            if (select) select.value = e.detail.elt.dataset.filename;
         }
     }
 });

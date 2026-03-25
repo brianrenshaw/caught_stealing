@@ -1,4 +1,4 @@
-# Fantasy Baseball Analysis App — User Guide
+# Caught Stealing — User Guide
 
 A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy league and combines real MLB data from FanGraphs and Statcast to help you make smarter roster decisions. Whether you're evaluating a trade, scanning the waiver wire, or setting your weekly lineup, this app turns raw numbers into actionable insights.
 
@@ -51,6 +51,8 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
 
 ## Getting Started
 
+Access the app at https://fantasy-baseball-br.fly.dev/ — log in with your password.
+
 ### First Launch
 
 When you first open the app, you'll see the **Dashboard** with empty sections. There are two paths to get started:
@@ -85,7 +87,7 @@ Syncs can take a minute or two depending on how much data is being pulled. There
 - **Sortable tables**: Click any column header to sort. Click again to reverse direction. An arrow (↑↓) shows the current sort.
 - **Table search**: Many tables have a search box that filters rows by player name, team, or position. On League Points tables, searching also fetches players not in the default top-N list from the full database.
 - **"Look for" guidance**: Blue text above every stat table and chart explains what to look for, what's good vs bad, and why it matters for your H2H Points league.
-- **Stat tooltips**: Click the ⓘ icon next to any stat to see a popup with the stat's definition, fantasy relevance, Good/Avg/Bad benchmarks, and whether higher or lower is better.
+- **Stat tooltips**: Click the ⓘ icon next to any stat to see a popup with the stat's definition, fantasy relevance, Good/Avg/Bad benchmarks, and whether higher or lower is better. On mobile (iPhone/touch devices), tap the ⓘ icon to open a tooltip, then tap anywhere else or the × button to dismiss it.
 
 ---
 
@@ -652,7 +654,7 @@ Daily and weekly AI-generated intelligence reports built from expert fantasy bas
 - **Locked On Fantasy Baseball** — Daily deep dives on matchups, streamers, and league strategy
 - **In This League Fantasy Baseball** — Waiver wire targets, prospect call-ups, and weekly strategy
 
-Reports are organized by date in the left sidebar. Click any report to view it. The "Refresh Briefing" button generates a fresh daily report on demand.
+Reports are organized by date in the left sidebar. Click any report to view it. On mobile, reports are accessed via a dropdown selector at the top of the page instead of the sidebar list. The "Refresh Briefing" button generates a fresh daily report on demand.
 
 **Report sections include:**
 

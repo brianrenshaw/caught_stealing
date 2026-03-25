@@ -439,14 +439,14 @@ html {
         font-size: 10px;
     }
 
-    /* Tables — tighter on mobile */
+    /* Tables — compact but tappable on mobile */
     .table-premium thead th {
         font-size: 9px;
-        padding: 6px 4px;
+        padding: 8px 5px;
         letter-spacing: 0.3px;
     }
     .table-premium tbody td {
-        padding: 5px 4px;
+        padding: 8px 5px;
         font-size: 12px;
     }
 
@@ -470,4 +470,19 @@ html {
     .chart-h {
         height: 240px !important;
     }
+
+    /* Quick actions horizontal scroll */
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Details/Summary Animation
+   ══════════════════════════════════════════════════════════════ */
+
+details summary .chevron-icon {
+    transition: transform 200ms ease;
+}
+details[open] summary .chevron-icon {
+    transform: rotate(180deg);
 }

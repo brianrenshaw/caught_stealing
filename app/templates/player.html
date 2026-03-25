@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
-{% block title %}{{ player.name if player else "Player Not Found" }} — Fantasy Baseball{% endblock %}
+{% block title %}{{ player.name if player else "Player Not Found" }} — Lankford Legends{% endblock %}
+{% block extra_head %}<script src="https://cdn.plot.ly/plotly-3.0.1.min.js"></script>{% endblock %}
 
 {% block content %}
 {% if error %}
