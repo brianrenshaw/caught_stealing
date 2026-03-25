@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 .claude/
 CLAUDE.md
+docs/BACKTESTING_METHODOLOGY.md
+docs/research_analysis_fantasy_baseball_web_app
 .env
 launchers/
 venv/

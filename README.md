@@ -13,7 +13,6 @@ Built by **Brian Renshaw** with [Claude Code](https://claude.ai/claude-code).
 | [App Manual](docs/APP_MANUAL.md) | Full walkthrough of every page and feature in the app |
 | [Architecture](docs/ARCHITECTURE.md) | Architecture, services, data pipeline, and how to extend the app |
 | [AI Newsletter Pipeline](docs/AI_NEWSLETTER_PIPELINE.md) | Weekly and daily AI-generated analysis from ingested blogs and podcasts |
-| [Backtesting Methodology](docs/BACKTESTING_METHODOLOGY.md) | Walk-forward projection validation and parameter optimization |
 | [Changelog](CHANGELOG.md) | Version history and feature log |
 
 ---
