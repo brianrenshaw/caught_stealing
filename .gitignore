@@ -2,7 +2,9 @@
 __pycache__/
 *.pyc
 .claude/
+CLAUDE.md
 .env
+launchers/
 venv/
 .venv/
 
