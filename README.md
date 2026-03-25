@@ -8,12 +8,16 @@ Built by **Brian Renshaw** with [Claude Code](https://claude.ai/claude-code).
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [App Manual](docs/APP_MANUAL.md) | Full walkthrough of every page and feature in the app |
-| [Architecture](docs/ARCHITECTURE.md) | Architecture, services, data pipeline, and how to extend the app |
-| [AI Newsletter Pipeline](docs/AI_NEWSLETTER_PIPELINE.md) | Weekly and daily AI-generated analysis from ingested blogs and podcasts |
-| [Changelog](CHANGELOG.md) | Version history and feature log |
+### [App Manual](docs/APP_MANUAL.md)
+How to use every feature in the app — dashboard, roster optimizer, trade analyzer, waiver wire, stats explorer, projections, matchups, and the AI assistant. Includes scoring breakdowns, stat definitions, and a full glossary.
+
+### [Architecture](docs/ARCHITECTURE.md)
+How the app is built — FastAPI services, SQLAlchemy models, ETL pipeline, projection blending, and the data flow from Yahoo/Statcast/FanGraphs into the database. Start here if you want to understand or extend the code.
+
+### [AI Newsletter Pipeline](docs/AI_NEWSLETTER_PIPELINE.md)
+The content ingestion system that pulls from fantasy baseball blogs and podcasts, then uses Claude to generate daily and weekly analysis reports with league-specific context.
+
+### [Changelog](CHANGELOG.md)
 
 ---
 
