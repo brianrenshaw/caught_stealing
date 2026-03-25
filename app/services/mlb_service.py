@@ -187,39 +187,62 @@ async def get_team_roster(team_id: int) -> list[dict]:
 
 
 async def get_injuries() -> list[InjuryEntry]:
-    """Fetch current MLB injury report from the MLB Stats API.
+    """Fetch current MLB injury report by scanning all 30 teams' full rosters.
 
-    Source: MLB Official Injury Report.
-    Returns all active injuries with status (10-Day IL, 60-Day IL, DTD, etc.).
+    The /injuries endpoint was removed from MLB Stats API. This uses the
+    fullRoster endpoint instead, filtering for IL status codes:
+    D7 (7-Day IL), D10 (10-Day IL), D15 (15-Day IL), D60 (60-Day IL),
+    ILF (Full Season IL), DTD (Day-to-Day).
     """
     cache_key = "mlb:injuries"
     cached_val = cache.get(cache_key)
     if cached_val is not None:
         return cached_val
 
+    IL_CODES = {"D7", "D10", "D15", "D60", "ILF", "DTD"}
+
     injuries: list[InjuryEntry] = []
     try:
-        data = await _run_sync(statsapi.get, "injuries", {"sportId": 1})
-        for entry in data.get("injuries", []):
-            person = entry.get("person", {})
-            team = entry.get("team", {})
-            mlbam_id = person.get("id")
-            if not mlbam_id:
+        # Get all team IDs
+        teams_data = await _run_sync(statsapi.get, "teams", {"sportId": 1})
+        team_list = teams_data.get("teams", [])
+
+        for team_info in team_list:
+            team_id = team_info.get("id")
+            team_abbrev = team_info.get("abbreviation", "")
+            if not team_id:
                 continue
-            injuries.append(
-                InjuryEntry(
-                    player_name=person.get("fullName", ""),
-                    mlbam_id=int(mlbam_id),
-                    team=team.get("abbreviation", team.get("name", "")),
-                    status=entry.get("status", "Unknown"),
-                    injury=entry.get("description", entry.get("note", "")),
+            try:
+                roster_data = await _run_sync(
+                    statsapi.get,
+                    "team_roster",
+                    {"teamId": team_id, "rosterType": "fullRoster"},
                 )
-            )
+                for entry in roster_data.get("roster", []):
+                    status = entry.get("status", {})
+                    code = status.get("code", "")
+                    if code not in IL_CODES:
+                        continue
+                    person = entry.get("person", {})
+                    mlbam_id = person.get("id")
+                    if not mlbam_id:
+                        continue
+                    injuries.append(
+                        InjuryEntry(
+                            player_name=person.get("fullName", ""),
+                            mlbam_id=int(mlbam_id),
+                            team=team_abbrev,
+                            status=status.get("description", code),
+                            injury="",
+                        )
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to fetch roster for team {team_abbrev}: {e}")
     except Exception as e:
-        logger.error(f"Failed to fetch injuries: {e}")
+        logger.error(f"Failed to fetch injuries from rosters: {e}")
 
     cache.set(cache_key, injuries, expire=TTL_INJURIES)
-    logger.info(f"Fetched {len(injuries)} injury entries from MLB API")
+    logger.info(f"Fetched {len(injuries)} injury entries from team rosters")
     return injuries
 
 

@@ -361,13 +361,51 @@ body {
     color: #0C2340;
 }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
+/* ══════════════════════════════════════════════════════════════
+   Responsive Chart Heights
+   ══════════════════════════════════════════════════════════════ */
+
+.chart-h { height: 300px; }
+@media (min-width: 768px) { .chart-h { height: 400px; } }
+
+/* ══════════════════════════════════════════════════════════════
+   Mobile Responsive Overrides
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 767px) {
+    /* Comparison slots */
     #comparison-slots {
         grid-template-columns: 1fr !important;
     }
     .percentile-row .flex.items-center.gap-2 span:first-child {
         width: 60px;
         font-size: 10px;
+    }
+
+    /* Tables — tighter on mobile */
+    .table-premium thead th {
+        font-size: 9px;
+        padding: 6px 6px;
+        letter-spacing: 0.3px;
+    }
+    .table-premium tbody td {
+        padding: 5px 6px;
+        font-size: 12px;
+    }
+
+    /* Cards — reduce padding */
+    .card-header {
+        padding: 12px 14px;
+    }
+    .card-body {
+        padding: 12px 14px;
+    }
+
+    /* Alert cards */
+    .alert-card {
+        padding: 12px 14px;
+    }
+    .featured-block {
+        padding: 14px 16px;
     }
 }

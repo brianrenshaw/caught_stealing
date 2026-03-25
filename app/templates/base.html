@@ -56,16 +56,38 @@
     </script>
 </head>
 <body class="h-full font-body bg-white" style="color: var(--text-primary);">
-    <div class="flex h-full">
+    <!-- Mobile top bar -->
+    <div class="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-4 py-3"
+         style="background: #0E1B2E;">
+        <button onclick="toggleSidebar()" class="text-white p-1" aria-label="Open menu">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+        </button>
+        <h1 class="font-display text-lg font-bold text-white">Fantasy Baseball</h1>
+        <button onclick="toggleChat()" class="text-white p-1" aria-label="Open chat">
+            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"/></svg>
+        </button>
+    </div>
+
+    <!-- Sidebar backdrop (mobile) -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+    <div class="flex h-full pt-12 md:pt-0">
         <!-- Sidebar — Dark Navy -->
-        <aside class="w-64 flex flex-col" style="background: #0E1B2E;">
-            <!-- Logo -->
+        <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 flex flex-col transform -translate-x-full md:translate-x-0 md:relative md:inset-auto transition-transform duration-300" style="background: #0E1B2E;">
+            <!-- Logo (hidden on mobile — top bar handles it) -->
             <div class="px-5 py-5 border-b" style="border-color: rgba(255,255,255,0.08);">
-                <h1 class="font-display text-xl font-bold text-white">
+                <h1 class="hidden md:block font-display text-xl font-bold text-white">
                     Fantasy Baseball
                     <span class="block h-0.5 w-12 mt-1 rounded" style="background: #C41E3A;"></span>
                 </h1>
-                <div class="mt-3 relative">
+                <!-- Close button for mobile sidebar -->
+                <div class="flex md:hidden items-center justify-between mb-3">
+                    <span class="font-display text-lg font-bold text-white">Menu</span>
+                    <button onclick="toggleSidebar()" class="text-white p-1" aria-label="Close menu">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="mt-3 md:mt-3 relative">
                     <input type="search" name="q" id="sidebar-search-input"
                            placeholder="Search players..."
                            autocomplete="off"
@@ -180,20 +202,21 @@
             <div class="px-5 py-3 border-t text-xs" style="border-color: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5);">
                 <p>League: {{ league_name or "Not connected" }}</p>
                 <p>Last sync: {{ last_sync or "Never" }}</p>
+                <a href="/logout" class="inline-block mt-2 text-xs hover:text-white transition-colors" style="color: rgba(255,255,255,0.35);">Sign out</a>
             </div>
         </aside>
 
         <!-- Main content -->
         <main class="flex-1 overflow-y-auto bg-white">
-            <div class="max-w-7xl mx-auto px-8 py-8">
+            <div class="max-w-7xl mx-auto px-4 py-4 md:px-8 md:py-8">
                 {% block content %}{% endblock %}
             </div>
         </main>
     </div>
 
-    <!-- Chat toggle button -->
+    <!-- Chat toggle button (desktop only — mobile uses top bar) -->
     <button onclick="toggleChat()"
-            class="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center
+            class="hidden md:flex fixed bottom-6 right-6 w-14 h-14 rounded-full items-center justify-center
                    text-white text-xl transition-all z-40 hover:scale-105"
             style="background: #C41E3A; box-shadow: 0 4px 16px rgba(0,0,0,0.12);"
             onmouseover="this.style.background='#A8182F'"
@@ -204,7 +227,7 @@
 
     <!-- Chat panel -->
     <div id="chat-panel"
-         class="fixed top-0 right-0 h-full w-96 border-l
+         class="fixed top-0 right-0 h-full w-full md:w-96 border-l
                 transform translate-x-full transition-transform duration-300
                 z-50 flex flex-col"
          style="background: #FFFFFF; border-color: #E2D9D9; box-shadow: 0 4px 16px rgba(0,0,0,0.12);">
@@ -304,6 +327,19 @@
             panel.classList.toggle('translate-x-full');
         }
 
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            const isOpen = !sidebar.classList.contains('-translate-x-full');
+            if (isOpen) {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            } else {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            }
+        }
+
         function sendSuggestion(text) {
             document.getElementById('chat-input').value = text;
             document.getElementById('chat-suggestions').remove();
@@ -329,6 +365,10 @@
         // Nav link styling — dark navy sidebar
         document.querySelectorAll('.nav-link').forEach(link => {
             const isActive = link.classList.contains('nav-item-active');
+            // Close sidebar on mobile when navigating
+            link.addEventListener('click', function() {
+                if (window.innerWidth < 768) toggleSidebar();
+            });
             if (!isActive) {
                 link.style.color = 'rgba(255,255,255,0.7)';
                 link.addEventListener('mouseenter', function() {

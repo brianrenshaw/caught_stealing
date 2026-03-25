@@ -3,14 +3,18 @@ from contextlib import asynccontextmanager
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.config import settings
 from app.database import init_db
 from app.routes import (
     api,
     assistant,
+    auth,
     comparison,
     dashboard,
     intel,
@@ -75,11 +79,37 @@ async def lifespan(app: FastAPI):
     logger.info("APScheduler shut down")
 
 
+_PUBLIC_PREFIXES = ("/login", "/static", "/health")
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """Redirect unauthenticated requests to the login page."""
+
+    async def dispatch(self, request: Request, call_next):
+        from app.routes.auth import is_authenticated
+
+        path = request.url.path
+        if (
+            not settings.auth_password
+            or any(path.startswith(p) for p in _PUBLIC_PREFIXES)
+            or is_authenticated(request)
+        ):
+            return await call_next(request)
+
+        # HTMX / fetch requests get 401; browsers get a redirect.
+        if request.headers.get("HX-Request") or request.headers.get(
+            "accept", ""
+        ).startswith("application/json"):
+            return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        return RedirectResponse("/login", status_code=302)
+
+
 app = FastAPI(title="Fantasy Baseball", lifespan=lifespan)
 
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -87,6 +117,13 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(roster.router)
 app.include_router(trades.router)

@@ -482,7 +482,7 @@ async def suggest_trades_ai(session: AsyncSession, season: int) -> str:
             rate_str = f", {pp.points_per_ip:.1f} pts/IP"
         my_roster_lines.append(
             f"  {pos}: {player.name} ({player.team}) — "
-            f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
+            f"Consensus: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
             f"surplus {surplus:+.0f}{rate_str}"
         )
         pos_points.setdefault(pos, []).append(proj or 0)
@@ -538,7 +538,7 @@ async def suggest_trades_ai(session: AsyncSession, season: int) -> str:
             surplus = pp.surplus_value if pp else 0
             opp_lines.append(
                 f"    {player.name} ({pos}, {player.team}) — "
-                f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
+                f"Consensus: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}, "
                 f"surplus {surplus:+.0f}"
             )
 
@@ -557,8 +557,9 @@ async def suggest_trades_ai(session: AsyncSession, season: int) -> str:
         logger.warning(f"Could not fetch injuries for trade suggestions: {e}")
         injury_lines.append("  Injury data unavailable")
 
-    # ── 5. Projection disagreements (App vs Steamer >20%) ──────────────
+    # ── 5. Projection disagreements (Consensus vs Steamer >20%) ──────────────
     disagree_lines: list[str] = []
+    disagree_player_ids: list[tuple[int, str]] = []
     for roster, player, pp in list(my_rows) + opp_rows:
         if not pp or not pp.projected_ros_points or not pp.steamer_ros_points:
             continue
@@ -570,9 +571,32 @@ async def suggest_trades_ai(session: AsyncSession, season: int) -> str:
         if abs(pct_diff) > 20:
             direction = "higher" if pct_diff > 0 else "lower"
             disagree_lines.append(
-                f"  {player.name} — App: {app_val:.0f}, Steamer: {steamer_val:.0f} "
-                f"(App {abs(pct_diff):.0f}% {direction})"
+                f"  {player.name} — Consensus: {app_val:.0f}, Steamer: {steamer_val:.0f} "
+                f"(Consensus {abs(pct_diff):.0f}% {direction})"
             )
+            disagree_player_ids.append((player.id, player.name))
+
+    # ── 5b. Platoon split context for disagreement players ──
+    split_context_lines: list[str] = []
+    if disagree_player_ids:
+        from app.services.splits_service import get_splits
+        for pid, pname in disagree_player_ids[:10]:  # limit to 10 to avoid too many DB calls
+            try:
+                splits = await get_splits(session, pid, season)
+                if splits and "vs_lhp" in splits and "vs_rhp" in splits:
+                    lhp = splits["vs_lhp"]
+                    rhp = splits["vs_rhp"]
+                    lhp_ops = lhp.get("ops") or 0
+                    rhp_ops = rhp.get("ops") or 0
+                    if lhp_ops > 0 and rhp_ops > 0:
+                        gap = abs(lhp_ops - rhp_ops)
+                        if gap > 0.050:
+                            split_context_lines.append(
+                                f"  {pname} — vs LHP: {lhp_ops:.3f} OPS, "
+                                f"vs RHP: {rhp_ops:.3f} OPS (split gap: {gap:.3f})"
+                            )
+            except Exception:
+                pass  # splits not available for this player
 
     # ── 6. Statcast trends (full_season vs last_14 xwOBA delta) ────────
     statcast_lines: list[str] = []
@@ -630,8 +654,15 @@ OPPONENT ROSTERS:
 
     if disagree_lines:
         user_message += f"""
-PROJECTION DISAGREEMENTS (App vs Steamer diff >20%):
+PROJECTION DISAGREEMENTS (Consensus vs Steamer diff >20%):
 {chr(10).join(disagree_lines)}
+"""
+
+    if split_context_lines:
+        user_message += f"""
+PLATOON SPLIT CONTEXT (for players with system disagreements):
+{chr(10).join(split_context_lines)}
+
 """
 
     if statcast_lines:
@@ -657,7 +688,7 @@ One sentence: should I be trading right now or standing pat?
 - **Trade proposal:** [specific players on both sides]
 - **Why it works for me:** [bullet points]
 - **Why they'd accept:** [bullet points]
-- **Projection notes:** [discuss App vs Steamer disagreements]
+- **Projection notes:** [discuss Consensus vs Steamer disagreements]
 
 ## Conservative Move
 - **Trade proposal:** [specific players]
@@ -673,10 +704,12 @@ One sentence: should I be trading right now or standing pat?
         "Analyze my roster and all opponents' rosters to suggest realistic trade targets.\n"
         "Focus on REST-OF-SEASON value — trades are long-term moves, not weekly plays.\n\n"
         "You have three projection sources:\n"
-        "- App Projected: Our custom model blending actual stats + Statcast expected metrics\n"
-        "- Steamer ROS: FanGraphs Steamer rest-of-season projection system\n"
+        "- Consensus ROS: Blended average of five projection systems (Steamer, ZiPS, ATC, Depth Charts, THE BAT X)\n"
+        "- Steamer ROS: FanGraphs Steamer standalone (shown for comparison)\n"
         "- Actual Points: What the player has scored so far this season\n\n"
-        "When these projections disagree significantly, explain why and which to trust.\n\n"
+        "When these projections disagree significantly, explain why and which to trust.\n"
+        "Platoon splits are the #1 driver of system disagreement — Steamer projects wider "
+        "splits while ZiPS is more individualized. Check the split data when provided.\n\n"
         "FORMAT: Use markdown headers (## for sections) and bullet points for all analysis.\n"
         "Keep paragraphs short (2-3 sentences max). Lead with the recommendation, then reasoning.\n"
         "Be honest — if no trade clearly improves my team, say STAND PAT."
@@ -702,7 +735,7 @@ async def analyze_trade_ai(
     """Provide AI narrative analysis of a specific proposed trade.
 
     Takes a completed TradeEvaluation (math already done) and enriches it
-    with Steamer projections, Statcast trends, injuries, and roster context,
+    with consensus projections (Steamer+ZiPS+ATC+DC+BATX), Statcast trends, injuries, and roster context,
     then calls Claude for a verdict. Returns markdown-formatted analysis text.
     """
     import anthropic
@@ -725,7 +758,7 @@ async def analyze_trade_ai(
         actual = p.get("actual_points", 0)
         surplus = p.get("surplus_value", 0)
         side_a_lines.append(
-            f"  {p['name']} ({pos}) — App: {proj:.0f}, Actual: {actual:.0f}, "
+            f"  {p['name']} ({pos}) — Consensus: {proj:.0f}, Actual: {actual:.0f}, "
             f"surplus {surplus:+.0f}"
         )
 
@@ -737,11 +770,11 @@ async def analyze_trade_ai(
         actual = p.get("actual_points", 0)
         surplus = p.get("surplus_value", 0)
         side_b_lines.append(
-            f"  {p['name']} ({pos}) — App: {proj:.0f}, Actual: {actual:.0f}, "
+            f"  {p['name']} ({pos}) — Consensus: {proj:.0f}, Actual: {actual:.0f}, "
             f"surplus {surplus:+.0f}"
         )
 
-    # ── 2. Fetch Steamer ROS for traded players ────────────────────────
+    # ── 2. Fetch standalone Steamer ROS for comparison ────────────────────────
     for p in evaluation.side_a_players + evaluation.side_b_players:
         pp_result = await session.execute(
             select(PlayerPoints).where(
@@ -763,7 +796,7 @@ async def analyze_trade_ai(
         actual = p.get("actual_points", 0)
         surplus = p.get("surplus_value", 0)
         side_a_lines.append(
-            f"  {p['name']} ({pos}) — App: {proj:.0f}, Steamer: {steamer:.0f}, "
+            f"  {p['name']} ({pos}) — Consensus: {proj:.0f}, Steamer: {steamer:.0f}, "
             f"Actual: {actual:.0f}, surplus {surplus:+.0f}"
         )
 
@@ -775,7 +808,7 @@ async def analyze_trade_ai(
         actual = p.get("actual_points", 0)
         surplus = p.get("surplus_value", 0)
         side_b_lines.append(
-            f"  {p['name']} ({pos}) — App: {proj:.0f}, Steamer: {steamer:.0f}, "
+            f"  {p['name']} ({pos}) — Consensus: {proj:.0f}, Steamer: {steamer:.0f}, "
             f"Actual: {actual:.0f}, surplus {surplus:+.0f}"
         )
 
@@ -810,7 +843,7 @@ async def analyze_trade_ai(
         actual = pp.actual_points if pp else 0
         my_roster_lines.append(
             f"  {pos}: {player.name} ({player.team}) — "
-            f"App: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}"
+            f"Consensus: {proj:.0f}, Steamer: {steamer:.0f}, Actual: {actual:.0f}"
         )
         pos_points.setdefault(pos, []).append(proj or 0)
 
@@ -929,7 +962,7 @@ Format your response as:
 - [bullet point for each major factor]
 
 ## Projection Analysis
-- [compare App vs Steamer for key players]
+- [compare Consensus vs Steamer for key players]
 
 ## Roster Fit
 - [how this trade affects my lineup]
@@ -944,7 +977,7 @@ Format your response as:
         "FORMAT: Use markdown headers (## for sections) and bullet points for all analysis.\n"
         "Lead with your verdict in bold, then explain WHY using bullet points.\n"
         "Keep paragraphs short. Consider roster fit, positional scarcity, Statcast trends,\n"
-        "projection disagreements, and injury risk."
+        "projection disagreements (Consensus from five systems vs Steamer-only), and injury risk."
     )
 
     try:

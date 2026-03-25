@@ -12,9 +12,11 @@ from pathlib import Path
 
 import diskcache
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
-CACHE_DIR = Path(".cache")
+CACHE_DIR = Path(settings.cache_dir)
 cache = diskcache.Cache(str(CACHE_DIR))
 
 # TTL constants (seconds)

@@ -6,9 +6,9 @@
 {% from "macros/player_link.html" import player_link %}
 {% from "macros/info_icon.html" import stat_info, page_info %}
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <div class="flex items-center gap-4">
-        <h2 class="font-display text-3xl font-extrabold text-txt-navy">Dashboard {{ page_info('dashboard') }}</h2>
+        <h2 class="font-display text-2xl md:text-3xl font-extrabold text-txt-navy">Dashboard {{ page_info('dashboard') }}</h2>
         {% if available_seasons %}
         <select onchange="window.location.href='/?season=' + this.value"
                 class="bg-surface-elevated text-txt-primary text-sm rounded-lg px-3 py-1.5 border border-bdr-subtle focus:border-accent-primary focus:outline-none">
@@ -18,7 +18,7 @@
         </select>
         {% endif %}
     </div>
-    <div class="flex items-center gap-3">
+    <div class="flex flex-wrap items-center gap-3">
         {% if not setup_needed %}
         <button hx-post="/api/sync"
                 hx-target="#sync-result"
@@ -111,7 +111,7 @@
 
 <!-- Stats summary bar -->
 {% if stats_summary.batters > 0 %}
-<div class="flex gap-4 mb-6 text-sm">
+<div class="flex flex-wrap gap-2 md:gap-4 mb-6 text-sm">
     <div class="bg-surface-card border border-bdr rounded-lg px-4 py-2 flex items-center gap-2">
         <span class="text-txt-secondary">Season:</span>
         <span class="text-txt-primary font-semibold">{{ selected_season }}</span>

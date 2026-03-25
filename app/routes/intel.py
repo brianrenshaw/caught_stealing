@@ -181,7 +181,7 @@ async def intel_refresh(request: Request):
     import asyncio
 
     try:
-        # Run the analysis script
+        # Run the analysis script (Claude Opus generation typically takes 1-3 min)
         proc = await asyncio.create_subprocess_exec(
             "uv", "run", "python", "-m", "scripts.daily_analysis",
             "--mode", "daily", "--force",
@@ -189,7 +189,24 @@ async def intel_refresh(request: Request):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        _, stderr = await proc.communicate()
+        try:
+            _, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
+        except asyncio.TimeoutError:
+            proc.kill()
+            logger.error("Analysis refresh timed out after 5 minutes")
+            return templates.TemplateResponse(
+                request,
+                "partials/intel_report.html",
+                {
+                    "report_title": "Refresh Timed Out",
+                    "report_content": (
+                        "The briefing generation timed out after 5 minutes. "
+                        "This can happen when the Claude API is under heavy load. "
+                        "Try again in a few minutes."
+                    ),
+                    "report_meta": {},
+                },
+            )
 
         if proc.returncode != 0:
             logger.error("Analysis refresh failed: %s", stderr.decode()[:500])

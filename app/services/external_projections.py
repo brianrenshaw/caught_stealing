@@ -3,12 +3,14 @@
 Supports Steamer, ZiPS, ATC, and THE BAT projection systems.
 Results are stored in the projections table for blending and comparison.
 
-Also fetches Steamer ROS projections directly from FanGraphs API with full
-counting stats for league-specific fantasy points calculation.
+Also fetches projections directly from FanGraphs API with full counting stats
+for league-specific fantasy points calculation, including consensus blending
+across multiple projection systems.
 """
 
 import asyncio
 import logging
+from typing import Any
 
 import httpx
 import pandas as pd
@@ -178,24 +180,35 @@ async def fetch_all_projections(season: int) -> dict[str, list[dict]]:
     return results
 
 
-# ── Steamer ROS via FanGraphs Projections API ──
+# ── FanGraphs Projections API ──
 # These fetch full counting stats directly from the FanGraphs projections API
 # (not pybaseball leaderboards) so we can calculate league-specific fantasy points.
+# Supports multiple projection systems: steamer, zips, atc, thebat.
+
+# Systems used for consensus blending
+CONSENSUS_SYSTEMS = ["steamer", "zips", "atc", "fangraphsdc", "thebatx"]
+
+# Delay between system fetches to avoid FanGraphs rate limiting (seconds)
+_RATE_LIMIT_DELAY = 2
 
 
-async def fetch_steamer_batting_ros() -> list[dict]:
-    """Fetch Steamer batting projections from FanGraphs projections API.
+async def _fetch_fg_batting_projections(system: str) -> list[dict]:
+    """Fetch batting projections from the FanGraphs projections API.
 
-    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
-    needed for fantasy points calculation.
+    Args:
+        system: Projection system name (steamer, zips, atc, thebat).
+
+    Returns:
+        List of dicts with fangraphs_id, mlbam_id, name, and full counting stats
+        needed for fantasy points calculation.
     """
-    logger.info("Fetching Steamer batting projections from FanGraphs API")
+    logger.info(f"Fetching {system} batting projections from FanGraphs API")
     try:
         async with httpx.AsyncClient(headers=_FG_HEADERS, timeout=30) as client:
             resp = await client.get(
                 _FG_PROJECTIONS_URL,
                 params={
-                    "type": "steamer",
+                    "type": system,
                     "stats": "bat",
                     "pos": "all",
                     "team": "0",
@@ -236,27 +249,31 @@ async def fetch_steamer_batting_ros() -> list[dict]:
                 "stats": stats,
             })
 
-        logger.info(f"Fetched {len(results)} Steamer batting projections")
+        logger.info(f"Fetched {len(results)} {system} batting projections")
         return results
 
     except Exception as e:
-        logger.error(f"Failed to fetch Steamer batting projections: {e}")
+        logger.error(f"Failed to fetch {system} batting projections: {e}")
         return []
 
 
-async def fetch_steamer_pitching_ros() -> list[dict]:
-    """Fetch Steamer pitching projections from FanGraphs projections API.
+async def _fetch_fg_pitching_projections(system: str) -> list[dict]:
+    """Fetch pitching projections from the FanGraphs projections API.
 
-    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
-    needed for fantasy points calculation.
+    Args:
+        system: Projection system name (steamer, zips, atc, thebat).
+
+    Returns:
+        List of dicts with fangraphs_id, mlbam_id, name, is_reliever flag,
+        and full counting stats needed for fantasy points calculation.
     """
-    logger.info("Fetching Steamer pitching projections from FanGraphs API")
+    logger.info(f"Fetching {system} pitching projections from FanGraphs API")
     try:
         async with httpx.AsyncClient(headers=_FG_HEADERS, timeout=30) as client:
             resp = await client.get(
                 _FG_PROJECTIONS_URL,
                 params={
-                    "type": "steamer",
+                    "type": system,
                     "stats": "pit",
                     "pos": "all",
                     "team": "0",
@@ -301,9 +318,164 @@ async def fetch_steamer_pitching_ros() -> list[dict]:
                 "stats": stats,
             })
 
-        logger.info(f"Fetched {len(results)} Steamer pitching projections")
+        logger.info(f"Fetched {len(results)} {system} pitching projections")
         return results
 
     except Exception as e:
-        logger.error(f"Failed to fetch Steamer pitching projections: {e}")
+        logger.error(f"Failed to fetch {system} pitching projections: {e}")
         return []
+
+
+# ── Backward-compatible Steamer wrappers ──
+
+
+async def fetch_steamer_batting_ros() -> list[dict]:
+    """Fetch Steamer batting projections from FanGraphs projections API.
+
+    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
+    needed for fantasy points calculation.
+    """
+    return await _fetch_fg_batting_projections("steamer")
+
+
+async def fetch_steamer_pitching_ros() -> list[dict]:
+    """Fetch Steamer pitching projections from FanGraphs projections API.
+
+    Returns list of dicts with fangraphs_id, mlbam_id, name, and full counting stats
+    needed for fantasy points calculation.
+    """
+    return await _fetch_fg_pitching_projections("steamer")
+
+
+# ── Consensus blending ──
+
+
+def _blend_stats(systems: dict[str, dict[str, float]]) -> dict[str, float]:
+    """Average each stat across available systems.
+
+    Args:
+        systems: Mapping of system_name -> stat_dict. Each stat_dict maps
+                 stat_name -> numeric value.
+
+    Returns:
+        Dict of stat_name -> averaged value across all systems that have it.
+    """
+    combined: dict[str, list[float]] = {}
+    for sys_stats in systems.values():
+        for stat, val in sys_stats.items():
+            if val is not None:
+                combined.setdefault(stat, []).append(val)
+    return {stat: sum(vals) / len(vals) for stat, vals in combined.items()}
+
+
+async def fetch_consensus_batting_ros() -> list[dict]:
+    """Fetch Steamer, ZiPS, and ATC batting projections and blend them.
+
+    Equal-weight consensus: average counting stats across available systems.
+    If a system fails or returns empty, auto-normalizes across remaining systems.
+    Fetches sequentially with a 2-second delay between requests to respect
+    FanGraphs rate limits.
+
+    Returns:
+        List of dicts in the same format as fetch_steamer_batting_ros(), with
+        an additional 'systems' field listing which systems contributed.
+    """
+    # Fetch sequentially with rate limiting
+    system_data: list[tuple[str, list[dict]]] = []
+    for system in CONSENSUS_SYSTEMS:
+        try:
+            data = await _fetch_fg_batting_projections(system)
+            system_data.append((system, data))
+        except Exception as e:
+            logger.warning(f"Failed to fetch {system} batting: {e}")
+        await asyncio.sleep(_RATE_LIMIT_DELAY)
+
+    # Index each system's data by fangraphs_id
+    # player_systems: fg_id -> {system_name: {player_dict}}
+    player_systems: dict[str, dict[str, dict[str, Any]]] = {}
+    for system_name, players in system_data:
+        for player in players:
+            fg_id = player["fangraphs_id"]
+            player_systems.setdefault(fg_id, {})[system_name] = player
+
+    # Blend stats for each player
+    results: list[dict] = []
+    for fg_id, systems in player_systems.items():
+        # Use the first available system for metadata (name, mlbam_id)
+        first_player = next(iter(systems.values()))
+
+        stat_by_system = {name: p["stats"] for name, p in systems.items()}
+        blended = _blend_stats(stat_by_system)
+
+        results.append({
+            "fangraphs_id": fg_id,
+            "mlbam_id": first_player.get("mlbam_id"),
+            "name": first_player.get("name", ""),
+            "stats": blended,
+            "systems": sorted(systems.keys()),
+        })
+
+    succeeded = [name for name, data in system_data if data]
+    counts = {name: len(data) for name, data in system_data}
+    logger.info(
+        f"Consensus batting: {counts}, "
+        f"systems_ok={succeeded}, consensus={len(results)} players"
+    )
+
+    return results
+
+
+async def fetch_consensus_pitching_ros() -> list[dict]:
+    """Fetch Steamer, ZiPS, and ATC pitching projections and blend them.
+
+    Equal-weight consensus: average counting stats across available systems.
+    If a system fails or returns empty, auto-normalizes across remaining systems.
+    Uses Steamer's is_reliever classification as default when available.
+
+    Returns:
+        List of dicts in the same format as fetch_steamer_pitching_ros(), with
+        an additional 'systems' field listing which systems contributed.
+    """
+    # Fetch sequentially with rate limiting
+    system_data: list[tuple[str, list[dict]]] = []
+    for system in CONSENSUS_SYSTEMS:
+        try:
+            data = await _fetch_fg_pitching_projections(system)
+            system_data.append((system, data))
+        except Exception as e:
+            logger.warning(f"Failed to fetch {system} pitching: {e}")
+        await asyncio.sleep(_RATE_LIMIT_DELAY)
+
+    # Index each system's data by fangraphs_id
+    player_systems: dict[str, dict[str, dict[str, Any]]] = {}
+    for system_name, players in system_data:
+        for player in players:
+            fg_id = player["fangraphs_id"]
+            player_systems.setdefault(fg_id, {})[system_name] = player
+
+    # Blend stats for each player
+    results: list[dict] = []
+    for fg_id, systems in player_systems.items():
+        # Prefer Steamer for metadata and is_reliever classification
+        ref_player = systems.get("steamer") or next(iter(systems.values()))
+
+        stat_by_system = {name: p["stats"] for name, p in systems.items()}
+        blended = _blend_stats(stat_by_system)
+
+        results.append({
+            "fangraphs_id": fg_id,
+            "mlbam_id": ref_player.get("mlbam_id"),
+            "name": ref_player.get("name", ""),
+            "is_reliever": ref_player.get("is_reliever", False),
+            "stats": blended,
+            "systems": sorted(systems.keys()),
+        })
+
+    succeeded = [name for name, data in system_data if data]
+    counts = {name: len(data) for name, data in system_data}
+    logger.info(
+        f"Consensus pitching: {counts}, "
+        f"systems_ok={succeeded}, consensus={len(results)} players"
+    )
+
+    return results

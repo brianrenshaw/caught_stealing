@@ -27,9 +27,9 @@ class YahooService:
                 game_id=None,
                 yahoo_consumer_key=settings.yahoo_client_id,
                 yahoo_consumer_secret=settings.yahoo_client_secret,
-                env_file_location=Path.cwd(),
+                env_file_location=Path(settings.data_dir),
                 env_var_fallback=False,
-                browser_callback=True,
+                browser_callback=not settings.headless,
             )
         return self._query
 

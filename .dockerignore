@@ -1,0 +1,25 @@
+.git/
+.gitignore
+.cache/
+.claude/
+.env
+.ruff_cache/
+.venv/
+__pycache__/
+
+# Data & databases
+data/
+analysis/
+backtest_data.sqlite
+fantasy_baseball.db
+*.db
+
+# Yahoo OAuth tokens (uploaded to volume separately)
+token.json
+private.json
+
+# Not needed in production
+scripts/
+docs/
+tests/
+*.md

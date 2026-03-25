@@ -8,6 +8,7 @@ venv/
 
 # Database
 *.db
+*.sqlite
 
 # Cache
 .cache/
@@ -31,6 +32,10 @@ uv.lock
 
 # Documentation archives
 *.webarchive
+
+# Backtesting data & analysis output
+/analysis/
+/data/
 
 # Content pipeline
 data/content/audio/

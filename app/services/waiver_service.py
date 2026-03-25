@@ -51,7 +51,7 @@ class WaiverRecommendation:
     xwoba_delta: float = 0.0
     trend: str = "stable"  # hot, cold, stable
     # Points league fields
-    projected_points: float = 0.0  # primary (Steamer when available)
+    projected_points: float = 0.0  # primary (consensus: Steamer + ZiPS + ATC + Depth Charts + THE BAT X)
     app_projected_points: float = 0.0  # app projection (stats-based)
     points_per_pa: float | None = None
     points_per_ip: float | None = None
@@ -136,23 +136,10 @@ async def _get_all_players(
 
 
 async def _get_max_pts(session: AsyncSession, season: int) -> float:
-    """Get max projected points for normalization (prefers Steamer when available)."""
+    """Get max projected points for normalization (consensus-based)."""
     from sqlalchemy import func
 
-    # Try Steamer first (regressed, more accurate for preseason)
-    steamer_result = await session.execute(
-        select(func.max(PlayerPoints.steamer_ros_points))
-        .where(
-            PlayerPoints.season == season,
-            PlayerPoints.period == "full_season",
-            PlayerPoints.steamer_ros_points.isnot(None),
-        )
-    )
-    steamer_max = steamer_result.scalar_one_or_none()
-    if steamer_max and steamer_max > 0:
-        return steamer_max
-
-    # Fall back to app projection
+    # projected_ros_points is now consensus-based (Steamer + ZiPS + ATC)
     max_pts_result = await session.execute(
         select(func.max(PlayerPoints.projected_ros_points))
         .where(
@@ -357,10 +344,10 @@ async def score_free_agents(
                 skipped += 1
                 continue
 
-            # Projection score — prefer Steamer ROS (regressed) over app projection
-            steamer_pts = pp.steamer_ros_points if pp else None
-            app_pts = pp.projected_ros_points if pp else 0.0
-            proj_pts = steamer_pts or app_pts or 0.0
+            # projected_ros_points is now consensus-based (Steamer + ZiPS + ATC)
+            proj_pts = pp.projected_ros_points if pp else 0.0
+            # app_pts = pace-based projection from actual stats (for comparison)
+            app_pts = pp.actual_points if pp else 0.0
             proj_score = min((proj_pts / max_pts) * 100, 100) if proj_pts > 0 else 0.0
 
             # Trend + breakout
@@ -911,6 +898,36 @@ async def analyze_roster_waivers(
             f"Score: {rec.waiver_score}, {pts_val:.0f} {pts_label}{extra_str}"
         )
 
+    # ── Platoon split context for top waiver picks ──
+    split_context_lines: list[str] = []
+    for rec in recommendations[:5]:
+        try:
+            # Find player_id for this recommendation
+            player_result = await session.execute(
+                select(Player).where(Player.name == rec.name).limit(1)
+            )
+            player = player_result.scalar_one_or_none()
+            if not player:
+                continue
+            from app.services.splits_service import get_splits
+
+            splits = await get_splits(session, player.id, season)
+            if splits and "vs_lhp" in splits and "vs_rhp" in splits:
+                lhp = splits["vs_lhp"]
+                rhp = splits["vs_rhp"]
+                lhp_ops = lhp.get("ops") or 0
+                rhp_ops = rhp.get("ops") or 0
+                if lhp_ops > 0 and rhp_ops > 0:
+                    gap = abs(lhp_ops - rhp_ops)
+                    if gap > 0.050:
+                        better_side = "vs RHP" if rhp_ops > lhp_ops else "vs LHP"
+                        split_context_lines.append(
+                            f"  {rec.name} — vs LHP: {lhp_ops:.3f} OPS, "
+                            f"vs RHP: {rhp_ops:.3f} OPS (favors {better_side})"
+                        )
+        except Exception:
+            pass
+
     # Build injury context
     injury_lines: list[str] = []
     if injuries:
@@ -967,6 +984,13 @@ RELEVANT INJURIES (Source: MLB Official Injury Report):
 {chr(10).join(injury_lines)}
 """
 
+    if split_context_lines:
+        user_message += f"""
+PLATOON SPLITS (top waiver picks):
+{chr(10).join(split_context_lines)}
+
+"""
+
     scoring_line = (
         "LEAGUE SCORING: H2H Points — "
         "R=1, 1B=1, 2B=2, 3B=3, HR=4, RBI=1, SB=2, "
@@ -1002,7 +1026,9 @@ RELEVANT INJURIES (Source: MLB Official Injury Report):
         "You are a fantasy baseball analyst for a 10-team H2H Points keeper league. "
         "Give specific, actionable pickup/drop recommendations. Always cite injury sources. "
         "Be concise — lead with the recommendation, then 1-2 sentences of reasoning. "
-        "Use the league scoring rules to explain WHY each move helps."
+        "Use the league scoring rules to explain WHY each move helps. "
+        "When a player has a wide platoon split (>50 OPS points), note which side they "
+        "favor and whether the upcoming schedule features more LHP or RHP starters. "
     )
 
     try:

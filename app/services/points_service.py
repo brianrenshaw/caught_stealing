@@ -532,47 +532,125 @@ async def calculate_all_player_points(
     )
     pitchers = pitcher_result.scalars().all()
 
+    # Build projection maps ONCE before the loops
+    consensus_map = await _build_projection_points_map(session, "consensus")
+    steamer_map = await _build_projection_points_map(session, "steamer_ros")
+    consensus_rate_map = await _build_consensus_rate_map(session)
+
     # Calculate actual points for all players
     summaries: list[PlayerPointsSummary] = []
 
     for player in hitters:
         summary = await calculate_player_actual_points(session, player, season, period)
         if summary and summary.player_type == "hitter":
-            # Project ROS points from actual stats (same method as weekly dashboard)
-            bs_result = await session.execute(
-                select(BattingStats).where(
-                    BattingStats.player_id == player.id,
-                    BattingStats.season == season,
-                    BattingStats.period == "full_season",
+            # Use consensus projection (with pace-based fallback)
+            consensus_pts = consensus_map.get(player.id)
+            if consensus_pts is not None:
+                summary.projected_ros_points = consensus_pts
+            else:
+                # Fallback to pace-based for players without consensus projection
+                bs_result = await session.execute(
+                    select(BattingStats).where(
+                        BattingStats.player_id == player.id,
+                        BattingStats.season == season,
+                        BattingStats.period == "full_season",
+                    )
                 )
-            )
-            bs = bs_result.scalar_one_or_none()
-            if bs:
-                summary.projected_ros_points = round(
-                    project_batter_ros_points(bs), 1
-                )
+                bs = bs_result.scalar_one_or_none()
+                if bs:
+                    summary.projected_ros_points = round(
+                        project_batter_ros_points(bs), 1
+                    )
+
+            # Use consensus rate stats if available, else keep actual-based
+            con_rates = consensus_rate_map.get(player.id)
+            if con_rates and "points_per_pa" in con_rates:
+                summary.points_per_pa = round(con_rates["points_per_pa"], 3)
+
             summaries.append(summary)
 
     for player in pitchers:
         summary = await calculate_player_actual_points(session, player, season, period)
         if summary and summary.player_type == "pitcher":
-            # Project ROS points from actual stats (same method as weekly dashboard)
-            ps_result = await session.execute(
-                select(PitchingStats).where(
-                    PitchingStats.player_id == player.id,
-                    PitchingStats.season == season,
-                    PitchingStats.period == "full_season",
+            # Use consensus projection (with pace-based fallback)
+            consensus_pts = consensus_map.get(player.id)
+            if consensus_pts is not None:
+                summary.projected_ros_points = consensus_pts
+            else:
+                # Fallback to pace-based for players without consensus projection
+                ps_result = await session.execute(
+                    select(PitchingStats).where(
+                        PitchingStats.player_id == player.id,
+                        PitchingStats.season == season,
+                        PitchingStats.period == "full_season",
+                    )
                 )
+                ps = ps_result.scalar_one_or_none()
+                if ps:
+                    summary.projected_ros_points = round(
+                        project_pitcher_ros_points(ps, is_reliever=summary.is_reliever), 1
+                    )
+
+            # Use consensus rate stats if available, else keep actual-based
+            con_rates = consensus_rate_map.get(player.id)
+            if con_rates:
+                if "points_per_ip" in con_rates:
+                    summary.points_per_ip = round(con_rates["points_per_ip"], 2)
+                if "points_per_start" in con_rates and not summary.is_reliever:
+                    summary.points_per_start = con_rates["points_per_start"]
+                if "points_per_appearance" in con_rates and summary.is_reliever:
+                    summary.points_per_appearance = con_rates["points_per_appearance"]
+
+            summaries.append(summary)
+
+    # Early season: if no players had actual stats, populate from consensus alone
+    if not summaries and consensus_map:
+        logger.info(
+            "No actual stats found — populating PlayerPoints from consensus projections"
+        )
+        # Get all players who have consensus projections
+        from app.models.roster import Roster
+
+        rostered_result = await session.execute(select(Player).join(Roster).distinct())
+        rostered_players = rostered_result.scalars().all()
+        # Also include any player with consensus data
+        all_consensus_pids = set(consensus_map.keys())
+        rostered_pids = {p.id for p in rostered_players}
+        target_pids = rostered_pids | all_consensus_pids
+
+        # Get player objects for all targets
+        if target_pids:
+            player_result = await session.execute(
+                select(Player).where(Player.id.in_(target_pids))
             )
-            ps = ps_result.scalar_one_or_none()
-            if ps:
-                summary.projected_ros_points = round(
-                    project_pitcher_ros_points(ps, is_reliever=summary.is_reliever), 1
-                )
+            all_players = player_result.scalars().all()
+        else:
+            all_players = []
+
+        for player in all_players:
+            con_pts = consensus_map.get(player.id)
+            if con_pts is None:
+                continue
+            con_rates = consensus_rate_map.get(player.id, {})
+            is_pitcher = con_rates.get("is_pitcher", False)
+            is_reliever = con_rates.get("is_reliever", False)
+            summary = PlayerPointsSummary(
+                player_id=player.id,
+                player_name=player.name,
+                team=player.team,
+                position=player.position,
+                player_type="pitcher" if is_pitcher else "hitter",
+                actual_points=0.0,
+                projected_ros_points=con_pts,
+                points_per_pa=con_rates.get("points_per_pa") if not is_pitcher else None,
+                points_per_ip=con_rates.get("points_per_ip") if is_pitcher else None,
+                points_per_start=con_rates.get("points_per_start") if is_pitcher and not is_reliever else None,
+                points_per_appearance=con_rates.get("points_per_appearance") if is_reliever else None,
+                is_reliever=is_reliever,
+            )
             summaries.append(summary)
 
     # Attach Steamer ROS points if available
-    steamer_map = await _build_steamer_points_map(session)
     for s in summaries:
         s.steamer_ros_points = steamer_map.get(s.player_id)
 
@@ -592,17 +670,18 @@ async def calculate_all_player_points(
     return summaries
 
 
-async def _build_steamer_points_map(session: AsyncSession) -> dict[int, float]:
-    """Build a mapping of player_id -> Steamer ROS fantasy points.
+async def _build_projection_points_map(
+    session: AsyncSession, system: str = "consensus"
+) -> dict[int, float]:
+    """Build a mapping of player_id -> ROS fantasy points from a projection system.
 
-    Reads Steamer projections from the projections table (system='steamer_ros')
+    Reads projections from the projections table for the given system
     and converts counting stats to league-specific fantasy points.
     """
     from app.models.projection import Projection
 
-    # Query all steamer_ros projections grouped by player
     result = await session.execute(
-        select(Projection).where(Projection.system == "steamer_ros")
+        select(Projection).where(Projection.system == system)
     )
     rows = result.scalars().all()
 
@@ -623,7 +702,7 @@ async def _build_steamer_points_map(session: AsyncSession) -> dict[int, float]:
             player_types[proj.player_id] = "pitcher"
 
     # Calculate fantasy points for each player
-    steamer_map: dict[int, float] = {}
+    points_map: dict[int, float] = {}
     for pid, stats in player_stats.items():
         ptype = player_types.get(pid)
         if ptype == "hitter":
@@ -633,10 +712,81 @@ async def _build_steamer_points_map(session: AsyncSession) -> dict[int, float]:
             pts = calculate_pitcher_points(stats, is_reliever=is_reliever)
         else:
             continue
-        steamer_map[pid] = round(pts, 1)
+        points_map[pid] = round(pts, 1)
 
-    logger.info(f"Built Steamer points map for {len(steamer_map)} players")
-    return steamer_map
+    logger.info(f"Built {system} points map for {len(points_map)} players")
+    return points_map
+
+
+async def _build_steamer_points_map(session: AsyncSession) -> dict[int, float]:
+    """Build a mapping of player_id -> Steamer ROS fantasy points (backward compat)."""
+    return await _build_projection_points_map(session, "steamer_ros")
+
+
+async def _build_consensus_rate_map(
+    session: AsyncSession,
+) -> dict[int, dict[str, float]]:
+    """Build mapping of player_id -> rate stats from consensus projections.
+
+    Returns dict like {player_id: {"points_per_pa": 0.5, "points_per_ip": 2.1, ...}}.
+    Uses consensus counting stats (PA, IP, GS, G) to derive rate stats.
+    """
+    from app.models.projection import Projection
+
+    result = await session.execute(
+        select(Projection).where(Projection.system == "consensus")
+    )
+    rows = result.scalars().all()
+
+    if not rows:
+        return {}
+
+    # Group projections by player_id
+    player_stats: dict[int, dict[str, float]] = {}
+    player_types: dict[int, str] = {}
+    for proj in rows:
+        if proj.player_id not in player_stats:
+            player_stats[proj.player_id] = {}
+        player_stats[proj.player_id][proj.stat_name] = proj.projected_value
+        if proj.stat_name == "PA":
+            player_types[proj.player_id] = "hitter"
+        elif proj.stat_name == "IP":
+            player_types[proj.player_id] = "pitcher"
+
+    rate_map: dict[int, dict[str, float]] = {}
+    for pid, stats in player_stats.items():
+        ptype = player_types.get(pid)
+        rates: dict[str, float] = {}
+
+        if ptype == "hitter":
+            pa = stats.get("PA", 0) or 0
+            if pa > 0:
+                pts = calculate_batter_points(stats)
+                rates["points_per_pa"] = round(pts / pa, 4)
+            rates["is_pitcher"] = False
+            rates["is_reliever"] = False
+
+        elif ptype == "pitcher":
+            ip = stats.get("IP", 0) or 0
+            gs = stats.get("GS", 0) or 0
+            g = stats.get("G", 0) or 0
+            is_reliever = gs < (g * 0.3) if g > 0 else False
+            pts = calculate_pitcher_points(stats, is_reliever=is_reliever)
+
+            if ip > 0:
+                rates["points_per_ip"] = round(pts / ip, 4)
+            if gs > 0 and not is_reliever:
+                rates["points_per_start"] = round(pts / gs, 1)
+            if g > 0 and is_reliever:
+                rates["points_per_appearance"] = round(pts / g, 1)
+            rates["is_pitcher"] = True
+            rates["is_reliever"] = is_reliever
+
+        if rates:
+            rate_map[pid] = rates
+
+    logger.info(f"Built consensus rate map for {len(rate_map)} players")
+    return rate_map
 
 
 def _calculate_rankings_and_surplus(

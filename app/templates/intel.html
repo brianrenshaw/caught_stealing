@@ -22,6 +22,7 @@
                 </svg>
                 Refresh Briefing
             </button>
+            <span id="refresh-status" class="hidden text-xs text-txt-muted animate-pulse"></span>
         </div>
     </div>
 
@@ -98,12 +99,21 @@ document.addEventListener('htmx:afterRequest', function(e) {
 // Refresh briefing confirmation
 function confirmRefresh() {
     var latestDate = '{{ latest_briefing.date_display if latest_briefing else "Never" }}';
-    var msg = 'Your latest daily briefing was from ' + latestDate + '.\n\nGenerate a fresh briefing now? This takes about 30 seconds.';
+    var msg = 'Your latest daily briefing was from ' + latestDate + '.\n\nGenerate a fresh briefing now? This typically takes 2-3 minutes (Claude Opus).';
     if (confirm(msg)) {
         var spinner = document.getElementById('refresh-spinner');
+        var statusEl = document.getElementById('refresh-status');
         spinner.classList.remove('hidden');
+        if (statusEl) statusEl.classList.remove('hidden');
+        var startTime = Date.now();
+        var timerInterval = setInterval(function() {
+            var elapsed = Math.floor((Date.now() - startTime) / 1000);
+            if (statusEl) statusEl.textContent = 'Generating briefing... ' + elapsed + 's';
+        }, 1000);
         htmx.ajax('POST', '/intel/refresh', {target: '#intel-content', swap: 'innerHTML'}).then(function() {
+            clearInterval(timerInterval);
             spinner.classList.add('hidden');
+            if (statusEl) statusEl.classList.add('hidden');
         });
     }
 }
