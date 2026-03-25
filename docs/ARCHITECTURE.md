@@ -1,6 +1,6 @@
 # Developer's Playbook
 
-A comprehensive technical guide to Caught Stealing — its architecture, data sources, algorithms, and how everything fits together.
+A comprehensive technical guide to Lankford Legends — its architecture, data sources, algorithms, and how everything fits together.
 
 ---
 

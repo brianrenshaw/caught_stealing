@@ -1,4 +1,4 @@
-# Caught Stealing — User Guide
+# Lankford Legends — User Guide
 
 A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy league and combines real MLB data from FanGraphs and Statcast to help you make smarter roster decisions. Whether you're evaluating a trade, scanning the waiver wire, or setting your weekly lineup, this app turns raw numbers into actionable insights.
 

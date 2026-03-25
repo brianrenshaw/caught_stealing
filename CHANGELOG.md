@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Caught Stealing (fantasy baseball analysis app) are documented here.
+All notable changes to Lankford Legends (fantasy baseball analysis app) are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
@@ -10,10 +10,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
-## 2026-03-25
+## [1.0.0] — 2026-03-25
 
 ### Added
-- **Renamed to "Caught Stealing"** — all page titles, sidebar, mobile bar, login page, browser tabs
+- **Renamed to "Lankford Legends"** — all page titles, sidebar, mobile bar, login page, browser tabs
 - **Fly.io deployment** — app live at fantasy-baseball-br.fly.dev with persistent SQLite volume, always-on machine, health checks, and HTTPS
 - **Yahoo OAuth token persistence** — refreshed tokens auto-saved to persistent volume, survive restarts without re-authentication
 - **Yahoo headless auth** — `YAHOO_ACCESS_TOKEN_JSON` secret + `capture_yahoo_token` script for server-side Yahoo API access
@@ -38,6 +38,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 - **Intel tab empty on Fly.io** — path mismatch fixed via `content_dir` config setting (`CONTENT_DIR=/data/content`)
 - **Intel refresh timeout** — updated estimate from "30 seconds" to "2-3 minutes (Claude Opus)"
+- **Buy Low / Sell High always empty** — points ranking path now computes xwOBA vs wOBA signals; improved empty state messages explaining when data will appear
 - **Tooltips stuck on iPhone** — added touchstart dismiss listener + close button + scroll-to-dismiss
 - **Plotly toolbar overlap** — hidden on mobile via CSS
 

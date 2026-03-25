@@ -1,4 +1,4 @@
-# Caught Stealing
+# Lankford Legends
 
 A personal fantasy baseball analysis app built on the Yahoo Fantasy API. Blends Statcast data, consensus projections (Steamer/ZiPS/ATC), and AI-powered analysis into a single dashboard for roster optimization, trade evaluation, waiver recommendations, and weekly matchup breakdowns.
 

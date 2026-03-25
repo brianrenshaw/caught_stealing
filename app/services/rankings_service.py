@@ -343,6 +343,43 @@ async def _compute_points_rankings(
     for i, r in enumerate(ranked, 1):
         r.overall_rank = i
 
+    # ── Compute buy/sell signals from xwOBA vs wOBA ──
+    SIGNAL_THRESHOLD = 0.030
+    player_ids = [r.player_id for r in ranked]
+
+    # Batch fetch xwOBA from StatcastSummary
+    sc_result = await session.execute(
+        select(StatcastSummary.player_id, StatcastSummary.xwoba)
+        .where(
+            StatcastSummary.season == season,
+            StatcastSummary.period == "full_season",
+            StatcastSummary.player_type == "batter",
+            StatcastSummary.player_id.in_(player_ids),
+        )
+    )
+    xwoba_map = {pid: xw for pid, xw in sc_result.all() if xw is not None}
+
+    # Batch fetch wOBA from BattingStats
+    bat_result = await session.execute(
+        select(BattingStats.player_id, BattingStats.woba)
+        .where(
+            BattingStats.season == season,
+            BattingStats.period == "full_season",
+            BattingStats.player_id.in_(player_ids),
+        )
+    )
+    woba_map = {pid: w for pid, w in bat_result.all() if w is not None}
+
+    # Set flags
+    for r in ranked:
+        xwoba = xwoba_map.get(r.player_id)
+        woba = woba_map.get(r.player_id)
+        if xwoba and woba:
+            delta = xwoba - woba
+            r.xwoba_delta = delta
+            r.buy_low = delta >= SIGNAL_THRESHOLD
+            r.sell_high = delta <= -SIGNAL_THRESHOLD
+
     return ranked
 
 
