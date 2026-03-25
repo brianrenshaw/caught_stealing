@@ -47,6 +47,8 @@ A data-driven fantasy baseball analysis tool that connects to your Yahoo Fantasy
   - [Parameter Optimization](#parameter-optimization)
   - [Understanding the Results](#understanding-the-results)
 
+> **AI Deep Dive:** For a deep dive into how AI powers the app — daily intel reports, chat assistant tools, lineup analysis, and the content pipeline — see the [AI Features Guide](AI_FEATURES.md).
+
 ---
 
 ## Getting Started
@@ -101,10 +103,10 @@ The Dashboard is your home base — a snapshot of your league and the broader ba
 
 | Section | Description |
 |---------|-------------|
-| **Weekly Outlook** | AI-generated professional analysis column (ESPN/Athletic style). Covers H2H matchup storyline with dual projections (Yahoo vs app), key players with fantasy team tags, schedule/weather, injuries, standings, Cardinals Corner, and Ithilien Watch. Rendered as rich markdown with **Copy** (clipboard as rich text) and **Email** (copies + opens mail client) buttons. |
+| **Weekly Outlook** | AI-generated professional analysis column (ESPN/Athletic style). Covers H2H matchup storyline with dual projections (Yahoo vs app), key players with fantasy team tags, schedule/weather, injuries, standings, Cardinals Corner, and Ithilien Watch. Now incorporates expert intel from the daily analysis pipeline (blog takeaways, podcast insights, trending player notes). Rendered as rich markdown with **Copy** (clipboard as rich text) and **Email** (copies + opens mail client) buttons. |
 | **Weekly Matchup Analysis** | Full-width card showing your current H2H matchup. Displays projected and actual points for both teams, plus a category-by-category breakdown showing raw stats and points for every scoring category (batting: R, 1B, 2B, 3B, HR, RBI, SB, CS, BB, HBP, K; pitching: OUT, K, SV, HLD, RW, QS, etc.). Projected points freeze at the start of each week (timestamp shown below "My Projected"); actual points update with every Yahoo sync. Green = you lead, red = opponent leads. |
 | **League Standings** | Your league's current standings table: rank, team name, W-L-T record, and Points For. Your team is highlighted. |
-| **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by consensus rate stats (Steamer + ZiPS + ATC average) adjusted through 4-phase matchup modeling (opposing pitcher quality, opponent offense, park factors, platoon splits). Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations. Falls back to ROS actual/projected view when weekly data is unavailable. |
+| **Weekly Lineup** | Your roster with projected fantasy points for the current week, powered by consensus rate stats (Steamer + ZiPS + ATC average) adjusted through 4-phase matchup modeling (opposing pitcher quality, opponent offense, park factors, platoon splits). Shows team games, two-start pitcher badges (2S), and injury flags (DTD/IL). The optimizer bar suggests specific START/BENCH swaps to maximize weekly points. Bench players shown in a collapsible section. Click "Analyze Lineup" for AI-powered start/sit recommendations that now incorporate expert intel from the daily analysis pipeline (blog takeaways, podcast insights, and trending player notes). Falls back to ROS actual/projected view when weekly data is unavailable. |
 | **Buy Low / Sell High Signals** | Cards highlighting players whose expected performance (xwOBA) significantly differs from their actual results (wOBA). These are trade opportunity alerts. |
 | **Category Leaders** | A 4-column grid showing the top players in HR, SB, AVG, and K — the marquee fantasy categories. |
 | **Top Hitters** | A sortable, filterable table of the best hitters. Columns: PA, HR, R, RBI, SB, AVG, OBP, SLG, OPS, wOBA, wRC+. Click any column header to sort. |

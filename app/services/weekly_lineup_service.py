@@ -5,17 +5,60 @@ and AI-powered start/sit recommendations for the user's roster.
 """
 
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.roster import Roster
 
 logger = logging.getLogger(__name__)
 
 BENCH_POSITIONS = {"BN", "IL", "IL+", "NA", "DL"}
+
+# Max chars per intel section to keep prompts within token budget
+_INTEL_MAX_CHARS = 4000
+
+
+def _load_latest_intel(section_types: list[str]) -> dict[str, str]:
+    """Load the most recent intel report sections from disk.
+
+    Returns a dict mapping section type to markdown content (frontmatter stripped).
+    Gracefully returns empty dict if no files found.
+    """
+    analysis_dir = Path(settings.content_dir) / "analysis"
+    if not analysis_dir.exists():
+        return {}
+
+    result: dict[str, str] = {}
+    for section_type in section_types:
+        # Find the most recent file matching this section type
+        matches = sorted(
+            analysis_dir.glob(f"*_{section_type}.md"),
+            reverse=True,
+        )
+        if not matches:
+            continue
+        try:
+            content = matches[0].read_text(encoding="utf-8")
+            # Strip YAML frontmatter
+            if content.startswith("---"):
+                end = content.find("---", 3)
+                if end != -1:
+                    content = content[end + 3:].strip()
+            # Truncate if too long
+            if len(content) > _INTEL_MAX_CHARS:
+                content = content[:_INTEL_MAX_CHARS] + "\n\n[... truncated for brevity]"
+            result[section_type] = content
+            logger.info("Loaded intel section %s from %s", section_type, matches[0].name)
+        except Exception as e:
+            logger.warning("Failed to load intel section %s: %s", section_type, e)
+
+    return result
 
 
 @dataclass
@@ -348,15 +391,25 @@ INJURY ALERTS (Source: MLB Official Injury Report):
         "OUT=1.5, K(P)=0.5, SV=7, HLD=4, RW=4, QS=2, "
         "ER=-4, BB(P)=-0.75, H(P)=-0.75"
     )
-    user_message += f"\n{scoring_line}\n\n"
+    user_message += f"\n{scoring_line}\n"
+
+    # Inject latest intel reports for richer analysis
+    intel = _load_latest_intel(["roster-intel", "action-items"])
+    if intel.get("roster-intel"):
+        user_message += f"\nEXPERT INTEL (from latest daily analysis — player sentiments & trends):\n{intel['roster-intel']}\n"
+    if intel.get("action-items"):
+        user_message += f"\nACTION ITEMS (from latest daily analysis):\n{intel['action-items']}\n"
+
     user_message += (
-        "Give me specific START/SIT recommendations for this week. "
+        "\nGive me specific START/SIT recommendations for this week. "
         "Consider each player's full position eligibility (shown in "
         "[Eligible: ...] brackets) when suggesting lineup moves — "
         "a player eligible at 2B,SS,OF can fill any of those slots "
         "or Util. Explain WHY in terms of matchups, schedule, and "
         "league scoring. If the optimizer suggests changes, evaluate "
-        "whether you agree. Flag any injury risks."
+        "whether you agree. Flag any injury risks. "
+        "Reference expert sentiments and trends from the intel report "
+        "where relevant."
     )
 
     system_prompt = (
@@ -364,7 +417,9 @@ INJURY ALERTS (Source: MLB Official Injury Report):
         "keeper league with a Monday lineup deadline. Give specific "
         "start/sit recommendations. Be concise — lead with the "
         "recommendation, then 1-2 sentences of reasoning. "
-        "Use the league scoring rules to explain WHY."
+        "Use the league scoring rules to explain WHY. "
+        "Expert analysis from recent daily intel reports is included — "
+        "reference these sentiments and trends in your recommendations."
     )
 
     try:
@@ -777,7 +832,27 @@ LEAGUE STANDINGS:
 {cardinals_section}
 
 {scoring_line}
+"""
 
+    # Inject latest intel reports for richer narrative
+    intel = _load_latest_intel([
+        "matchup-preview", "roster-intel", "projection-watch",
+        "trade-intel", "action-items",
+    ])
+    if any(intel.values()):
+        user_message += "\nEXPERT ANALYSIS (from latest daily intel reports):\n"
+        if intel.get("matchup-preview"):
+            user_message += f"\nMATCHUP PREVIEW:\n{intel['matchup-preview']}\n"
+        if intel.get("roster-intel"):
+            user_message += f"\nROSTER INTEL (player sentiments & trends):\n{intel['roster-intel']}\n"
+        if intel.get("projection-watch"):
+            user_message += f"\nPROJECTION DIVERGENCES:\n{intel['projection-watch']}\n"
+        if intel.get("trade-intel"):
+            user_message += f"\nTRADE SIGNALS:\n{intel['trade-intel']}\n"
+        if intel.get("action-items"):
+            user_message += f"\nACTION ITEMS:\n{intel['action-items']}\n"
+
+    user_message += """
 Write the preview covering:
 1. The H2H matchup storyline — edges and vulnerabilities
 2. Projection analysis — compare Yahoo vs App projections and explain discrepancies
@@ -786,7 +861,8 @@ Write the preview covering:
 5. Injury concerns for both rosters
 6. League standings context — playoff positioning
 7. Cardinals Corner — STL players in the matchup
-8. Ithilien Watch — brother's team update"""
+8. Ithilien Watch — brother's team update
+Reference expert intel where available — weave insights from the daily analysis into your narrative."""
 
     system_prompt = (
         "You are a professional fantasy baseball analyst writing a weekly "
@@ -800,7 +876,10 @@ Write the preview covering:
         "abbreviation in parentheses exactly as provided in the data. "
         "The reader is a Cardinals fan — make the Cardinals Corner "
         "section insightful. The reader's brother runs 'Ithilien' — "
-        "keep the rivalry section brief and factual."
+        "keep the rivalry section brief and factual. "
+        "Expert analysis from the latest daily intel is included — "
+        "weave these insights into your narrative, citing expert opinions "
+        "where relevant."
     )
 
     try:

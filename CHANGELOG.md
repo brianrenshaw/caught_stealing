@@ -10,6 +10,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [1.1.0] — 2026-03-25
+
+### Added
+- **Intel-fed Analyze Lineup** — START/SIT recommendations now incorporate latest daily intel (roster sentiments, action items) from the content pipeline
+- **Intel-fed Weekly Outlook** — narrative preview column now weaves in 5 intel sections (matchup preview, roster intel, projection divergences, trade signals, action items)
+- **AI Features Guide** — comprehensive `docs/AI_FEATURES.md` documenting all 7 AI features, models, token budgets, data flows, and how intel feeds into real-time features
+
+### Fixed
+- **Buy Low / Sell High always empty** — points ranking path now computes xwOBA vs wOBA signals with batch queries
+- **Buy/Sell empty state messages** — cards now explain when data will appear (regular season + Statcast data needed) instead of "Sync stats"
+
+---
+
 ## [1.0.0] — 2026-03-25
 
 ### Added
