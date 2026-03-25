@@ -14,6 +14,9 @@ How to use every feature in the app — dashboard, roster optimizer, trade analy
 ### [Architecture](docs/ARCHITECTURE.md)
 How the app is built — FastAPI services, SQLAlchemy models, ETL pipeline, projection blending, and the data flow from Yahoo/Statcast/FanGraphs into the database. Start here if you want to understand or extend the code.
 
+### [AI Features](docs/AI_SHOWCASE.md)
+Everything AI powers in this app — from overnight podcast transcription and expert content analysis to personalized daily briefings, smart lineup recommendations, and a conversational assistant that knows your league.
+
 ### [AI Newsletter Pipeline](docs/AI_NEWSLETTER_PIPELINE.md)
 The content ingestion system that pulls from fantasy baseball blogs and podcasts, then uses Claude to generate daily and weekly analysis reports with league-specific context. [See example newsletter below.](#ai-newsletter-example)
 

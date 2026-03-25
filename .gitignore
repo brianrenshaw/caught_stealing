@@ -4,6 +4,7 @@ __pycache__/
 .claude/
 CLAUDE.md
 docs/BACKTESTING_METHODOLOGY.md
+docs/AI_FEATURES.md
 docs/research_analysis_fantasy_baseball_web_app
 .env
 launchers/
