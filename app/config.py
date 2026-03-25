@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     # Authentication
     auth_password: str = ""
 
+    # Yahoo OAuth token (JSON string for headless deployment)
+    yahoo_access_token_json: str = ""
+
     # Deployment settings
     cors_origins: str = "http://localhost:8000,http://127.0.0.1:8000"
     cache_dir: str = ".cache"

@@ -27,10 +27,10 @@
             <h2 class="text-sm font-semibold text-txt-primary">Scoring Quick Reference</h2>
             {{ page_info('league_scoring') }}
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
             <div>
                 <h3 class="text-xs font-medium text-accent-link mb-1">Batting</h3>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
+                <div class="flex flex-wrap gap-x-2 md:gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
                     <span>R=1</span><span>1B=1</span><span>2B=2</span><span>3B=3</span>
                     <span class="text-[#2e7d32]">HR=4</span><span>RBI=1</span>
                     <span>SB=2</span><span class="text-[#c62828]">CS=-1</span>
@@ -40,7 +40,7 @@
             </div>
             <div>
                 <h3 class="text-xs font-medium text-accent-link mb-1">Pitching</h3>
-                <div class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
+                <div class="flex flex-wrap gap-x-2 md:gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
                     <span>OUT=1.5</span><span>K=0.5</span>
                     <span class="text-[#2e7d32]">SV=7</span>
                     <span class="text-[#2e7d32]">HLD=4</span>
@@ -66,14 +66,14 @@
                    data-default-sort="rank" data-default-dir="asc">
                 <thead>
                     <tr class="text-txt-muted border-b border-bdr text-xs uppercase tracking-wider">
-                        <th class="text-left py-2 px-2 w-8 row-number" data-sort="rank">#</th>
-                        <th class="text-left py-2 px-2" data-sort="team_name">Team</th>
-                        <th class="text-center py-2 px-2" data-sort="wins">W-L-T</th>
-                        <th class="text-right py-2 px-2" data-sort="points_for">PF</th>
-                        <th class="text-right py-2 px-2" data-sort="points_against">PA</th>
-                        <th class="text-right py-2 px-2" data-sort="week_projected">This Week (Proj)</th>
-                        <th class="text-right py-2 px-2" data-sort="week_actual">This Week (Actual)</th>
-                        <th class="text-left py-2 px-2">vs</th>
+                        <th class="text-left py-2 px-1 md:px-2 w-8 row-number" data-sort="rank">#</th>
+                        <th class="text-left py-2 px-1 md:px-2" data-sort="team_name">Team</th>
+                        <th class="text-center py-2 px-1 md:px-2" data-sort="wins">W-L-T</th>
+                        <th class="text-right py-2 px-1 md:px-2" data-sort="points_for">PF</th>
+                        <th class="text-right py-2 px-1 md:px-2" data-sort="points_against">PA</th>
+                        <th class="text-right py-2 px-1 md:px-2 whitespace-nowrap" data-sort="week_projected"><span class="hidden md:inline">This Week </span>(Proj)</th>
+                        <th class="text-right py-2 px-1 md:px-2 hidden md:table-cell" data-sort="week_actual">This Week (Actual)</th>
+                        <th class="text-left py-2 px-1 md:px-2 hidden lg:table-cell">vs</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -85,22 +85,22 @@
                         data-week_projected="{{ team.week_projected }}"
                         data-week_actual="{{ team.week_actual }}"
                         data-name="{{ team.team_name }}">
-                        <td class="py-2 px-2 text-txt-muted row-number">{{ team.rank }}</td>
-                        <td class="py-2 px-2 {% if team.is_my_team %}text-accent-link font-medium{% else %}text-txt-primary{% endif %}">
+                        <td class="py-2 px-1 md:px-2 text-txt-muted row-number">{{ team.rank }}</td>
+                        <td class="py-2 px-1 md:px-2 {% if team.is_my_team %}text-accent-link font-medium{% else %}text-txt-primary{% endif %} truncate max-w-[120px] md:max-w-none">
                             {{ team.team_name }}
                         </td>
-                        <td class="py-2 px-2 text-center text-txt-secondary">
+                        <td class="py-2 px-1 md:px-2 text-center text-txt-secondary whitespace-nowrap">
                             {{ team.wins }}-{{ team.losses }}{% if team.ties %}-{{ team.ties }}{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-right text-txt-primary">{{ "%.1f"|format(team.points_for) }}</td>
-                        <td class="py-2 px-2 text-right text-txt-muted">{{ "%.1f"|format(team.points_against) }}</td>
-                        <td class="py-2 px-2 text-right text-txt-secondary">
+                        <td class="py-2 px-1 md:px-2 text-right text-txt-primary">{{ "%.1f"|format(team.points_for) }}</td>
+                        <td class="py-2 px-1 md:px-2 text-right text-txt-muted">{{ "%.1f"|format(team.points_against) }}</td>
+                        <td class="py-2 px-1 md:px-2 text-right text-txt-secondary">
                             {% if team.week_projected > 0 %}{{ "%.1f"|format(team.week_projected) }}{% else %}-{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-right {% if team.week_actual > team.week_projected %}text-[#2e7d32]{% elif team.week_actual > 0 %}text-txt-primary{% else %}text-txt-muted{% endif %}">
+                        <td class="py-2 px-1 md:px-2 text-right hidden md:table-cell {% if team.week_actual > team.week_projected %}text-[#2e7d32]{% elif team.week_actual > 0 %}text-txt-primary{% else %}text-txt-muted{% endif %}">
                             {% if team.week_actual > 0 %}{{ "%.1f"|format(team.week_actual) }}{% else %}-{% endif %}
                         </td>
-                        <td class="py-2 px-2 text-txt-muted text-xs">{{ team.opponent_name }}</td>
+                        <td class="py-2 px-1 md:px-2 text-txt-muted text-xs hidden lg:table-cell">{{ team.opponent_name }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

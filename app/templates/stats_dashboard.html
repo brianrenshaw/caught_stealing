@@ -6,39 +6,39 @@
 {% block content %}
 <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
     <h1 class="font-display text-2xl md:text-3xl font-extrabold text-txt-navy">Stats Explorer {{ page_info('stats-explorer') }}</h1>
-    <div class="flex flex-wrap items-center gap-3">
+    <div class="flex flex-wrap items-center gap-2 md:gap-3">
         {# ── Player Highlight Search ── #}
-        <div class="relative" id="highlight-search-container">
+        <div class="relative w-full md:w-auto" id="highlight-search-container">
             <input type="search" id="highlight-search" placeholder="Highlight player..."
                    autocomplete="off"
-                   class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary w-full md:w-52
+                   class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1.5 text-sm text-txt-primary w-full md:w-52
                           focus:outline-none focus:border-accent-primary"
                    oninput="onPlayerSearch(this.value)">
-            <div id="highlight-dropdown" class="absolute z-50 w-64 mt-1"></div>
+            <div id="highlight-dropdown" class="absolute z-50 w-full md:w-64 mt-1"></div>
         </div>
         <button id="clear-highlight-btn" class="hidden text-xs text-txt-secondary hover:text-txt-primary px-1"
                 onclick="clearHighlight()">&times; Clear</button>
-        <div class="hidden md:block w-px h-5 bg-surface-elevated"></div>
-        <label class="text-txt-secondary text-sm">Season:</label>
-        <select id="season-select" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary"
-                onchange="reloadCharts()">
-            {% for s in available_seasons %}
-            <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
-            {% endfor %}
-        </select>
-        <label class="text-txt-secondary text-sm">Min PA:</label>
-        <input type="number" id="min-pa" value="50" min="0" step="10"
-               class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary w-20"
-               onchange="reloadCharts()">
-        <div class="hidden md:block w-px h-5 bg-surface-elevated"></div>
-        <label class="text-txt-secondary text-sm">Show:</label>
-        <select id="roster-filter" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1 text-sm text-txt-primary"
-                onchange="reloadCharts()">
-            <option value="free_agents" selected>Free Agents</option>
-            <option value="rostered">Rostered</option>
-            <option value="my_team">My Team</option>
-            <option value="all">All Players</option>
-        </select>
+        <div class="flex flex-wrap items-center gap-2 md:gap-3">
+            <label class="text-txt-secondary text-xs md:text-sm">Season:</label>
+            <select id="season-select" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1.5 text-sm text-txt-primary"
+                    onchange="reloadCharts()">
+                {% for s in available_seasons %}
+                <option value="{{ s }}" {% if s == season %}selected{% endif %}>{{ s }}</option>
+                {% endfor %}
+            </select>
+            <label class="text-txt-secondary text-xs md:text-sm">Min PA:</label>
+            <input type="number" id="min-pa" value="50" min="0" step="10"
+                   class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1.5 text-sm text-txt-primary w-16 md:w-20"
+                   onchange="reloadCharts()">
+            <label class="text-txt-secondary text-xs md:text-sm">Show:</label>
+            <select id="roster-filter" class="bg-surface-elevated border border-bdr-subtle rounded px-2 py-1.5 text-sm text-txt-primary"
+                    onchange="reloadCharts()">
+                <option value="free_agents" selected>Free Agents</option>
+                <option value="rostered">Rostered</option>
+                <option value="my_team">My Team</option>
+                <option value="all">All Players</option>
+            </select>
+        </div>
     </div>
 </div>
 

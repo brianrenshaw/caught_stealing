@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from functools import partial
 from pathlib import Path
@@ -6,6 +7,9 @@ from pathlib import Path
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Persistent token file on the Fly volume (survives restarts)
+TOKEN_FILE = Path(settings.data_dir) / "yahoo_token.json"
 
 
 class YahooService:
@@ -17,20 +21,79 @@ class YahooService:
     def is_configured(self) -> bool:
         return bool(settings.yahoo_client_id and settings.yahoo_client_secret)
 
+    def _load_token_dict(self) -> dict | None:
+        """Load Yahoo OAuth token, preferring the persisted volume file over the env var.
+
+        Priority:
+        1. Persisted token file on volume (has refreshed tokens from previous runs)
+        2. YAHOO_ACCESS_TOKEN_JSON env var (initial bootstrap token)
+        """
+        # Try persisted file first (has latest refreshed tokens)
+        if TOKEN_FILE.exists():
+            try:
+                token_dict = json.loads(TOKEN_FILE.read_text())
+                logger.info("Loaded Yahoo token from persisted file %s", TOKEN_FILE)
+                return token_dict
+            except (json.JSONDecodeError, OSError) as e:
+                logger.warning("Failed to load persisted token file: %s", e)
+
+        # Fall back to env var (initial bootstrap)
+        if settings.yahoo_access_token_json:
+            try:
+                token_dict = json.loads(settings.yahoo_access_token_json)
+                if "guid" not in token_dict:
+                    token_dict["guid"] = ""
+                logger.info("Loaded Yahoo token from YAHOO_ACCESS_TOKEN_JSON env var")
+                return token_dict
+            except json.JSONDecodeError:
+                logger.error("Invalid YAHOO_ACCESS_TOKEN_JSON — ignoring")
+
+        return None
+
+    def _persist_token(self) -> None:
+        """Save the current OAuth token to disk so it survives restarts."""
+        if not self._query or not self._query.oauth:
+            return
+        try:
+            oauth = self._query.oauth
+            token_data = {
+                "access_token": oauth.access_token,
+                "consumer_key": oauth.consumer_key,
+                "consumer_secret": oauth.consumer_secret,
+                "guid": getattr(oauth, "guid", ""),
+                "refresh_token": oauth.refresh_token,
+                "token_time": oauth.token_time,
+                "token_type": oauth.token_type,
+            }
+            TOKEN_FILE.write_text(json.dumps(token_data))
+            logger.info("Persisted refreshed Yahoo token to %s", TOKEN_FILE)
+        except Exception as e:
+            logger.warning("Failed to persist Yahoo token: %s", e)
+
     def _get_query(self):
         if self._query is None:
             from yfpy.query import YahooFantasySportsQuery
 
-            self._query = YahooFantasySportsQuery(
-                league_id=settings.yahoo_league_id,
-                game_code="mlb",
-                game_id=None,
-                yahoo_consumer_key=settings.yahoo_client_id,
-                yahoo_consumer_secret=settings.yahoo_client_secret,
-                env_file_location=Path(settings.data_dir),
-                env_var_fallback=False,
-                browser_callback=not settings.headless,
-            )
+            kwargs = {
+                "league_id": settings.yahoo_league_id,
+                "game_code": "mlb",
+                "game_id": None,
+                "yahoo_consumer_key": settings.yahoo_client_id,
+                "yahoo_consumer_secret": settings.yahoo_client_secret,
+                "env_file_location": Path(settings.data_dir),
+                "env_var_fallback": False,
+                "browser_callback": not settings.headless,
+            }
+
+            # Load token from persisted file or env var
+            token_dict = self._load_token_dict()
+            if token_dict:
+                kwargs["yahoo_access_token_json"] = token_dict
+
+            self._query = YahooFantasySportsQuery(**kwargs)
+
+            # Persist the token after auth (captures refreshed tokens)
+            self._persist_token()
         return self._query
 
     async def _run_sync(self, func, *args, **kwargs):
@@ -38,10 +101,14 @@ class YahooService:
         loop = asyncio.get_event_loop()
         if kwargs:
             fn = partial(func, *args, **kwargs)
-            return await loop.run_in_executor(None, fn)
-        if args:
-            return await loop.run_in_executor(None, func, *args)
-        return await loop.run_in_executor(None, func)
+            result = await loop.run_in_executor(None, fn)
+        elif args:
+            result = await loop.run_in_executor(None, func, *args)
+        else:
+            result = await loop.run_in_executor(None, func)
+        # Persist token after each API call in case it was refreshed
+        self._persist_token()
+        return result
 
     async def _delay(self) -> None:
         """Rate limit: 0.5s between Yahoo API calls."""

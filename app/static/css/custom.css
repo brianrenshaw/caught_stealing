@@ -369,6 +369,63 @@ body {
 @media (min-width: 768px) { .chart-h { height: 400px; } }
 
 /* ══════════════════════════════════════════════════════════════
+   iPhone / Mobile Global Fixes
+   ══════════════════════════════════════════════════════════════ */
+
+/* Safe area CSS variables */
+:root {
+    --sat: env(safe-area-inset-top, 0px);
+    --sar: env(safe-area-inset-right, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
+    --sal: env(safe-area-inset-left, 0px);
+}
+
+/* Disable tap highlight on iOS */
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent Safari auto-zoom on input focus (must be >= 16px) */
+input, select, textarea {
+    font-size: 16px;
+}
+
+/* Smooth scrolling on iOS */
+.overflow-x-auto,
+.overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent overscroll bounce on main page */
+html {
+    overscroll-behavior: none;
+}
+
+/* Hide Plotly modebar on mobile — it overlaps chart content */
+@media (max-width: 767px) {
+    .js-plotly-plot .modebar-container {
+        display: none !important;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Tooltip Mobile Fixes
+   ══════════════════════════════════════════════════════════════ */
+
+/* Larger touch target for tooltip icons */
+@media (max-width: 767px) {
+    .info-tooltip {
+        padding: 8px;
+        margin: -8px;
+    }
+}
+
+/* Tooltip popup — ensure it stays on screen */
+.tooltip-popup {
+    max-width: min(320px, calc(100vw - 32px));
+}
+
+/* ══════════════════════════════════════════════════════════════
    Mobile Responsive Overrides
    ══════════════════════════════════════════════════════════════ */
 
@@ -385,11 +442,11 @@ body {
     /* Tables — tighter on mobile */
     .table-premium thead th {
         font-size: 9px;
-        padding: 6px 6px;
+        padding: 6px 4px;
         letter-spacing: 0.3px;
     }
     .table-premium tbody td {
-        padding: 5px 6px;
+        padding: 5px 4px;
         font-size: 12px;
     }
 
@@ -407,5 +464,10 @@ body {
     }
     .featured-block {
         padding: 14px 16px;
+    }
+
+    /* Chart containers — shorter on mobile */
+    .chart-h {
+        height: 240px !important;
     }
 }

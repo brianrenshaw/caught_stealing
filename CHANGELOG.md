@@ -8,14 +8,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+---
+
+## 2026-03-25
+
 ### Added
-- **Mobile responsive layout** — hamburger menu, full-width chat panel, responsive padding, tables, and charts for phone/tablet use
-- **Fly.io deployment config** — Dockerfile, fly.toml, .dockerignore for cloud deployment with persistent SQLite volume
-- **Health check endpoint** — `GET /health` for Fly.io monitoring
-- **Configurable deployment settings** — CORS origins, cache dir, data dir, and headless mode via environment variables
+- **Fly.io deployment** — app live at fantasy-baseball-br.fly.dev with persistent SQLite volume, always-on machine, health checks, and HTTPS
+- **Yahoo OAuth token persistence** — refreshed tokens auto-saved to persistent volume, survive restarts without re-authentication
+- **Yahoo headless auth** — `YAHOO_ACCESS_TOKEN_JSON` secret + `capture_yahoo_token` script for server-side Yahoo API access
+- **iPhone-optimized mobile layout** — viewport-fit=cover, safe area insets for Dynamic Island, 16px input font (prevents Safari zoom), tap highlight disabled, dvh viewport units
+- **Touch-friendly tooltips** — tap to open, tap outside or × button to dismiss (fixes stuck tooltips on iOS)
+- **Responsive tables** — trades and league standings hide less-important columns on mobile, tighter cell padding
+- **Responsive Stats Explorer** — search bar full-width on mobile, filter controls wrap, Plotly toolbar hidden on small screens
+- **Configurable deployment settings** — CORS origins, cache dir, data dir, headless mode via environment variables
+
+### Changed
+- League dashboard scoring reference stacks single-column on mobile
+- Trades table shows only Player, Steamer, Surplus, and Add on mobile (Pos, Rank, App Proj, Actual hidden)
+- League standings hides "This Week (Actual)" and "vs" columns on mobile
+- Chart containers use shorter height (240px) on mobile
 
 ### Fixed
-- **Intel refresh timeout** — added 5-minute subprocess timeout (was infinite), updated estimate from "30 seconds" to "2-3 minutes (Claude Opus)", added live elapsed-time counter
+- **Intel refresh timeout** — updated estimate from "30 seconds" to "2-3 minutes (Claude Opus)"
+- **Tooltips stuck on iPhone** — added touchstart dismiss listener + close button + scroll-to-dismiss
+- **Plotly toolbar overlap** — hidden on mobile via CSS
 
 ---
 

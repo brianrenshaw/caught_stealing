@@ -845,7 +845,10 @@ function _createTooltip() {
   tooltipEl.style.color = "#FFFFFF";
   tooltipEl.style.boxShadow = "0 4px 16px rgba(0,0,0,0.12)";
   tooltipEl.innerHTML = `
-    <div id="info-tooltip-title" class="font-semibold text-white text-sm"></div>
+    <div class="flex items-start justify-between gap-2">
+      <div id="info-tooltip-title" class="font-semibold text-white text-sm"></div>
+      <button onclick="_hideTooltip()" class="text-white/50 hover:text-white text-lg leading-none shrink-0 p-1 -mr-1 -mt-1" aria-label="Close tooltip">&times;</button>
+    </div>
     <div id="info-tooltip-desc" class="text-white/90 text-xs mt-1 leading-relaxed"></div>
     <div id="info-tooltip-fantasy" class="text-white/70 text-xs mt-1 italic" style="display:none;"></div>
     <div id="info-tooltip-benchmarks" class="mt-2 flex gap-3 text-xs" style="display:none;">
@@ -939,12 +942,21 @@ function _hideTooltip() {
   currentTooltipKey = null;
 }
 
-// Close on click outside
-document.addEventListener("click", function (e) {
+// Close on click/touch outside
+function _dismissTooltipOutside(e) {
   if (tooltipEl && !tooltipEl.contains(e.target) && !e.target.closest(".info-icon")) {
     _hideTooltip();
   }
-});
+}
+document.addEventListener("click", _dismissTooltipOutside);
+document.addEventListener("touchstart", _dismissTooltipOutside, { passive: true });
+
+// Close on scroll (tooltips drift away from their icon)
+document.addEventListener("scroll", function () {
+  if (tooltipEl && tooltipEl.style.display !== "none") {
+    _hideTooltip();
+  }
+}, { capture: true, passive: true });
 
 // Close on Escape (before modal handler gets it)
 document.addEventListener("keydown", function (e) {

@@ -140,25 +140,25 @@
                data-default-sort="surplus_value" data-default-dir="desc">
             <thead>
                 <tr class="text-txt-secondary border-b border-bdr">
-                    <th class="text-left py-2 px-3 row-number">#</th>
-                    <th class="text-left py-2 px-3" data-sort="name">Player</th>
-                    <th class="text-left py-2 px-1" data-sort="position">Pos</th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="positional_rank">
+                    <th class="text-left py-2 px-1 md:px-3 row-number">#</th>
+                    <th class="text-left py-2 px-1 md:px-3" data-sort="name">Player</th>
+                    <th class="text-left py-2 px-1 hidden md:table-cell" data-sort="position">Pos</th>
+                    <th class="text-right py-2 px-1 md:px-3 whitespace-nowrap hidden md:table-cell" data-sort="positional_rank">
                         Rank {{ stat_info('Pos Rank') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="projected_points">
+                    <th class="text-right py-2 px-1 md:px-3 whitespace-nowrap hidden lg:table-cell" data-sort="projected_points">
                         App Proj {{ stat_info('trade-app-proj') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="steamer_ros_points">
+                    <th class="text-right py-2 px-1 md:px-3 whitespace-nowrap" data-sort="steamer_ros_points">
                         Steamer {{ stat_info('trade-steamer') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="actual_points">
+                    <th class="text-right py-2 px-1 md:px-3 whitespace-nowrap hidden lg:table-cell" data-sort="actual_points">
                         Actual {{ stat_info('trade-actual') }}
                     </th>
-                    <th class="text-right py-2 px-3 whitespace-nowrap" data-sort="surplus_value">
+                    <th class="text-right py-2 px-1 md:px-3 whitespace-nowrap" data-sort="surplus_value">
                         Surplus {{ stat_info('surplus_value') }}
                     </th>
-                    <th class="text-center py-2 px-3">Add</th>
+                    <th class="text-center py-2 px-1 md:px-3">Add</th>
                 </tr>
             </thead>
             <tbody id="rankings-table-body">
@@ -171,32 +171,32 @@
                     data-actual_points="{{ v.get('actual_points', 0) }}"
                     data-surplus_value="{{ v.surplus_value }}"
                     data-positional_rank="{{ v.positional_rank }}">
-                    <td class="py-2 px-3 text-txt-muted">{{ loop.index }}</td>
-                    <td class="py-2 px-3">
+                    <td class="py-2 px-1 md:px-3 text-txt-muted">{{ loop.index }}</td>
+                    <td class="py-2 px-1 md:px-3">
                         {{ player_link(v.player_id, v.name, v.team) }}
                     </td>
-                    <td class="py-2 px-1 text-txt-secondary text-xs">{{ v.position }}</td>
-                    <td class="py-2 px-3 text-right text-txt-secondary">{{ v.positional_rank }}</td>
-                    <td class="py-2 px-3 text-right {% if v.get('projected_points', v.get('z_score_total', 0)) >= 200 %}text-[#2e7d32]{% elif v.get('projected_points', v.get('z_score_total', 0)) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
+                    <td class="py-2 px-1 text-txt-secondary text-xs hidden md:table-cell">{{ v.position }}</td>
+                    <td class="py-2 px-1 md:px-3 text-right text-txt-secondary hidden md:table-cell">{{ v.positional_rank }}</td>
+                    <td class="py-2 px-1 md:px-3 text-right hidden lg:table-cell {% if v.get('projected_points', v.get('z_score_total', 0)) >= 200 %}text-[#2e7d32]{% elif v.get('projected_points', v.get('z_score_total', 0)) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('projected_points', v.get('z_score_total', 0))) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.get('steamer_ros_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('steamer_ros_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
+                    <td class="py-2 px-1 md:px-3 text-right {% if v.get('steamer_ros_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('steamer_ros_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('steamer_ros_points', 0)) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.get('actual_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('actual_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
+                    <td class="py-2 px-1 md:px-3 text-right hidden lg:table-cell {% if v.get('actual_points', 0) >= 200 %}text-[#2e7d32]{% elif v.get('actual_points', 0) >= 100 %}text-accent-link{% else %}text-txt-primary{% endif %}">
                         {{ "%.1f"|format(v.get('actual_points', 0)) }}
                     </td>
-                    <td class="py-2 px-3 text-right {% if v.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %} font-medium">
+                    <td class="py-2 px-1 md:px-3 text-right {% if v.surplus_value > 0 %}text-[#2e7d32]{% else %}text-[#c62828]{% endif %} font-medium">
                         {{ "%.1f"|format(v.surplus_value) }}
                     </td>
-                    <td class="py-2 px-3 text-center">
+                    <td class="py-2 px-1 md:px-3 text-center">
                         {% if v.roster_side == 'a' %}
-                        <button onclick='addToSide({{ v_json }}, "a")' class="text-xs px-2 py-1 rounded bg-accent-hover/50 text-accent-link hover:bg-accent-primary">
-                            &larr; Mine
+                        <button onclick='addToSide({{ v_json }}, "a")' class="text-xs px-1.5 md:px-2 py-1 rounded bg-accent-hover/50 text-accent-link hover:bg-accent-primary whitespace-nowrap">
+                            &larr; <span class="hidden md:inline">Mine</span>
                         </button>
                         {% elif v.roster_side == 'b' %}
-                        <button onclick='addToSide({{ v_json }}, "b")' class="text-xs px-2 py-1 rounded bg-green-700/50 text-[#2e7d32] hover:bg-green-600">
-                            Theirs &rarr;
+                        <button onclick='addToSide({{ v_json }}, "b")' class="text-xs px-1.5 md:px-2 py-1 rounded bg-green-700/50 text-[#2e7d32] hover:bg-green-600 whitespace-nowrap">
+                            <span class="hidden md:inline">Theirs</span> &rarr;
                         </button>
                         {% else %}
                         <span class="text-xs text-txt-muted">FA</span>

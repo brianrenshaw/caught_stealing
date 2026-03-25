@@ -15,7 +15,7 @@ How to use every feature in the app — dashboard, roster optimizer, trade analy
 How the app is built — FastAPI services, SQLAlchemy models, ETL pipeline, projection blending, and the data flow from Yahoo/Statcast/FanGraphs into the database. Start here if you want to understand or extend the code.
 
 ### [AI Newsletter Pipeline](docs/AI_NEWSLETTER_PIPELINE.md)
-The content ingestion system that pulls from fantasy baseball blogs and podcasts, then uses Claude to generate daily and weekly analysis reports with league-specific context.
+The content ingestion system that pulls from fantasy baseball blogs and podcasts, then uses Claude to generate daily and weekly analysis reports with league-specific context. [See example newsletter below.](#ai-newsletter-example)
 
 ### [Changelog](CHANGELOG.md)
 
@@ -94,6 +94,29 @@ scripts/               # Backtesting, data pipeline, content ingestion
 docs/                  # User guide, methodology, pipeline docs
 tests/                 # pytest test suite
 ```
+
+## AI Newsletter Example
+
+The app's content pipeline ingests fantasy baseball podcasts and blog articles, then uses Claude to generate a personalized weekly intel report. Each report includes roster-specific analysis with sentiment ratings, lineup recommendations, injury alerts, trade signals, waiver targets, and league-contextualized advice — all citing the original sources.
+
+[View the full 22-page PDF](docs/ai-newsletter-example.pdf)
+
+<details>
+<summary>Preview pages (click to expand)</summary>
+
+<br>
+
+<img src="docs/images/newsletter-preview-01.png" alt="Weekly Intel newsletter - page 1: Table of contents and roster intel with player sentiment cards" width="600">
+
+<br><br>
+
+<img src="docs/images/newsletter-preview-02.png" alt="Weekly Intel newsletter - page 2: Detailed player analysis with source citations" width="600">
+
+<br><br>
+
+<img src="docs/images/newsletter-preview-03.png" alt="Weekly Intel newsletter - page 3: Additional player reports with lineup recommendations" width="600">
+
+</details>
 
 ## License
 
