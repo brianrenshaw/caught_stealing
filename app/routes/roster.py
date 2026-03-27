@@ -16,10 +16,32 @@ templates = Jinja2Templates(directory="app/templates")
 # Preferred display order for Yahoo stats on the roster page.
 # Stats not in these lists still appear, appended at the end.
 BATTER_STAT_ORDER = [
-    "AB", "R", "H", "HR", "RBI", "SB", "BB", "K", "AVG", "OBP", "SLG", "OPS",
+    "AB",
+    "R",
+    "H",
+    "HR",
+    "RBI",
+    "SB",
+    "BB",
+    "K",
+    "AVG",
+    "OBP",
+    "SLG",
+    "OPS",
 ]
 PITCHER_STAT_ORDER = [
-    "IP", "W", "L", "SV", "HLD", "K", "ERA", "WHIP", "QS", "BB", "H", "ER",
+    "IP",
+    "W",
+    "L",
+    "SV",
+    "HLD",
+    "K",
+    "ERA",
+    "WHIP",
+    "QS",
+    "BB",
+    "H",
+    "ER",
 ]
 
 
@@ -31,39 +53,41 @@ async def roster(request: Request):
     try:
         async with async_session() as session:
             result = await session.execute(
-                select(Roster).options(selectinload(Roster.player)).where(Roster.is_my_team.is_(True))
+                select(Roster)
+                .options(selectinload(Roster.player))
+                .where(Roster.is_my_team.is_(True))
             )
             roster_entries = result.scalars().all()
 
             for entry in roster_entries:
-            player = entry.player
-            if not player:
-                continue
+                player = entry.player
+                if not player:
+                    continue
 
-            # Get player stats from Yahoo
-            stat_result = await session.execute(
-                select(Stat).where(
-                    Stat.player_id == player.id,
-                    Stat.source == "yahoo",
+                # Get player stats from Yahoo
+                stat_result = await session.execute(
+                    select(Stat).where(
+                        Stat.player_id == player.id,
+                        Stat.source == "yahoo",
+                    )
                 )
-            )
-            player_stats = {s.stat_name: s.value for s in stat_result.scalars().all()}
+                player_stats = {s.stat_name: s.value for s in stat_result.scalars().all()}
 
-            player_data = {
-                "player_id": player.id,
-                "name": player.name,
-                "team": player.team or "",
-                "position": player.position or "",
-                "roster_position": entry.roster_position,
-                "stats": player_stats,
-            }
+                player_data = {
+                    "player_id": player.id,
+                    "name": player.name,
+                    "team": player.team or "",
+                    "position": player.position or "",
+                    "roster_position": entry.roster_position,
+                    "stats": player_stats,
+                }
 
-            pitching_positions = {"SP", "RP", "P"}
-            positions = {p.strip() for p in (player.position or "").split(",")}
-            if positions & pitching_positions:
-                pitchers.append(player_data)
-            else:
-                batters.append(player_data)
+                pitching_positions = {"SP", "RP", "P"}
+                positions = {p.strip() for p in (player.position or "").split(",")}
+                if positions & pitching_positions:
+                    pitchers.append(player_data)
+                else:
+                    batters.append(player_data)
 
     except Exception:
         logger.exception("Failed to load roster data")
