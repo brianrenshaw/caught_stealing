@@ -22,7 +22,7 @@ import logging
 import os
 import re
 import sqlite3
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import anthropic
@@ -65,9 +65,16 @@ SECTIONS = {
 DAILY_SECTIONS = ["roster-intel", "injury-watch", "around-the-league", "action-items"]
 MONDAY_SECTIONS = ["last-week-recap"] + DAILY_SECTIONS
 WEEKLY_SECTIONS = [
-    "roster-intel", "injury-watch", "matchup-preview", "waiver-intel",
-    "trade-intel", "projection-watch", "around-the-league",
-    "cardinals-corner", "sibling-rivalry", "action-items",
+    "roster-intel",
+    "injury-watch",
+    "matchup-preview",
+    "waiver-intel",
+    "trade-intel",
+    "projection-watch",
+    "around-the-league",
+    "cardinals-corner",
+    "sibling-rivalry",
+    "action-items",
 ]
 WEEKLY_DAY = 5  # Saturday
 
@@ -157,27 +164,31 @@ def load_recent_content(since: datetime | None = None) -> list[dict]:
                 word_count = len(body.split())
                 content = body
 
-                items.append({
-                    "title": meta.get("title", filepath.stem),
-                    "source_name": meta.get("source_name", meta.get("source", "Unknown")),
-                    "url": meta.get("url", ""),
-                    "date": date_str,
-                    "date_parsed": pub_date,
-                    "author": meta.get("author", ""),
-                    "content": content,
-                    "type": content_type,
-                    "filename": filepath.name,
-                    "word_count": word_count,
-                })
+                items.append(
+                    {
+                        "title": meta.get("title", filepath.stem),
+                        "source_name": meta.get("source_name", meta.get("source", "Unknown")),
+                        "url": meta.get("url", ""),
+                        "date": date_str,
+                        "date_parsed": pub_date,
+                        "author": meta.get("author", ""),
+                        "content": content,
+                        "type": content_type,
+                        "filename": filepath.name,
+                        "word_count": word_count,
+                    }
+                )
 
             except Exception as e:
                 log.warning("Failed to read %s: %s", filepath.name, e)
 
     items.sort(key=lambda x: x["date_parsed"], reverse=True)
-    log.info("Loaded %d content items (%d blogs, %d transcripts)",
-             len(items),
-             sum(1 for i in items if i["type"] == "blog"),
-             sum(1 for i in items if i["type"] == "transcript"))
+    log.info(
+        "Loaded %d content items (%d blogs, %d transcripts)",
+        len(items),
+        sum(1 for i in items if i["type"] == "blog"),
+        sum(1 for i in items if i["type"] == "transcript"),
+    )
     return items
 
 
@@ -193,9 +204,9 @@ def build_sources_section(items: list[dict]) -> str:
         for p in podcasts:
             pub = p["date_parsed"].strftime("%b %d, %Y")
             if p.get("url"):
-                lines.append(f'- **{p["source_name"]}** — [{p["title"]}]({p["url"]}) ({pub})')
+                lines.append(f"- **{p['source_name']}** — [{p['title']}]({p['url']}) ({pub})")
             else:
-                lines.append(f'- **{p["source_name"]}** — {p["title"]} ({pub})')
+                lines.append(f"- **{p['source_name']}** — {p['title']} ({pub})")
         lines.append("")
 
     if blogs:
@@ -203,9 +214,9 @@ def build_sources_section(items: list[dict]) -> str:
         for b in blogs:
             pub = b["date_parsed"].strftime("%b %d, %Y")
             if b.get("url"):
-                lines.append(f'- **{b["source_name"]}** — [{b["title"]}]({b["url"]}) ({pub})')
+                lines.append(f"- **{b['source_name']}** — [{b['title']}]({b['url']}) ({pub})")
             else:
-                lines.append(f'- **{b["source_name"]}** — {b["title"]} ({pub})')
+                lines.append(f"- **{b['source_name']}** — {b['title']} ({pub})")
         lines.append("")
 
     lines.append("---\n")
@@ -219,7 +230,7 @@ def build_content_context(items: list[dict]) -> str:
         type_label = "Podcast Transcript" if item["type"] == "transcript" else "Blog Article"
         header = f'### [{type_label}] "{item["title"]}" — {item["source_name"]} ({item["date_parsed"].strftime("%b %d, %Y")})'
         if item.get("author"):
-            header += f' by {item["author"]}'
+            header += f" by {item['author']}"
         sections.append(f"{header}\n\n{item['content']}")
 
     return "\n\n---\n\n".join(sections)
@@ -248,7 +259,8 @@ def load_league_context(db_path: Path) -> dict | None:
             return None
 
         # My roster with projections
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.name, p.team, p.position, r.roster_position,
                    pp.projected_ros_points, pp.steamer_ros_points,
                    pp.surplus_value, pp.positional_rank
@@ -258,11 +270,14 @@ def load_league_context(db_path: Path) -> dict | None:
                 AND pp.season = ? AND pp.period = 'full_season'
             WHERE r.is_my_team = 1
             ORDER BY pp.projected_ros_points DESC
-        """, (SEASON,))
+        """,
+            (SEASON,),
+        )
         my_roster = [dict(row) for row in cursor.fetchall()]
 
         # Ithilien's roster (rival)
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.name, p.team, p.position, r.team_name,
                    pp.projected_ros_points, pp.surplus_value
             FROM rosters r
@@ -271,7 +286,9 @@ def load_league_context(db_path: Path) -> dict | None:
                 AND pp.season = ? AND pp.period = 'full_season'
             WHERE LOWER(r.team_name) LIKE '%ithilien%'
             ORDER BY pp.projected_ros_points DESC
-        """, (SEASON,))
+        """,
+            (SEASON,),
+        )
         rival_roster = [dict(row) for row in cursor.fetchall()]
 
         # Standings
@@ -296,7 +313,8 @@ def load_league_context(db_path: Path) -> dict | None:
             if row:
                 opponent_info = dict(row)
                 # Get opponent's roster
-                cursor.execute("""
+                cursor.execute(
+                    """
                     SELECT p.name, p.team, p.position,
                            pp.projected_ros_points, pp.surplus_value
                     FROM rosters r
@@ -305,7 +323,9 @@ def load_league_context(db_path: Path) -> dict | None:
                         AND pp.season = ? AND pp.period = 'full_season'
                     WHERE r.team_name = ?
                     ORDER BY pp.projected_ros_points DESC
-                """, (SEASON, opponent_info["opponent_team_name"]))
+                """,
+                    (SEASON, opponent_info["opponent_team_name"]),
+                )
                 opponent_roster = [dict(row) for row in cursor.fetchall()]
         except Exception:
             pass  # Table may not exist yet
@@ -324,9 +344,12 @@ def load_league_context(db_path: Path) -> dict | None:
             row = cursor.fetchone()
             if row:
                 import json as _json
+
                 player_stats = []
                 try:
-                    player_stats = _json.loads(row["my_player_stats"]) if row["my_player_stats"] else []
+                    player_stats = (
+                        _json.loads(row["my_player_stats"]) if row["my_player_stats"] else []
+                    )
                 except Exception:
                     pass
                 last_week_result = {
@@ -341,7 +364,8 @@ def load_league_context(db_path: Path) -> dict | None:
             pass
 
         # Top free agents
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT p.name, p.team, p.position,
                    pp.projected_ros_points, pp.surplus_value, pp.positional_rank
             FROM players p
@@ -351,7 +375,9 @@ def load_league_context(db_path: Path) -> dict | None:
                 AND pp.projected_ros_points > 0
             ORDER BY pp.projected_ros_points DESC
             LIMIT 50
-        """, (SEASON,))
+        """,
+            (SEASON,),
+        )
         free_agents = [dict(row) for row in cursor.fetchall()]
 
         # Player name → FanGraphs URL lookup (for linking in reports)
@@ -367,14 +393,23 @@ def load_league_context(db_path: Path) -> dict | None:
             positions = set(row["position"].split(",")) if row["position"] else set()
             stats_type = "pitching" if positions & pitching_positions else "batting"
             slug = name.lower().replace(" ", "-").replace(".", "").replace("'", "")
-            player_links[name] = f"https://www.fangraphs.com/players/{slug}/{fg_id}/stats/{stats_type}"
+            player_links[name] = (
+                f"https://www.fangraphs.com/players/{slug}/{fg_id}/stats/{stats_type}"
+            )
 
         conn.close()
 
         opp_name = opponent_info["opponent_team_name"] if opponent_info else "Unknown"
-        log.info("Loaded league context: %d roster, %d rival, %d opponent (%s), %d free agents, %d standings, %d player links",
-                 len(my_roster), len(rival_roster), len(opponent_roster), opp_name,
-                 len(free_agents), len(standings), len(player_links))
+        log.info(
+            "Loaded league context: %d roster, %d rival, %d opponent (%s), %d free agents, %d standings, %d player links",
+            len(my_roster),
+            len(rival_roster),
+            len(opponent_roster),
+            opp_name,
+            len(free_agents),
+            len(standings),
+            len(player_links),
+        )
 
         return {
             "my_roster": my_roster,
@@ -395,8 +430,9 @@ def load_league_context(db_path: Path) -> dict | None:
 def get_weekly_game_counts() -> dict[str, int]:
     """Get number of games per MLB team for the current week using MLB Stats API."""
     try:
-        import statsapi
         from datetime import timedelta
+
+        import statsapi
 
         today = date.today()
         # Find Monday of current week
@@ -418,16 +454,36 @@ def get_weekly_game_counts() -> dict[str, int]:
         # Map full names to abbreviations
         # statsapi uses full names, we need abbreviations
         TEAM_ABBREV = {
-            "Arizona Diamondbacks": "ARI", "Atlanta Braves": "ATL", "Baltimore Orioles": "BAL",
-            "Boston Red Sox": "BOS", "Chicago Cubs": "CHC", "Chicago White Sox": "CWS",
-            "Cincinnati Reds": "CIN", "Cleveland Guardians": "CLE", "Colorado Rockies": "COL",
-            "Detroit Tigers": "DET", "Houston Astros": "HOU", "Kansas City Royals": "KC",
-            "Los Angeles Angels": "LAA", "Los Angeles Dodgers": "LAD", "Miami Marlins": "MIA",
-            "Milwaukee Brewers": "MIL", "Minnesota Twins": "MIN", "New York Mets": "NYM",
-            "New York Yankees": "NYY", "Oakland Athletics": "OAK", "Philadelphia Phillies": "PHI",
-            "Pittsburgh Pirates": "PIT", "San Diego Padres": "SD", "San Francisco Giants": "SF",
-            "Seattle Mariners": "SEA", "St. Louis Cardinals": "STL", "Tampa Bay Rays": "TB",
-            "Texas Rangers": "TEX", "Toronto Blue Jays": "TOR", "Washington Nationals": "WSH",
+            "Arizona Diamondbacks": "ARI",
+            "Atlanta Braves": "ATL",
+            "Baltimore Orioles": "BAL",
+            "Boston Red Sox": "BOS",
+            "Chicago Cubs": "CHC",
+            "Chicago White Sox": "CWS",
+            "Cincinnati Reds": "CIN",
+            "Cleveland Guardians": "CLE",
+            "Colorado Rockies": "COL",
+            "Detroit Tigers": "DET",
+            "Houston Astros": "HOU",
+            "Kansas City Royals": "KC",
+            "Los Angeles Angels": "LAA",
+            "Los Angeles Dodgers": "LAD",
+            "Miami Marlins": "MIA",
+            "Milwaukee Brewers": "MIL",
+            "Minnesota Twins": "MIN",
+            "New York Mets": "NYM",
+            "New York Yankees": "NYY",
+            "Oakland Athletics": "OAK",
+            "Philadelphia Phillies": "PHI",
+            "Pittsburgh Pirates": "PIT",
+            "San Diego Padres": "SD",
+            "San Francisco Giants": "SF",
+            "Seattle Mariners": "SEA",
+            "St. Louis Cardinals": "STL",
+            "Tampa Bay Rays": "TB",
+            "Texas Rangers": "TEX",
+            "Toronto Blue Jays": "TOR",
+            "Washington Nationals": "WSH",
         }
         result = {}
         for full_name, count in counts.items():
@@ -463,12 +519,14 @@ def load_previous_sentiments() -> dict[str, str]:
             for line in text.splitlines():
                 if line.startswith("### "):
                     # Extract player name from "### [Name](url) (TEAM, POS)" or "### Name (TEAM, POS)"
-                    name_match = re.search(r'###\s+(?:\[)?([A-ZÀ-Ý][a-zà-ý]+(?:\s+[A-ZÀ-Ý][a-zà-ý]+)+)', line)
+                    name_match = re.search(
+                        r"###\s+(?:\[)?([A-ZÀ-Ý][a-zà-ý]+(?:\s+[A-ZÀ-Ý][a-zà-ý]+)+)", line
+                    )
                     if name_match:
                         current_player = name_match.group(1)
                 elif current_player and "| Sentiment |" in line:
                     # Extract sentiment value from "| Sentiment | BULLISH |"
-                    sent_match = re.search(r'\|\s*Sentiment\s*\|\s*(\w+)', line)
+                    sent_match = re.search(r"\|\s*Sentiment\s*\|\s*(\w+)", line)
                     if sent_match:
                         sentiments[current_player] = sent_match.group(1)
                         current_player = None
@@ -555,10 +613,14 @@ def format_league_context(ctx: dict) -> str:
     if lwr and lwr.get("my_points", 0) > 0:
         result = "WIN" if lwr["my_points"] > lwr["opp_points"] else "LOSS"
         lines.append(f"\n## LAST WEEK'S MATCHUP RESULT (Week {lwr['week']})")
-        lines.append(f"{lwr['my_team']}: {lwr['my_points']:.1f} pts vs {lwr['opponent']}: {lwr['opp_points']:.1f} pts — {result}")
+        lines.append(
+            f"{lwr['my_team']}: {lwr['my_points']:.1f} pts vs {lwr['opponent']}: {lwr['opp_points']:.1f} pts — {result}"
+        )
         if lwr.get("my_player_stats"):
             lines.append("\nMy Player Performance (sorted by points):")
-            sorted_players = sorted(lwr["my_player_stats"], key=lambda p: p.get("points", 0), reverse=True)
+            sorted_players = sorted(
+                lwr["my_player_stats"], key=lambda p: p.get("points", 0), reverse=True
+            )
             for p in sorted_players:
                 pts = p.get("points", 0)
                 stats = p.get("stats", {})
@@ -578,7 +640,9 @@ def format_league_context(ctx: dict) -> str:
 
     lines.append("\n## LEAGUE SCORING")
     lines.append("Batting: R=1, 1B=1, 2B=2, 3B=3, HR=4, RBI=1, SB=2, CS=-1, BB=1, HBP=1, K=-0.5")
-    lines.append("Pitching: OUT=1.5, K=0.5, SV=7, HLD=4, RW=4, QS=2, ER=-4, BB(P)=-0.75, H(P)=-0.75")
+    lines.append(
+        "Pitching: OUT=1.5, K=0.5, SV=7, HLD=4, RW=4, QS=2, ER=-4, BB(P)=-0.75, H(P)=-0.75"
+    )
 
     return "\n".join(lines)
 
@@ -629,7 +693,6 @@ Show my score vs opponent's score. Note the win or loss and margin. Identify my 
 
 ### My Roster Performance
 List every player on my roster sorted by points scored (highest first). For each, show: name, position, points, and 2-3 key stats (HR, RBI, SB for hitters; IP, K, ER for pitchers). Flag any players who significantly over- or under-performed their projection.""",
-
     "roster-intel": """## My Roster Intel
 Go through EVERY player on MY ROSTER ONLY, ordered by urgency (sell highs and bearish players at the top; neutral/not-mentioned players at the bottom). Do NOT include free agents or waiver targets — those belong in the Waiver Targets section.
 
@@ -652,7 +715,6 @@ Confidence ratings: HIGH = 3+ distinct sources mentioned this player, MEDIUM = 2
 Trend: Compare against PREVIOUS SENTIMENTS data. Format as "PREVIOUS → CURRENT ↑" or "PREVIOUS → CURRENT ↓" or "CURRENT (unchanged)" or "— (first report)" if no previous data.
 
 Do not skip any player on my roster.""",
-
     "matchup-preview": """## Matchup Preview
 IMPORTANT: Analyze the matchup against THIS WEEK'S H2H OPPONENT as identified in the league data above. Do NOT confuse the opponent with Ithilien (brother's team) — they are separate unless the data explicitly says you are facing Ithilien this week.
 Write this section like a sports preview column with narrative paragraphs, not just bullets:
@@ -663,7 +725,6 @@ Write this section like a sports preview column with narrative paragraphs, not j
 - Discuss league standings context — what's at stake, playoff implications
 - Identify the matchup's most volatile positions (where the swing is biggest)
 Write at least 3 substantial paragraphs.""",
-
     "waiver-intel": """## Waiver Targets
 Cross-reference expert-mentioned players with the free agents list. For each target write a mini-analysis:
 
@@ -673,7 +734,6 @@ Expert take: what was said, by whom, when. Write 2-3 sentences of context.
 Why it matters for my team: how they'd fit my roster.
 
 Identify at least 5 targets. Flag closers (SV=7) and setup men (HLD=4) — these are premium in this scoring system. Players mentioned by multiple sources should be prioritized.""",
-
     "trade-intel": """## Trade Signals
 Write substantive analysis for each signal — not just names and labels.
 
@@ -684,7 +744,6 @@ For each: who the player is, what experts are saying that concerns you, their cu
 For each: who owns them, why experts are higher than projections, the catalyst, and what I might offer from my roster.
 
 At least 3 players across the sell high and buy low categories with real analysis for each. Do NOT include Ithilien trade targets here — those belong in the Sibling Rivalry section.""",
-
     "projection-watch": """## Projection Watch
 Focus exclusively on MY ROSTERED PLAYERS where expert opinion diverges from Steamer/consensus projections. Projection disagreements for waiver or trade targets are covered in those sections.
 - For each disagreement: name the player, the expert projection vs consensus, the specific stat gap, and why it matters
@@ -692,7 +751,6 @@ Focus exclusively on MY ROSTERED PLAYERS where expert opinion diverges from Stea
 - Note where Steamer is significantly higher or lower than the composite for my players
 - Call out which disagreements I should act on (sell high? hold? buy more?)
 At least 3 specific, detailed disagreements for my rostered players.""",
-
     "around-the-league": """## Around the League
 A comprehensive summary of everything discussed across all expert content that doesn't fit neatly into the sections above. This is the "big picture" view:
 - Major news and storylines from the expert content
@@ -701,7 +759,6 @@ A comprehensive summary of everything discussed across all expert content that d
 - Prospect call-up timelines or roster battles mentioned
 - Any meta-analysis (e.g., how different projection systems are approaching the new season)
 Write this as an engaging narrative — this section should capture everything interesting from the expert content even if it's not directly about my team.""",
-
     "cardinals-corner": """## Cardinals Corner
 All Cardinals-relevant news and analysis from expert content:
 - Any STL players discussed (what was said, by whom, full context)
@@ -709,7 +766,6 @@ All Cardinals-relevant news and analysis from expert content:
 - Cardinals organizational news: roster moves, prospect timelines, rotation decisions
 - Spring training observations about Cardinals players
 If minimal Cardinals content, note that and mention any Cardinals-adjacent news.""",
-
     "sibling-rivalry": """## Sibling Rivalry
 All analysis about Ithilien (brother's team) goes here. Cover:
 - His current standing, record, and trajectory in the league
@@ -718,7 +774,6 @@ All analysis about Ithilien (brother's team) goes here. Cover:
 - Specific trade targets: which of his players should I try to buy low on? Which of my players might appeal to him?
 - Suggest 1-2 specific trade packages with reasoning
 Brief and factual, but with actionable intelligence.""",
-
     "injury-watch": """## Injury Watch
 List ONLY my rostered players who have injury concerns mentioned in the expert content. For each:
 
@@ -726,7 +781,6 @@ List ONLY my rostered players who have injury concerns mentioned in the expert c
 **Status:** IL / DTD / OUT X weeks / Questionable — brief description of injury
 *Source citation, date*
 **Impact:** 2-3 sentences on fantasy impact — timeline, replacement options, whether to hold or drop.""",
-
     "action-items": """## Action Items
 A clean markdown checklist summarizing every actionable recommendation from this report. Use this exact format:
 
@@ -764,7 +818,7 @@ def build_prompt(
         SECTION_INSTRUCTIONS[s] for s in sections_to_include if s in SECTION_INSTRUCTIONS
     )
 
-    instructions = f"""Write a {report_label} for {today.strftime('%B %d, %Y')}.
+    instructions = f"""Write a {report_label} for {today.strftime("%B %d, %Y")}.
 
 Use exactly these section headers (## level) in this order. Be thorough and analytical in EVERY section — write like a columnist, not a summary bot. Do NOT include [[toc-levels:2]] or any table of contents marker — that is handled separately.
 
@@ -789,7 +843,9 @@ Use exactly these section headers (## level) in this order. Be thorough and anal
             parts.append(f"- {name}: {sent}")
         parts.append("")
     else:
-        parts.append("\n---\n\nNo previous report available — use '— (first report)' for all Trend values.\n")
+        parts.append(
+            "\n---\n\nNo previous report available — use '— (first report)' for all Trend values.\n"
+        )
 
     parts.append(f"\n---\n\n# EXPERT CONTENT\n\n{content_context}")
 
@@ -823,8 +879,12 @@ def generate_intel(
     if dry_run:
         log.info("=== DRY RUN ===")
         log.info("System prompt (%d chars):\n%s", len(SYSTEM_PROMPT), SYSTEM_PROMPT[:500])
-        log.info("User message (%d chars, ~%d tokens):\n%s...",
-                 len(user_message), len(user_message) // 4, user_message[:1000])
+        log.info(
+            "User message (%d chars, ~%d tokens):\n%s...",
+            len(user_message),
+            len(user_message) // 4,
+            user_message[:1000],
+        )
         return None, 0, 0
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -850,16 +910,25 @@ def generate_intel(
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
 
-            log.info("Generated: %d words, %d input tokens, %d output tokens",
-                     len(text.split()), input_tokens, output_tokens)
+            log.info(
+                "Generated: %d words, %d input tokens, %d output tokens",
+                len(text.split()),
+                input_tokens,
+                output_tokens,
+            )
             return text, input_tokens, output_tokens
 
         except anthropic.RateLimitError:
             import time
+
             wait = 60 * (attempt + 1)
             if attempt < max_retries - 1:
-                log.warning("Rate limited. Waiting %ds before retry %d/%d...",
-                           wait, attempt + 2, max_retries)
+                log.warning(
+                    "Rate limited. Waiting %ds before retry %d/%d...",
+                    wait,
+                    attempt + 2,
+                    max_retries,
+                )
                 time.sleep(wait)
             else:
                 log.error("Rate limit exceeded after %d retries", max_retries)
@@ -887,8 +956,8 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
     for name in sorted_names:
         url = player_links[name]
         # Match name in ### header that isn't already linked
-        header_pattern = rf'(###\s+)(?<!\[)({re.escape(name)})(?!\]\()'
-        text = re.sub(header_pattern, rf'\1[{name}]({url})', text)
+        header_pattern = rf"(###\s+)(?<!\[)({re.escape(name)})(?!\]\()"
+        text = re.sub(header_pattern, rf"\1[{name}]({url})", text)
 
     # Pass 2: Link first body occurrence of each name (skip already-linked)
     linked = set()
@@ -896,10 +965,10 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
         if name in linked:
             continue
         url = player_links[name]
-        pattern = rf'(?<!\[)({re.escape(name)})(?!\]\()'
+        pattern = rf"(?<!\[)({re.escape(name)})(?!\]\()"
         match = re.search(pattern, text)
         if match:
-            text = text[:match.start()] + f"[{match.group(1)}]({url})" + text[match.end():]
+            text = text[: match.start()] + f"[{match.group(1)}]({url})" + text[match.end() :]
             linked.add(name)
 
     return text
@@ -918,20 +987,20 @@ def linkify_sources(text: str, content_items: list[dict]) -> str:
             continue
         date_str = item["date_parsed"].strftime("%b %d")  # e.g., "Mar 23"
         # Try both with and without year
-        key = f'{item["source_name"]}, {date_str}'
+        key = f"{item['source_name']}, {date_str}"
         source_lookup[key] = item["url"]
         # Also try short date like "Mar 23"
         date_short = item["date_parsed"].strftime("%b %-d")  # e.g., "Mar 3" vs "Mar 03"
         if date_short != date_str:
-            source_lookup[f'{item["source_name"]}, {date_short}'] = item["url"]
+            source_lookup[f"{item['source_name']}, {date_short}"] = item["url"]
 
     # Sort by key length descending to avoid partial matches
     for citation, url in sorted(source_lookup.items(), key=lambda x: len(x[0]), reverse=True):
         # Match *citation* that isn't already linked
-        pattern = rf'(?<!\[)\*({re.escape(citation)})\*(?!\]\()'
+        pattern = rf"(?<!\[)\*({re.escape(citation)})\*(?!\]\()"
         match = re.search(pattern, text)
         if match:
-            text = text[:match.start()] + f"[*{match.group(1)}*]({url})" + text[match.end():]
+            text = text[: match.start()] + f"[*{match.group(1)}*]({url})" + text[match.end() :]
 
     return text
 
@@ -944,7 +1013,7 @@ def split_into_sections(full_text: str) -> dict[str, str]:
     result = {}
 
     # Split on ## headers
-    parts = re.split(r'(?=^## )', full_text, flags=re.MULTILINE)
+    parts = re.split(r"(?=^## )", full_text, flags=re.MULTILINE)
 
     for part in parts:
         part = part.strip()
@@ -983,8 +1052,11 @@ def write_reports(
     written = []
 
     dates = [item["date_parsed"] for item in content_items]
-    date_range = (f"{min(dates).strftime('%Y-%m-%d')} to {max(dates).strftime('%Y-%m-%d')}"
-                  if dates else today.isoformat())
+    date_range = (
+        f"{min(dates).strftime('%Y-%m-%d')} to {max(dates).strftime('%Y-%m-%d')}"
+        if dates
+        else today.isoformat()
+    )
 
     sources_section = build_sources_section(content_items)
 
@@ -1041,7 +1113,7 @@ content_date_range: "{date_range}"
     for slug, section_text in linked_sections.items():
         section_title = SECTIONS.get(slug, slug.replace("-", " ").title())
         section_frontmatter = f"""---
-title: "{section_title} — {today.strftime('%B %d, %Y')}"
+title: "{section_title} — {today.strftime("%B %d, %Y")}"
 type: {slug}
 date: {today.isoformat()}
 parent: {today.isoformat()}_{report_slug}.md
@@ -1103,8 +1175,10 @@ def run(
         # Daily gets only new content since last report
         last_report = get_last_report_time()
         if last_report:
-            log.info("Last report: %s — loading new content since then",
-                     last_report.strftime("%Y-%m-%d %H:%M"))
+            log.info(
+                "Last report: %s — loading new content since then",
+                last_report.strftime("%Y-%m-%d %H:%M"),
+            )
             content_items = load_recent_content(since=last_report)
         else:
             log.info("No previous report — loading all available content")
@@ -1114,9 +1188,12 @@ def run(
         log.warning("No new content to analyze.")
         return
 
-    log.info("Mode: %s | %d content items | %s",
-             mode.upper(), len(content_items),
-             "Saturday full report" if mode == "weekly" else "lightweight briefing")
+    log.info(
+        "Mode: %s | %d content items | %s",
+        mode.upper(),
+        len(content_items),
+        "Saturday full report" if mode == "weekly" else "lightweight briefing",
+    )
 
     # Load league context
     league_ctx = load_league_context(DB_PATH)
@@ -1136,21 +1213,33 @@ def run(
         player_links = league_ctx.get("player_links", {}) if league_ctx else {}
 
         paths = write_reports(
-            today, text, content_items, input_tokens, output_tokens,
+            today,
+            text,
+            content_items,
+            input_tokens,
+            output_tokens,
             report_slug=report_slug,
             player_links=player_links,
         )
 
         # Cost estimate (Opus: $5/M input, $25/M output)
         cost = (input_tokens * 5 + output_tokens * 25) / 1_000_000
-        log.info("Done. Wrote %d files. Tokens: %d in / %d out (~$%.2f)",
-                 len(paths), input_tokens, output_tokens, cost)
+        log.info(
+            "Done. Wrote %d files. Tokens: %d in / %d out (~$%.2f)",
+            len(paths),
+            input_tokens,
+            output_tokens,
+            cost,
+        )
+    else:
+        log.error(
+            "No report generated — Claude API returned empty response. "
+            "Check API key, rate limits, and network connectivity."
+        )
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Generate fantasy baseball intelligence report"
-    )
+    parser = argparse.ArgumentParser(description="Generate fantasy baseball intelligence report")
     parser.add_argument(
         "--mode",
         choices=["daily", "weekly"],

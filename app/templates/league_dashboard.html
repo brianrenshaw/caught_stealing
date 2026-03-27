@@ -31,24 +31,17 @@
             <div>
                 <h3 class="text-xs font-medium text-accent-link mb-1">Batting</h3>
                 <div class="flex flex-wrap gap-x-2 md:gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
-                    <span>R=1</span><span>1B=1</span><span>2B=2</span><span>3B=3</span>
-                    <span class="text-[#2e7d32]">HR=4</span><span>RBI=1</span>
-                    <span>SB=2</span><span class="text-[#c62828]">CS=-1</span>
-                    <span>BB=1</span><span>HBP=1</span>
-                    <span class="text-[#c62828]">K=-0.5</span>
+                    {% for k, v in league_config.batting_scoring.items() %}
+                    <span{% if v >= 3 %} class="text-[#2e7d32]"{% elif v < 0 %} class="text-[#c62828]"{% endif %}>{{ k }}={{ v }}</span>
+                    {% endfor %}
                 </div>
             </div>
             <div>
                 <h3 class="text-xs font-medium text-accent-link mb-1">Pitching</h3>
                 <div class="flex flex-wrap gap-x-2 md:gap-x-3 gap-y-0.5 text-xs text-txt-secondary">
-                    <span>OUT=1.5</span><span>K=0.5</span>
-                    <span class="text-[#2e7d32]">SV=7</span>
-                    <span class="text-[#2e7d32]">HLD=4</span>
-                    <span class="text-[#2e7d32]">RW=4</span>
-                    <span>QS=2</span>
-                    <span class="text-[#c62828]">H=-0.75</span>
-                    <span class="text-[#c62828]">ER=-4</span>
-                    <span class="text-[#c62828]">BB=-0.75</span>
+                    {% for k, v in league_config.pitching_scoring.items() %}
+                    <span{% if v >= 4 %} class="text-[#2e7d32]"{% elif v < 0 %} class="text-[#c62828]"{% endif %}>{{ k }}={{ v }}</span>
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -232,10 +225,10 @@
     <!-- Reliever Watch -->
     <div class="bg-surface-card rounded-lg border border-bdr p-5">
         <div class="flex items-center gap-2 mb-3">
-            <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Reliever Watch — SV=7, HLD=4</h2>
+            <h2 class="font-display text-lg font-bold text-txt-navy text-txt-primary">Reliever Watch — SV={{ league_config.pitching_scoring.SV }}, HLD={{ league_config.pitching_scoring.HLD }}</h2>
             {{ page_info('reliever_watch') }}
         </div>
-        <p class="text-sm text-accent-link font-medium mb-1">Look for: Closers (red badge) with SV > 0 are premium — SV = 7pts. Setup men (yellow) earning HLD = 4pts are also valuable for your 4 flex P slots.</p>
+        <p class="text-sm text-accent-link font-medium mb-1">Look for: Closers (red badge) with SV > 0 are premium — SV = {{ league_config.pitching_scoring.SV }}pts. Setup men (yellow) earning HLD = {{ league_config.pitching_scoring.HLD }}pts are also valuable for your {{ league_config.roster_slots.P }} flex P slots.</p>
         <p class="text-xs text-txt-secondary mb-3">
             Elite closer clean inning + save = 12.5 pts | Setup hold = 9.5 pts | Blown save can cost -8+ pts
         </p>

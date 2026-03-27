@@ -89,7 +89,7 @@ class DataTransformer:
         Uses stat_categories to map stat_id -> human-readable stat name.
         """
         stats = []
-        season = datetime.now().year
+        season = datetime.now(timezone.utc).year
 
         for team_data in roster_data.values():
             for player in team_data.get("players", []):

@@ -22,6 +22,7 @@
                 hx-target="#trade-suggestions-result"
                 hx-swap="innerHTML"
                 hx-indicator="#suggest-spinner"
+                hx-confirm="This scans all opponents' rosters using the AI API. Continue?"
                 class="bg-accent-primary hover:bg-accent-hover text-white text-sm px-4 py-2 rounded-lg transition-colors">
             Find Trade Opportunities
         </button>
@@ -35,14 +36,14 @@
     <p class="text-sm text-txt-primary leading-relaxed">
         All trade values are calculated using your league's <span class="text-accent-link font-medium">H2H Points scoring</span>.
         Unlike generic fantasy rankings, this analysis accounts for the specific point values that make your league unique.
-        Closers are worth far more here than in most formats (<span class="text-[#2e7d32]">SV = 7 pts</span>), and
-        high-strikeout hitters carry a hidden penalty (<span class="text-[#c62828]">K = -0.5 pts</span>).
+        Closers are worth far more here than in most formats (<span class="text-[#2e7d32]">SV = {{ pit.SV }} pts</span>), and
+        high-strikeout hitters carry a hidden penalty (<span class="text-[#c62828]">K = {{ bat.K }} pts</span>).
         A player's <span class="text-txt-primary font-medium">Projected Points</span> is their estimated rest-of-season fantasy point total,
         while <span class="text-txt-primary font-medium">Surplus Value</span> shows how many points they're worth above a freely
         available replacement at the same position — the number that actually matters for trades.
     </p>
     <div class="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-txt-muted">
-        <span>Key values: <span class="text-[#2e7d32]">SV=7</span> <span class="text-[#2e7d32]">HLD=4</span> <span class="text-[#2e7d32]">RW=4</span> OUT=1.5 <span class="text-[#c62828]">ER=-4</span> <span class="text-[#c62828]">K(bat)=-0.5</span> BB=1 HR=4</span>
+        <span>Key values: <span class="text-[#2e7d32]">SV={{ pit.SV }}</span> <span class="text-[#2e7d32]">HLD={{ pit.HLD }}</span> <span class="text-[#2e7d32]">RW={{ pit.RW }}</span> OUT={{ pit.OUT }} <span class="text-[#c62828]">ER={{ pit.ER }}</span> <span class="text-[#c62828]">K(bat)={{ bat.K }}</span> BB={{ bat.BB }} HR={{ bat.HR }}</span>
     </div>
 </div>
 

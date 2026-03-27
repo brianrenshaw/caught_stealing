@@ -30,6 +30,7 @@ def _pos_sort_key(entry: dict) -> int:
     except ValueError:
         return len(POSITION_ORDER)
 
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -96,29 +97,31 @@ async def trades(request: Request):
                     roster_side = "a" if own[0] else "b"
                 else:
                     roster_side = None
-                all_values.append({
-                    "player_id": player.id,
-                    "name": player.name,
-                    "team": player.team,
-                    "position": player.position,
-                    "player_type": pp.player_type,
-                    "surplus_value": round(pp.surplus_value or 0, 1),
-                    "projected_points": round(pp.projected_ros_points or 0, 1),
-                    "actual_points": round(pp.actual_points or 0, 1),
-                    "steamer_ros_points": round(pp.steamer_ros_points or 0, 1),
-                    "positional_rank": pp.positional_rank or 0,
-                    "points_per_pa": round(pp.points_per_pa, 3) if pp.points_per_pa else None,
-                    "points_per_ip": round(pp.points_per_ip, 2) if pp.points_per_ip else None,
-                    "points_per_start": (
-                        round(pp.points_per_start, 1) if pp.points_per_start else None
-                    ),
-                    "points_per_appearance": (
-                        round(pp.points_per_appearance, 1) if pp.points_per_appearance else None
-                    ),
-                    "z_score_total": round(pp.surplus_value or 0, 1),  # compat with template
-                    "scoring_type": "points",
-                    "roster_side": roster_side,
-                })
+                all_values.append(
+                    {
+                        "player_id": player.id,
+                        "name": player.name,
+                        "team": player.team,
+                        "position": player.position,
+                        "player_type": pp.player_type,
+                        "surplus_value": round(pp.surplus_value or 0, 1),
+                        "projected_points": round(pp.projected_ros_points or 0, 1),
+                        "actual_points": round(pp.actual_points or 0, 1),
+                        "steamer_ros_points": round(pp.steamer_ros_points or 0, 1),
+                        "positional_rank": pp.positional_rank or 0,
+                        "points_per_pa": round(pp.points_per_pa, 3) if pp.points_per_pa else None,
+                        "points_per_ip": round(pp.points_per_ip, 2) if pp.points_per_ip else None,
+                        "points_per_start": (
+                            round(pp.points_per_start, 1) if pp.points_per_start else None
+                        ),
+                        "points_per_appearance": (
+                            round(pp.points_per_appearance, 1) if pp.points_per_appearance else None
+                        ),
+                        "z_score_total": round(pp.surplus_value or 0, 1),  # compat with template
+                        "scoring_type": "points",
+                        "roster_side": roster_side,
+                    }
+                )
         else:
             hitter_values, pitcher_values = await calculate_trade_values(session, season)
             if hitter_values or pitcher_values:
@@ -177,8 +180,7 @@ async def trades(request: Request):
             .order_by(Roster.team_name)
         )
         opponent_teams = [
-            {"team_id": tid, "team_name": tname}
-            for tid, tname in opp_teams_result.all()
+            {"team_id": tid, "team_name": tname} for tid, tname in opp_teams_result.all()
         ]
 
         # ------------------------------------------------------------------
@@ -202,15 +204,17 @@ async def trades(request: Request):
 
         opponent_rosters: dict[str, list[dict]] = defaultdict(list)
         for player, roster, pp in opp_rows:
-            opponent_rosters[roster.team_id].append({
-                "id": player.id,
-                "name": player.name,
-                "team": player.team,
-                "position": player.position,
-                "roster_position": roster.roster_position,
-                "projected_points": round(pp.projected_ros_points or 0, 1) if pp else 0,
-                "surplus_value": round(pp.surplus_value or 0, 1) if pp else 0,
-            })
+            opponent_rosters[roster.team_id].append(
+                {
+                    "id": player.id,
+                    "name": player.name,
+                    "team": player.team,
+                    "position": player.position,
+                    "roster_position": roster.roster_position,
+                    "projected_points": round(pp.projected_ros_points or 0, 1) if pp else 0,
+                    "surplus_value": round(pp.surplus_value or 0, 1) if pp else 0,
+                }
+            )
         # Sort each opponent roster by position order
         for tid in opponent_rosters:
             opponent_rosters[tid].sort(key=_pos_sort_key)
@@ -241,6 +245,9 @@ async def trades(request: Request):
             "opponent_teams": opponent_teams,
             "opponent_rosters": opponent_rosters,
             "roster_ownership": roster_ownership,
+            "league_config": LEAGUE_CONFIG,
+            "bat": BATTING_SCORING,
+            "pit": PITCHING_SCORING,
         },
     )
 
@@ -356,17 +363,19 @@ async def search_my_team(
         result = await session.execute(stmt)
         rows = result.all()
 
-    return JSONResponse([
-        {
-            "id": player.id,
-            "name": player.name,
-            "team": player.team,
-            "position": player.position,
-            "headshot_url": _headshot_url(player),
-            "team_name": roster.team_name,
-        }
-        for player, roster in rows
-    ])
+    return JSONResponse(
+        [
+            {
+                "id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "headshot_url": _headshot_url(player),
+                "team_name": roster.team_name,
+            }
+            for player, roster in rows
+        ]
+    )
 
 
 @router.get("/api/trades/search/opponents")
@@ -390,15 +399,17 @@ async def search_opponents(
         result = await session.execute(stmt)
         rows = result.all()
 
-    return JSONResponse([
-        {
-            "id": player.id,
-            "name": player.name,
-            "team": player.team,
-            "position": player.position,
-            "headshot_url": _headshot_url(player),
-            "team_name": roster.team_name,
-            "fantasy_team": roster.team_name,
-        }
-        for player, roster in rows
-    ])
+    return JSONResponse(
+        [
+            {
+                "id": player.id,
+                "name": player.name,
+                "team": player.team,
+                "position": player.position,
+                "headshot_url": _headshot_url(player),
+                "team_name": roster.team_name,
+                "fantasy_team": roster.team_name,
+            }
+            for player, roster in rows
+        ]
+    )

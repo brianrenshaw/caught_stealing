@@ -666,9 +666,9 @@ async def compute_performance_gaps(session: AsyncSession, player_id: int, season
 
     if scores:
         gaps["composite_score"] = round(sum(scores) / len(scores), 3)
-        if gaps["composite_score"] >= 0.020:
+        if gaps["composite_score"] >= 0.030:
             gaps["signal"] = "buy_low"
-        elif gaps["composite_score"] <= -0.020:
+        elif gaps["composite_score"] <= -0.030:
             gaps["signal"] = "sell_high"
 
     return gaps

@@ -34,15 +34,7 @@
                     <th class="text-left py-3 px-4" data-sort="name">Player</th>
                     <th class="text-left py-3 px-4" data-sort="team">Team</th>
                     <th class="text-left py-3 px-4" data-sort="position">Eligible</th>
-                    {% set batting_stats = [] %}
-                    {% for player in batters %}
-                        {% for stat_name in player.stats.keys() %}
-                            {% if stat_name not in batting_stats %}
-                                {% if batting_stats.append(stat_name) %}{% endif %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                    {% for stat_name in batting_stats[:12] %}
+                    {% for stat_name in batting_stats %}
                     <th class="text-right py-3 px-3 whitespace-nowrap">{{ stat_name }} {{ stat_info(stat_name) }}</th>
                     {% endfor %}
                 </tr>
@@ -56,7 +48,7 @@
                     <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
                     <td class="py-2 px-4 text-txt-secondary">{{ player.team }}</td>
                     <td class="py-2 px-4 text-txt-muted text-xs">{{ player.position }}</td>
-                    {% for stat_name in batting_stats[:12] %}
+                    {% for stat_name in batting_stats %}
                     <td class="py-2 px-3 text-right text-txt-primary">
                         {% if stat_name in player.stats %}
                             {% set val = player.stats[stat_name] %}
@@ -91,15 +83,7 @@
                     <th class="text-left py-3 px-4" data-sort="name">Player</th>
                     <th class="text-left py-3 px-4" data-sort="team">Team</th>
                     <th class="text-left py-3 px-4" data-sort="position">Eligible</th>
-                    {% set pitching_stats = [] %}
-                    {% for player in pitchers %}
-                        {% for stat_name in player.stats.keys() %}
-                            {% if stat_name not in pitching_stats %}
-                                {% if pitching_stats.append(stat_name) %}{% endif %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endfor %}
-                    {% for stat_name in pitching_stats[:12] %}
+                    {% for stat_name in pitching_stats %}
                     <th class="text-right py-3 px-3 whitespace-nowrap">{{ stat_name }} {{ stat_info(stat_name) }}</th>
                     {% endfor %}
                 </tr>
@@ -113,7 +97,7 @@
                     <td class="py-2 px-4 font-medium">{{ player_link(player.player_id, player.name, player.team) }}</td>
                     <td class="py-2 px-4 text-txt-secondary">{{ player.team }}</td>
                     <td class="py-2 px-4 text-txt-muted text-xs">{{ player.position }}</td>
-                    {% for stat_name in pitching_stats[:12] %}
+                    {% for stat_name in pitching_stats %}
                     <td class="py-2 px-3 text-right text-txt-primary">
                         {% if stat_name in player.stats %}
                             {% set val = player.stats[stat_name] %}

@@ -128,9 +128,9 @@ def _load_pitching(engine: sa.engine.Engine, seasons: list[int]) -> pd.DataFrame
 
 def _load_statcast(engine: sa.engine.Engine, seasons: list[int]) -> pd.DataFrame:
     """Load statcast_season rows for the requested seasons."""
-    query = sa.text(
-        "SELECT * FROM statcast_season WHERE season IN :seasons"
-    ).bindparams(sa.bindparam("seasons", expanding=True))
+    query = sa.text("SELECT * FROM statcast_season WHERE season IN :seasons").bindparams(
+        sa.bindparam("seasons", expanding=True)
+    )
     with engine.connect() as conn:
         df = pd.read_sql_query(query, conn, params={"seasons": seasons})
     logger.info("Loaded %d statcast rows for seasons %s", len(df), seasons)
@@ -236,7 +236,11 @@ def _merge_statcast_to_batting(
 
     if not id_map.empty:
         # Preferred: merge via crosswalk (fangraphs_id -> mlbam_id -> statcast)
-        xref = id_map[["fangraphs_id", "mlbam_id"]].dropna().drop_duplicates(subset=["fangraphs_id"], keep="first")
+        xref = (
+            id_map[["fangraphs_id", "mlbam_id"]]
+            .dropna()
+            .drop_duplicates(subset=["fangraphs_id"], keep="first")
+        )
         xref["fangraphs_id"] = xref["fangraphs_id"].astype(str)
         xref["mlbam_id"] = xref["mlbam_id"].astype(str)
         batting = batting.merge(xref, on="fangraphs_id", how="left")
@@ -261,12 +265,8 @@ def _merge_statcast_to_batting(
                 sc_merge = statcast[["name", "season"] + available_sc_cols].copy()
                 sc_merge["_merge_name"] = sc_merge["name"].apply(_normalize_name)
                 sc_merge = sc_merge.drop(columns=["name"])
-                sc_merge = sc_merge.drop_duplicates(
-                    subset=["_merge_name", "season"], keep="first"
-                )
-                name_merged = batting.loc[
-                    unmatched_mask, ["_merge_name", "season"]
-                ].merge(
+                sc_merge = sc_merge.drop_duplicates(subset=["_merge_name", "season"], keep="first")
+                name_merged = batting.loc[unmatched_mask, ["_merge_name", "season"]].merge(
                     sc_merge,
                     on=["_merge_name", "season"],
                     how="left",
@@ -275,28 +275,20 @@ def _merge_statcast_to_batting(
                     if col in name_merged.columns:
                         batting.loc[unmatched_mask, col] = name_merged[col].values
                 batting = batting.drop(columns=["_merge_name"], errors="ignore")
-                name_matched = (
-                    batting.loc[unmatched_mask, available_sc_cols[0]].notna().sum()
-                )
-                logger.info(
-                    "Name-based fallback matched %d additional rows", name_matched
-                )
+                name_matched = batting.loc[unmatched_mask, available_sc_cols[0]].notna().sum()
+                logger.info("Name-based fallback matched %d additional rows", name_matched)
     else:
         # Full fallback: merge by normalized player name + season (no crosswalk)
         logger.info("Player ID crosswalk unavailable; merging Statcast by name+season")
         if "name" not in statcast.columns or "name" not in batting.columns:
-            logger.warning(
-                "No 'name' column in statcast/batting data; cannot merge"
-            )
+            logger.warning("No 'name' column in statcast/batting data; cannot merge")
             return batting
 
         batting["_merge_name"] = batting["name"].apply(_normalize_name)
         sc_merge = statcast[["name", "season"] + available_sc_cols].copy()
         sc_merge["_merge_name"] = sc_merge["name"].apply(_normalize_name)
         sc_merge = sc_merge.drop(columns=["name"])
-        sc_merge = sc_merge.drop_duplicates(
-            subset=["_merge_name", "season"], keep="first"
-        )
+        sc_merge = sc_merge.drop_duplicates(subset=["_merge_name", "season"], keep="first")
         batting = batting.merge(
             sc_merge,
             on=["_merge_name", "season"],
@@ -521,8 +513,7 @@ def _compute_hitter_rmse(
                     actual_xwoba = player.get("xwoba")
                     if pd.notna(actual_xwoba):
                         checkpoint_xwoba = (
-                            prior_xwoba * (1 - progress)
-                            + float(actual_xwoba) * progress
+                            prior_xwoba * (1 - progress) + float(actual_xwoba) * progress
                         )
 
                 projected = _simulate_hitter_woba(
@@ -603,9 +594,7 @@ def _compute_pitcher_rmse(
                 checkpoint_fip: float | None = None
                 actual_fip = player.get("FIP")
                 if prior_fip is not None and pd.notna(actual_fip):
-                    checkpoint_fip = (
-                        prior_fip * (1 - progress) + float(actual_fip) * progress
-                    )
+                    checkpoint_fip = prior_fip * (1 - progress) + float(actual_fip) * progress
 
                 projected = _simulate_pitcher_era(
                     prior_era=prior_era,
@@ -657,12 +646,8 @@ class ObjectiveTracker:
         params = _enforce_max_change(params, CURRENT_PARAMS)
 
         # Compute RMSE for hitters and pitchers
-        hitter_rmse, hitter_n = _compute_hitter_rmse(
-            self.batting, self.test_seasons, params
-        )
-        pitcher_rmse, pitcher_n = _compute_pitcher_rmse(
-            self.pitching, self.test_seasons, params
-        )
+        hitter_rmse, hitter_n = _compute_hitter_rmse(self.batting, self.test_seasons, params)
+        pitcher_rmse, pitcher_n = _compute_pitcher_rmse(self.pitching, self.test_seasons, params)
 
         # Combined objective
         combined = hitter_rmse * HITTER_WEIGHT + pitcher_rmse * PITCHER_WEIGHT
@@ -687,9 +672,7 @@ class ObjectiveTracker:
             )
             # Log current best parameters
             if self.best_params:
-                param_str = ", ".join(
-                    f"{k}={v:.4f}" for k, v in self.best_params.items()
-                )
+                param_str = ", ".join(f"{k}={v:.4f}" for k, v in self.best_params.items())
                 logger.info("  Best params: %s", param_str)
 
         return combined
@@ -717,9 +700,7 @@ def run_validation_mode(
     """
     logger.info("=" * 70)
     logger.info("VALIDATION MODE — Testing against historical data")
-    logger.info(
-        "WARNING: Results are NOT for production use until April 30, 2026."
-    )
+    logger.info("WARNING: Results are NOT for production use until April 30, 2026.")
     logger.info("=" * 70)
 
     engine = _get_engine(db_path)
@@ -738,16 +719,14 @@ def run_validation_mode(
 
     # Count qualified players in test seasons
     hitter_count = len(
-        batting[
-            (batting["season"].isin(test_seasons))
-            & (batting["PA"] >= MIN_PA_FULL_SEASON)
-        ]["fangraphs_id"].unique()
+        batting[(batting["season"].isin(test_seasons)) & (batting["PA"] >= MIN_PA_FULL_SEASON)][
+            "fangraphs_id"
+        ].unique()
     )
     pitcher_count = len(
-        pitching[
-            (pitching["season"].isin(test_seasons))
-            & (pitching["IP"] >= MIN_IP_FULL_SEASON)
-        ]["fangraphs_id"].unique()
+        pitching[(pitching["season"].isin(test_seasons)) & (pitching["IP"] >= MIN_IP_FULL_SEASON)][
+            "fangraphs_id"
+        ].unique()
     )
     logger.info(
         "Qualified players in test seasons: %d hitters, %d pitchers",
@@ -758,12 +737,8 @@ def run_validation_mode(
     # Evaluate current parameters as baseline
     logger.info("Evaluating current (baseline) parameters...")
     current_hitter_rmse, _ = _compute_hitter_rmse(batting, test_seasons, CURRENT_PARAMS)
-    current_pitcher_rmse, _ = _compute_pitcher_rmse(
-        pitching, test_seasons, CURRENT_PARAMS
-    )
-    current_combined = (
-        current_hitter_rmse * HITTER_WEIGHT + current_pitcher_rmse * PITCHER_WEIGHT
-    )
+    current_pitcher_rmse, _ = _compute_pitcher_rmse(pitching, test_seasons, CURRENT_PARAMS)
+    current_combined = current_hitter_rmse * HITTER_WEIGHT + current_pitcher_rmse * PITCHER_WEIGHT
     logger.info(
         "Baseline RMSE: hitter_wOBA=%.6f, pitcher_ERA=%.4f, combined=%.6f",
         current_hitter_rmse,
@@ -810,12 +785,8 @@ def run_validation_mode(
     optimized_params = _enforce_max_change(optimized_params, CURRENT_PARAMS)
 
     # Re-evaluate optimized parameters to get clean RMSE values
-    opt_hitter_rmse, hitter_n = _compute_hitter_rmse(
-        batting, test_seasons, optimized_params
-    )
-    opt_pitcher_rmse, pitcher_n = _compute_pitcher_rmse(
-        pitching, test_seasons, optimized_params
-    )
+    opt_hitter_rmse, hitter_n = _compute_hitter_rmse(batting, test_seasons, optimized_params)
+    opt_pitcher_rmse, pitcher_n = _compute_pitcher_rmse(pitching, test_seasons, optimized_params)
     opt_combined = opt_hitter_rmse * HITTER_WEIGHT + opt_pitcher_rmse * PITCHER_WEIGHT
 
     # Compute improvement percentages
@@ -830,9 +801,7 @@ def run_validation_mode(
         current_val = CURRENT_PARAMS[name]
         opt_val = optimized_params[name]
         change_pct = (
-            round((opt_val - current_val) / current_val * 100, 2)
-            if current_val != 0
-            else 0.0
+            round((opt_val - current_val) / current_val * 100, 2) if current_val != 0 else 0.0
         )
         per_param_changes[name] = {
             "current": round(current_val, 6),
@@ -929,7 +898,7 @@ def run_production_mode(db_path: Path) -> dict:
 def _save_report(report: dict[str, Any], output_dir: Path) -> Path:
     """Save the optimization report as JSON and return the file path."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     filename = f"tuning_{timestamp}.json"
     filepath = output_dir / filename
 
@@ -985,7 +954,7 @@ def _print_summary(report: dict[str, Any]) -> None:
         )
 
     conv = report["convergence"]
-    print(f"\n  --- Convergence ---")
+    print("\n  --- Convergence ---")
     print(f"  Success: {conv['success']}")
     print(f"  Message: {conv['message']}")
     print(f"  Iterations: {conv['iterations']}")

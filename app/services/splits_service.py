@@ -45,7 +45,7 @@ async def get_splits(
 
     # Check freshness
     if existing and all(
-        (datetime.now() - s.updated_at) < STALE_THRESHOLD for s in existing
+        (datetime.now(timezone.utc) - s.updated_at) < STALE_THRESHOLD for s in existing
     ):
         return _splits_to_dict(existing)
 
@@ -95,7 +95,7 @@ async def _fetch_and_store_splits(
             for attr, val in stats.items():
                 if hasattr(existing, attr):
                     setattr(existing, attr, val)
-            existing.updated_at = datetime.now()
+            existing.updated_at = datetime.now(timezone.utc)
             splits.append(existing)
         else:
             new_split = PlayerSplits(

@@ -77,7 +77,7 @@ class DatabaseLoader:
                 existing.name = player_data["name"]
                 existing.team = player_data["team"]
                 existing.position = player_data["position"]
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
                 yahoo_to_db[yahoo_id] = existing.id
             else:
                 new_player = Player(
@@ -136,7 +136,7 @@ class DatabaseLoader:
 
             if existing:
                 existing.value = stat_data["value"]
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 new_stat = Stat(
                     player_id=stat_data["player_id"],
@@ -170,7 +170,7 @@ class DatabaseLoader:
     ) -> None:
         """Update an existing sync log entry."""
         sync_log.status = status
-        sync_log.completed_at = datetime.now()
+        sync_log.completed_at = datetime.now(timezone.utc)
         sync_log.records_processed = records_processed
         sync_log.error_message = error_message
 
@@ -237,7 +237,7 @@ class DatabaseLoader:
                 existing.k_pct = _safe_val(row.get("k_pct"))
                 existing.bb_pct = _safe_val(row.get("bb_pct"))
                 existing.war = _safe_val(row.get("war"))
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 new_stat = BattingStats(
                     player_id=player.id,
@@ -339,7 +339,7 @@ class DatabaseLoader:
                 existing.hr_fb_pct = _safe_val(row.get("hr_fb_pct"))
                 existing.lob_pct = _safe_val(row.get("lob_pct"))
                 existing.gmli = _safe_val(row.get("gmli"))
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 new_stat = PitchingStats(
                     player_id=player.id,
@@ -444,7 +444,7 @@ class DatabaseLoader:
                 existing.whiff_pct = _safe_val(row.get("whiff_pct"))
                 existing.chase_pct = _safe_val(row.get("chase_pct"))
                 existing.xera = _safe_val(row.get("xera"))
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
             else:
                 new_sc = StatcastSummary(
                     player_id=player.id,
@@ -508,7 +508,7 @@ class DatabaseLoader:
             existing = result.scalar_one_or_none()
             if existing:
                 existing.sprint_speed = _safe_val(row.get("sprint_speed"))
-                existing.updated_at = datetime.now()
+                existing.updated_at = datetime.now(timezone.utc)
                 count += 1
 
         await session.flush()

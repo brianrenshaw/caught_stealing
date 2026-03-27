@@ -85,9 +85,7 @@ ACTIVE_HITTER_SLOTS = (
     + ROSTER_SLOTS["OF"]
     + ROSTER_SLOTS["Util"]
 )  # = 9
-ACTIVE_PITCHER_SLOTS = (
-    ROSTER_SLOTS["SP"] + ROSTER_SLOTS["RP"] + ROSTER_SLOTS["P"]
-)  # = 8
+ACTIVE_PITCHER_SLOTS = ROSTER_SLOTS["SP"] + ROSTER_SLOTS["RP"] + ROSTER_SLOTS["P"]  # = 8
 
 
 # ── Strategic Scoring Insights ──
@@ -155,8 +153,8 @@ REPLACEMENT_LEVEL_SLOTS = {
     "SS": NUM_TEAMS * 1,  # 10
     "OF": NUM_TEAMS * 3,  # 30
     "Util": NUM_TEAMS * 1,  # 10 (best available any position)
-    "SP": NUM_TEAMS * 2,  # 20 (dedicated SP slots only)
-    "RP": NUM_TEAMS * 2,  # 20 (dedicated RP slots only)
+    "SP": NUM_TEAMS * 4,  # 40 (2 SP slots + ~2 of the 4 flexible P slots per team)
+    "RP": NUM_TEAMS * 4,  # 40 (2 RP slots + ~2 of the 4 flexible P slots per team)
 }
 
 

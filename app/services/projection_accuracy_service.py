@@ -10,8 +10,8 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.league_week_snapshot import LeagueWeekSnapshot
 from app.config import settings
+from app.models.league_week_snapshot import LeagueWeekSnapshot
 from app.models.weekly_matchup import WeeklyMatchupSnapshot
 from app.services.weekly_matchup_service import build_matchup_display
 
@@ -267,7 +267,8 @@ async def generate_season_accuracy_summary(
                 display = build_matchup_display(snap)
                 my_app = display["my_proj_total"]
                 opp_app = display["opp_proj_total"]
-            except Exception:
+            except Exception as e:
+                logger.warning("Failed to build matchup display for week %s: %s", snap.week, e)
                 continue
 
         y_err = abs(my_yahoo - my_actual)
