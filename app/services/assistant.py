@@ -14,6 +14,7 @@ from sqlalchemy import func, select
 
 from app.config import settings
 from app.database import async_session
+from app.league_config import BATTING_SCORING, LEAGUE_CONFIG, PITCHING_SCORING
 from app.models.conversation import Conversation, UsageLog
 from app.services.assistant_tools import TOOL_DEFINITIONS, TOOL_HANDLERS
 
