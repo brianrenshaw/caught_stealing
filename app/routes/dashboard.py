@@ -247,11 +247,23 @@ async def dashboard(request: Request, season: int | None = Query(None)):
 
         # Get last sync info
         result = await session.execute(
-            select(SyncLog).where(SyncLog.status == "success").order_by(SyncLog.id.desc()).limit(1)
+            select(SyncLog)
+            .where(SyncLog.completed_at.isnot(None))
+            .order_by(SyncLog.id.desc())
+            .limit(1)
         )
         sync_log = result.scalar_one_or_none()
         if sync_log and sync_log.completed_at:
-            last_sync = sync_log.completed_at.strftime("%b %d, %I:%M %p")
+            from datetime import timezone
+            from zoneinfo import ZoneInfo
+
+            utc_dt = sync_log.completed_at.replace(tzinfo=timezone.utc)
+            local_dt = utc_dt.astimezone(ZoneInfo("US/Eastern"))
+            time_str = local_dt.strftime("%b %d, %I:%M %p")
+            if sync_log.status == "failed":
+                last_sync = f"{time_str} (failed)"
+            else:
+                last_sync = time_str
 
         if not setup_needed:
             # Get standings from LeagueTeam table

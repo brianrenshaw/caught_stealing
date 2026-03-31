@@ -23,8 +23,8 @@ from app.league_config import REPLACEMENT_LEVEL_SLOTS
 from app.models.batting_stats import BattingStats
 from app.models.pitching_stats import PitchingStats
 from app.models.player import Player
-from app.models.roster import Roster
 from app.models.player_points import PlayerPoints
+from app.models.roster import Roster
 from app.models.statcast_summary import StatcastSummary
 from app.services.mlb_service import InjuryEntry
 from app.services.projection_service import project_hitter, project_pitcher
@@ -51,7 +51,9 @@ class WaiverRecommendation:
     xwoba_delta: float = 0.0
     trend: str = "stable"  # hot, cold, stable
     # Points league fields
-    projected_points: float = 0.0  # primary (consensus: Steamer + ZiPS + ATC + Depth Charts + THE BAT X)
+    projected_points: float = (
+        0.0  # primary (consensus: Steamer + ZiPS + ATC + Depth Charts + THE BAT X)
+    )
     app_projected_points: float = 0.0  # app projection (stats-based)
     points_per_pa: float | None = None
     points_per_ip: float | None = None
@@ -126,9 +128,23 @@ async def _get_all_players(
     )
     pitchers = pitch_result.scalars().all()
 
+    # Fallback: include players with consensus projections but insufficient
+    # actual stats (critical early in season when PA/IP thresholds aren't met)
+    pp_result = await session.execute(
+        select(Player)
+        .join(PlayerPoints)
+        .where(
+            PlayerPoints.season == season,
+            PlayerPoints.period == "full_season",
+            PlayerPoints.projected_ros_points > 0,
+        )
+        .distinct()
+    )
+    projected_players = pp_result.scalars().all()
+
     seen_ids: set[int] = set()
     all_players = []
-    for p in list(hitters) + list(pitchers):
+    for p in list(hitters) + list(pitchers) + list(projected_players):
         if p.id not in seen_ids and p.id not in rostered_ids:
             seen_ids.add(p.id)
             all_players.append(p)
@@ -141,8 +157,7 @@ async def _get_max_pts(session: AsyncSession, season: int) -> float:
 
     # projected_ros_points is now consensus-based (Steamer + ZiPS + ATC)
     max_pts_result = await session.execute(
-        select(func.max(PlayerPoints.projected_ros_points))
-        .where(
+        select(func.max(PlayerPoints.projected_ros_points)).where(
             PlayerPoints.season == season,
             PlayerPoints.period == "full_season",
         )
@@ -254,11 +269,13 @@ async def _compute_scoring_fit(
 
     if player_type == "hitter":
         bat_result = await session.execute(
-            select(BattingStats).where(
+            select(BattingStats)
+            .where(
                 BattingStats.player_id == player.id,
                 BattingStats.season == season,
                 BattingStats.period == "full_season",
-            ).limit(1)
+            )
+            .limit(1)
         )
         bat = bat_result.scalar_one_or_none()
         if bat and bat.k_pct and bat.k_pct < 0.18:
@@ -269,11 +286,13 @@ async def _compute_scoring_fit(
             reasons.append(f"High BB% ({bat.bb_pct:.1%}) — walks are free points (BB=1)")
     else:
         pitch_result = await session.execute(
-            select(PitchingStats).where(
+            select(PitchingStats)
+            .where(
                 PitchingStats.player_id == player.id,
                 PitchingStats.season == season,
                 PitchingStats.period == "full_season",
-            ).limit(1)
+            )
+            .limit(1)
         )
         pitch = pitch_result.scalar_one_or_none()
         if pitch:
@@ -309,7 +328,9 @@ async def score_free_agents(
 
     all_players = await _get_all_players(session, season)
     max_pts = await _get_max_pts(session, season)
-    logger.info(f"Waiver scoring: {len(all_players)} free agents, season={season}, max_pts={max_pts}")
+    logger.info(
+        f"Waiver scoring: {len(all_players)} free agents, season={season}, max_pts={max_pts}"
+    )
 
     # Build injury lookup
     injury_lookup: dict[int, InjuryEntry] = {}
@@ -341,8 +362,13 @@ async def score_free_agents(
                 proj = await project_pitcher(session, player, season)
                 player_type = "pitcher"
             if not proj:
-                skipped += 1
-                continue
+                # Fallback: use consensus projection from player_points when
+                # actual stats are too sparse for pace-based projections (early season)
+                if pp and pp.projected_ros_points and pp.projected_ros_points > 0:
+                    player_type = pp.player_type
+                else:
+                    skipped += 1
+                    continue
 
             # projected_ros_points is now consensus-based (Steamer + ZiPS + ATC)
             proj_pts = pp.projected_ros_points if pp else 0.0
@@ -376,7 +402,7 @@ async def score_free_agents(
                 reasons.append("Recent Statcast metrics trending up")
             if breakout:
                 reasons.append(breakout_detail)
-            if hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
+            if proj and hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
                 reasons.append(f"Buy low: xwOBA exceeds wOBA by {proj.xwoba_delta:+.3f}")
             if pos_score >= 70:
                 pos = (player.position or "UTIL").split(",")[0].strip()
@@ -397,8 +423,8 @@ async def score_free_agents(
                 + 50.0 * 0.10  # schedule neutral for ROS
             )
 
-            buy_low = getattr(proj, "buy_low_signal", False)
-            xwoba_d = getattr(proj, "xwoba_delta", 0.0)
+            buy_low = getattr(proj, "buy_low_signal", False) if proj else False
+            xwoba_d = getattr(proj, "xwoba_delta", 0.0) if proj else 0.0
 
             recommendations.append(
                 WaiverRecommendation(
@@ -425,7 +451,7 @@ async def score_free_agents(
                     breakout_detail=breakout_detail,
                     injury_status=injury_status,
                 )
-        )
+            )
         except Exception as e:
             logger.error(f"Waiver scoring failed for {player.name} (id={player.id}): {e}")
             continue
@@ -537,7 +563,8 @@ async def score_free_agents_weekly(
                 continue  # Skip IL players for weekly
 
         pp_result = await session.execute(
-            select(PlayerPoints).where(
+            select(PlayerPoints)
+            .where(
                 PlayerPoints.player_id == player.id,
                 PlayerPoints.season == season,
                 PlayerPoints.period == "full_season",
@@ -553,7 +580,11 @@ async def score_free_agents_weekly(
             proj = await project_pitcher(session, player, season)
             player_type = "pitcher"
         if not proj:
-            continue
+            # Fallback: use consensus projection when actual stats are too sparse
+            if pp and pp.projected_ros_points and pp.projected_ros_points > 0:
+                player_type = pp.player_type
+            else:
+                continue
 
         team = player.team or ""
         games_this_week = team_games.get(team, 6)
@@ -573,33 +604,31 @@ async def score_free_agents_weekly(
             # Hitter weekly points: rate * weekly PA
             ppa = pp.points_per_pa if pp else None
             if ppa and ppa > 0:
-                # Estimate PA/game from season data
-                bat_result = await session.execute(
-                    select(BattingStats).where(
-                        BattingStats.player_id == player.id,
-                        BattingStats.season == season,
-                        BattingStats.period == "full_season",
-                    ).limit(1)
-                )
-                bat = bat_result.scalar_one_or_none()
-                if bat and bat.pa and bat.g and bat.g > 0:
-                    pa_per_game = bat.pa / bat.g
-                else:
-                    pa_per_game = 3.8  # default
+                # BattingStats doesn't track games played, so use league-average PA/game
+                pa_per_game = 3.8
                 weekly_pts = ppa * pa_per_game * games_this_week
             reasons.append(f"Team plays {games_this_week} games")
         else:
             # Pitcher: check if SP or RP
             pitch_result = await session.execute(
-                select(PitchingStats).where(
+                select(PitchingStats)
+                .where(
                     PitchingStats.player_id == player.id,
                     PitchingStats.season == season,
                     PitchingStats.period == "full_season",
-                ).limit(1)
+                )
+                .limit(1)
             )
             pitch = pitch_result.scalar_one_or_none()
 
-            is_starter = pitch and (pitch.gs or 0) > (pitch.g or 1) * 0.3 if pitch else False
+            # Determine SP vs RP: use actual stats if available, else consensus rates
+            if pitch:
+                is_starter = (pitch.gs or 0) > (pitch.g or 1) * 0.3
+            elif pp and pp.points_per_start:
+                # Consensus has per-start rate → projected as starter
+                is_starter = True
+            else:
+                is_starter = False
 
             if is_starter:
                 # Starting pitcher — check number of starts
@@ -639,21 +668,26 @@ async def score_free_agents_weekly(
                         reliever_role = None
 
                 ppa_rp = pp.points_per_appearance if pp else None
-                if ppa_rp and pitch:
-                    g = pitch.g or 1
-                    apps_per_game = min(g / 162, 0.8)
+                if ppa_rp:
+                    if pitch:
+                        g = pitch.g or 1
+                        apps_per_game = min(g / 162, 0.8)
+                    else:
+                        apps_per_game = 0.45  # ~73 appearances / 162 games
                     weekly_apps = apps_per_game * games_this_week
                     weekly_pts = ppa_rp * weekly_apps
 
-                    # Save/hold opportunities
-                    sv = pitch.sv or 0
-                    hld = pitch.hld or 0
-                    if sv > 0:
-                        sv_per_game = sv / max(g, 1)
-                        save_opps = sv_per_game * games_this_week * 1.5
-                    if hld > 0:
-                        hld_per_game = hld / max(g, 1)
-                        hold_opps = hld_per_game * games_this_week * 1.5
+                    # Save/hold opportunities (only from actual stats)
+                    if pitch:
+                        sv = pitch.sv or 0
+                        hld = pitch.hld or 0
+                        g = pitch.g or 1
+                        if sv > 0:
+                            sv_per_game = sv / max(g, 1)
+                            save_opps = sv_per_game * games_this_week * 1.5
+                        if hld > 0:
+                            hld_per_game = hld / max(g, 1)
+                            hold_opps = hld_per_game * games_this_week * 1.5
 
                 # Closer vacancy detection
                 if team in teams_with_closer_vacancy and reliever_role == "setup":
@@ -729,7 +763,7 @@ async def score_free_agents_weekly(
         # --- Additional reasoning ---
         if trend == "hot":
             reasons.append("Recent Statcast metrics trending up")
-        if hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
+        if proj and hasattr(proj, "buy_low_signal") and proj.buy_low_signal:
             reasons.append(f"Buy low: xwOBA exceeds wOBA by {proj.xwoba_delta:+.3f}")
         if pos_score >= 70:
             pos = (player.position or "UTIL").split(",")[0].strip()
@@ -747,8 +781,8 @@ async def score_free_agents_weekly(
             + schedule_score * 0.10
         )
 
-        buy_low = getattr(proj, "buy_low_signal", False)
-        xwoba_d = getattr(proj, "xwoba_delta", 0.0)
+        buy_low = getattr(proj, "buy_low_signal", False) if proj else False
+        xwoba_d = getattr(proj, "xwoba_delta", 0.0) if proj else 0.0
 
         recommendations.append(
             WaiverRecommendation(
@@ -925,8 +959,8 @@ async def analyze_roster_waivers(
                             f"  {rec.name} — vs LHP: {lhp_ops:.3f} OPS, "
                             f"vs RHP: {rhp_ops:.3f} OPS (favors {better_side})"
                         )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch splits for {rec.name}: {e}")
 
     # Build injury context
     injury_lines: list[str] = []

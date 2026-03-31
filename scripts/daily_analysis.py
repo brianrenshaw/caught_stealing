@@ -9,7 +9,7 @@ Usage:
     uv run python -m scripts.daily_analysis              # generate daily intel
     uv run python -m scripts.daily_analysis --dry-run    # print prompt, no API call
     uv run python -m scripts.daily_analysis --force      # regenerate even if today's exists
-    uv run python -m scripts.daily_analysis --days 5     # content window
+    uv run python -m scripts.daily_analysis --days 10    # override content window (default: 7 for weekly)
 
 Environment:
     ANTHROPIC_API_KEY must be set in .env for Claude API calls.
@@ -22,7 +22,7 @@ import logging
 import os
 import re
 import sqlite3
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import anthropic
@@ -77,6 +77,11 @@ WEEKLY_SECTIONS = [
     "action-items",
 ]
 WEEKLY_DAY = 5  # Saturday
+WEEKLY_CONTENT_DAYS = 7  # How many days of content to include in weekly reports
+# Token budget for content. The model needs headroom for system prompt (~2k),
+# league data (~50k tokens), and output (16k tokens). With 1M context, target
+# ~600k tokens for content (~2.4M chars at ~4 chars/token) to leave comfortable room.
+MAX_CONTENT_CHARS = 2_400_000
 
 logging.basicConfig(
     level=logging.INFO,
@@ -224,16 +229,50 @@ def build_sources_section(items: list[dict]) -> str:
 
 
 def build_content_context(items: list[dict]) -> str:
-    """Build the content context string for the Claude prompt."""
+    """Build the content context string for the Claude prompt.
+
+    If the combined content exceeds MAX_CONTENT_CHARS, truncates the longest
+    transcripts first (keeping the beginning of each) until the total fits.
+    Blog articles are never truncated — they're short and information-dense.
+    """
     sections = []
     for item in items:
         type_label = "Podcast Transcript" if item["type"] == "transcript" else "Blog Article"
         header = f'### [{type_label}] "{item["title"]}" — {item["source_name"]} ({item["date_parsed"].strftime("%b %d, %Y")})'
         if item.get("author"):
             header += f" by {item['author']}"
-        sections.append(f"{header}\n\n{item['content']}")
+        sections.append({"header": header, "content": item["content"], "type": item["type"]})
 
-    return "\n\n---\n\n".join(sections)
+    # Check total size and truncate transcripts if needed
+    separator = "\n\n---\n\n"
+    total_chars = sum(len(s["header"]) + len(s["content"]) for s in sections)
+    total_chars += len(separator) * max(len(sections) - 1, 0)
+
+    if total_chars > MAX_CONTENT_CHARS:
+        log.warning(
+            "Content too large (%d chars, ~%dk tokens). Truncating transcripts to fit.",
+            total_chars,
+            total_chars // 4000,
+        )
+        # Sort transcripts by length (longest first) for truncation
+        transcripts = [s for s in sections if s["type"] == "transcript"]
+        transcripts.sort(key=lambda s: len(s["content"]), reverse=True)
+
+        excess = total_chars - MAX_CONTENT_CHARS
+        for t in transcripts:
+            if excess <= 0:
+                break
+            max_len = max(len(t["content"]) - excess, len(t["content"]) // 3)
+            cut = len(t["content"]) - max_len
+            t["content"] = t["content"][:max_len] + "\n\n[... transcript truncated for length ...]"
+            excess -= cut
+            log.info("  Truncated: %s (kept %d chars)", t["header"][:60], max_len)
+
+    parts = []
+    for s in sections:
+        parts.append(f"{s['header']}\n\n{s['content']}")
+
+    return separator.join(parts)
 
 
 # ---------------------------------------------------------------------------
@@ -430,8 +469,6 @@ def load_league_context(db_path: Path) -> dict | None:
 def get_weekly_game_counts() -> dict[str, int]:
     """Get number of games per MLB team for the current week using MLB Stats API."""
     try:
-        from datetime import timedelta
-
         import statsapi
 
         today = date.today()
@@ -1138,17 +1175,18 @@ def run(
     mode: str | None = None,
     dry_run: bool = False,
     force: bool = False,
+    days: int | None = None,
 ) -> None:
     """Generate the intel report.
 
     Schedule (auto when mode is None):
-      - Saturday: full weekly report (all 10 sections, all week's content)
+      - Saturday: full weekly report (all 10 sections, past 7 days of content)
       - Other days: lightweight daily briefing (3 sections, new content only)
 
     Content window:
-      - First run or --force: all available content
-      - Subsequent daily runs: only content since last report
-      - Weekly runs: always use all available content (full week review)
+      - Weekly runs: past WEEKLY_CONTENT_DAYS (default 7) of content
+      - Daily runs: only content since last report
+      - --days N: override the content window to N days
     """
     today = date.today()
     is_weekly_day = today.weekday() == WEEKLY_DAY
@@ -1167,10 +1205,20 @@ def run(
         return
 
     # Determine content window
-    if mode == "weekly" or force:
-        # Weekly gets everything; --force also gets everything
-        log.info("Loading all available content for %s report", mode)
-        content_items = load_recent_content(since=None)
+    if days is not None:
+        # Explicit --days override
+        since = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(
+            days=days
+        )
+        log.info("Loading content since %s (--days %d)", since.strftime("%Y-%m-%d"), days)
+        content_items = load_recent_content(since=since)
+    elif mode == "weekly" or force:
+        # Weekly gets past N days of content (not all-time — avoids blowing context limit)
+        since = datetime(today.year, today.month, today.day, tzinfo=timezone.utc) - timedelta(
+            days=WEEKLY_CONTENT_DAYS
+        )
+        log.info("Loading content since %s for %s report", since.strftime("%Y-%m-%d"), mode)
+        content_items = load_recent_content(since=since)
     else:
         # Daily gets only new content since last report
         last_report = get_last_report_time()
@@ -1254,7 +1302,13 @@ def main() -> None:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Regenerate with all available content (ignores last report timestamp)",
+        help="Regenerate even if today's report already exists",
+    )
+    parser.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="Content window in days (default: 7 for weekly, since-last-report for daily)",
     )
     args = parser.parse_args()
 
@@ -1262,6 +1316,7 @@ def main() -> None:
         mode=args.mode,
         dry_run=args.dry_run,
         force=args.force,
+        days=args.days,
     )
 
 

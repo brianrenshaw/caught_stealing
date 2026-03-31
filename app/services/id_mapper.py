@@ -164,7 +164,11 @@ class PlayerIDMapper:
                 # Only create if we have at least an mlbam_id (active MLB player)
                 # and none of the unique IDs are already taken
                 if mlbam_id and (team and team != "FA"):
-                    if (bbref_id and bbref_id in seen_bbref) or (fg_id and fg_id in seen_fangraphs):
+                    if bbref_id and (bbref_id in seen_bbref or bbref_id in existing_by_bbref):
+                        continue
+                    if fg_id and fg_id in seen_fangraphs:
+                        continue
+                    if mlbam_id in seen_mlbam or mlbam_id in existing_by_mlbam:
                         continue
                     new_player = Player(
                         name=name,
