@@ -1,7 +1,7 @@
 """Normalize extracted data into shapes matching SQLAlchemy models."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.config import settings
 
