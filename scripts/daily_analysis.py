@@ -81,7 +81,7 @@ WEEKLY_CONTENT_DAYS = 7  # How many days of content to include in weekly reports
 # Token budget for content. The model needs headroom for system prompt (~2k),
 # league data (~50k tokens), and output (16k tokens). With 1M context, target
 # ~600k tokens for content (~2.4M chars at ~4 chars/token) to leave comfortable room.
-MAX_CONTENT_CHARS = 2_400_000
+MAX_CONTENT_CHARS = 800_000  # ~200k tokens; keeps total input well under 500k for reliable output
 
 logging.basicConfig(
     level=logging.INFO,
@@ -243,30 +243,60 @@ def build_content_context(items: list[dict]) -> str:
             header += f" by {item['author']}"
         sections.append({"header": header, "content": item["content"], "type": item["type"]})
 
-    # Check total size and truncate transcripts if needed
+    # Check total size and truncate/drop sources to fit budget
     separator = "\n\n---\n\n"
-    total_chars = sum(len(s["header"]) + len(s["content"]) for s in sections)
-    total_chars += len(separator) * max(len(sections) - 1, 0)
+
+    def _total(secs: list[dict]) -> int:
+        return sum(len(s["header"]) + len(s["content"]) for s in secs) + len(separator) * max(
+            len(secs) - 1, 0
+        )
+
+    total_chars = _total(sections)
 
     if total_chars > MAX_CONTENT_CHARS:
         log.warning(
-            "Content too large (%d chars, ~%dk tokens). Truncating transcripts to fit.",
+            "Content too large (%d chars, ~%dk tokens). Trimming to fit %dk budget.",
             total_chars,
             total_chars // 4000,
+            MAX_CONTENT_CHARS // 4000,
         )
-        # Sort transcripts by length (longest first) for truncation
+
+        # Phase 1: Truncate transcripts (longest first, keep at least 1/3)
         transcripts = [s for s in sections if s["type"] == "transcript"]
         transcripts.sort(key=lambda s: len(s["content"]), reverse=True)
-
-        excess = total_chars - MAX_CONTENT_CHARS
         for t in transcripts:
-            if excess <= 0:
+            if _total(sections) <= MAX_CONTENT_CHARS:
                 break
-            max_len = max(len(t["content"]) - excess, len(t["content"]) // 3)
-            cut = len(t["content"]) - max_len
-            t["content"] = t["content"][:max_len] + "\n\n[... transcript truncated for length ...]"
-            excess -= cut
-            log.info("  Truncated: %s (kept %d chars)", t["header"][:60], max_len)
+            min_len = max(len(t["content"]) // 3, 500)
+            if len(t["content"]) > min_len:
+                t["content"] = t["content"][:min_len] + "\n\n[... truncated ...]"
+                log.info("  Truncated transcript: %s (kept %d chars)", t["header"][:60], min_len)
+
+        # Phase 2: Truncate long blog articles (>5000 chars) to 3000 chars
+        if _total(sections) > MAX_CONTENT_CHARS:
+            blogs = [s for s in sections if s["type"] == "blog" and len(s["content"]) > 5000]
+            blogs.sort(key=lambda s: len(s["content"]), reverse=True)
+            for b in blogs:
+                if _total(sections) <= MAX_CONTENT_CHARS:
+                    break
+                b["content"] = b["content"][:3000] + "\n\n[... article truncated ...]"
+                log.info("  Truncated blog: %s (kept 3000 chars)", b["header"][:60])
+
+        # Phase 3: Drop shortest RotoWire news blurbs first, then other short blogs
+        if _total(sections) > MAX_CONTENT_CHARS:
+            # Sort blogs by content length (shortest = least info = drop first)
+            droppable = sorted(
+                [s for s in sections if s["type"] == "blog"],
+                key=lambda s: len(s["content"]),
+            )
+            dropped = 0
+            for d in droppable:
+                if _total(sections) <= MAX_CONTENT_CHARS:
+                    break
+                sections.remove(d)
+                dropped += 1
+            if dropped:
+                log.info("  Dropped %d low-content blog articles to fit budget", dropped)
 
     parts = []
     for s in sections:
@@ -948,11 +978,49 @@ def generate_intel(
             output_tokens = response.usage.output_tokens
 
             log.info(
-                "Generated: %d words, %d input tokens, %d output tokens",
+                "Generated: %d words, %d input tokens, %d output tokens (stop: %s)",
                 len(text.split()),
                 input_tokens,
                 output_tokens,
+                response.stop_reason,
             )
+
+            # Guard against near-empty responses (model overwhelmed by context)
+            min_tokens = 2000 if mode == "weekly" else 1000
+            if output_tokens < min_tokens and attempt < max_retries - 1:
+                import time
+
+                log.warning(
+                    "Output too short (%d tokens, min %d). Retrying with prefill...",
+                    output_tokens,
+                    min_tokens,
+                )
+                time.sleep(10)
+                # Retry with reinforced instructions
+                nudge = (
+                    "IMPORTANT: Your previous attempt produced an incomplete report. "
+                    "You MUST write ALL sections in full. Do NOT skip any content. "
+                    "Begin writing the report NOW.\n\n"
+                )
+                retry_resp = client.messages.create(
+                    model=MODEL,
+                    max_tokens=16000 if mode == "weekly" else 8000,
+                    system=SYSTEM_PROMPT,
+                    messages=[
+                        {"role": "user", "content": nudge + user_message},
+                    ],
+                )
+                retry_text = retry_resp.content[0].text
+                retry_out = retry_resp.usage.output_tokens
+                log.info("Retry produced %d output tokens", retry_out)
+                if retry_out > output_tokens:
+                    return (
+                        retry_text,
+                        retry_resp.usage.input_tokens,
+                        retry_out,
+                    )
+                # If retry is also short, fall through with original
+
             return text, input_tokens, output_tokens
 
         except anthropic.RateLimitError:

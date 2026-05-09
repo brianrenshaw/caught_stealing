@@ -42,6 +42,13 @@ uv run python -m scripts.podcast_transcriber --days 2 --max-episodes 5 || {
     echo "WARNING: Podcast downloader failed"
 }
 
+# Step 3.5: Refresh Yahoo league data (standings, rosters) before analysis
+echo ""
+echo "--- Yahoo League Sync ---"
+uv run python -m app.etl.pipeline || {
+    echo "WARNING: Yahoo league sync failed — analysis may use stale data"
+}
+
 # Step 4: Generate daily analysis reports from ingested content
 echo ""
 echo "--- Daily Analysis ---"
