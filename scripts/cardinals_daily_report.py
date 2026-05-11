@@ -1039,7 +1039,7 @@ def _format_blot_title(today: date, postgame: dict | None) -> str:
         wl = "L"
     else:
         wl = "T"
-    return f"{connector} {opp_short} {stl_r}-{opp_r} ({wl}). {date_short}"
+    return f"{connector} {opp_short} {stl_r}-{opp_r} ({wl}) — {date_short}"
 
 
 def _extract_summary(postgame: dict | None) -> str:
