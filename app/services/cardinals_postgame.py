@@ -17,6 +17,7 @@ import time
 from datetime import date, timedelta
 from typing import Any
 
+import httpx
 import pandas as pd
 import pybaseball
 import statsapi
@@ -179,6 +180,225 @@ def _pitcher_name(row: pd.Series, pid_to_name: dict[int, str]) -> str | None:
         except (TypeError, ValueError):
             pass
     return _safe(row, "player_name")
+
+
+SAVANT_GAMEFEED_URL = "https://baseballsavant.mlb.com/gf?game_pk={pk}"
+
+
+def _fetch_savant_gamefeed(game_pk: int) -> dict | None:
+    """Pull the Baseball Savant per-game JSON gamefeed.
+
+    Returns the parsed dict, or None on failure. Much faster + more reliable than
+    pybaseball.statcast_single_game for fresh games — the CSV-search endpoint
+    pybaseball uses lags hours behind the gamefeed JSON endpoint, especially
+    for Sunday games or late West Coast slots.
+    """
+    url = SAVANT_GAMEFEED_URL.format(pk=game_pk)
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            resp = httpx.get(url, timeout=30, follow_redirects=True)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            log.warning(
+                "Savant gamefeed attempt %d/%d failed: %s",
+                attempt, MAX_RETRIES, e,
+            )
+            if attempt == MAX_RETRIES:
+                return None
+            time.sleep(RETRY_DELAY_S)
+    return None
+
+
+def _gf_safe(d: dict, key: str) -> Any:
+    val = d.get(key)
+    if val is None or val == "":
+        return None
+    return val
+
+
+def _gf_float(d: dict, key: str, ndigits: int | None = None) -> float | None:
+    """Coerce a gamefeed value to float, optionally rounded."""
+    v = d.get(key)
+    if v is None or v == "":
+        return None
+    try:
+        f = float(v)
+        return round(f, ndigits) if ndigits is not None else f
+    except (TypeError, ValueError):
+        return None
+
+
+def _xba_to_float(v: str | float | None) -> float | None:
+    """Savant returns xBA as a string like '.410' or '1.000'. Coerce to float."""
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        return float(v)
+    except ValueError:
+        return None
+
+
+def _is_barrel(launch_speed: float | None, launch_angle: float | None) -> bool:
+    """Statcast-style barrel approximation when the gamefeed doesn't ship the
+    explicit `launch_speed_angle == 6` classifier. Uses the standard
+    "EV ≥ 98 mph with launch angle between 26° and 30° at the floor, expanding
+    with higher EV" rule. Close enough for highlight purposes.
+    """
+    if launch_speed is None or launch_angle is None:
+        return False
+    if launch_speed < 98:
+        return False
+    # Permissive expansion: at EV=98 angle 26-30; at EV=99 angle 25-31; etc.
+    expand = max(0, int(launch_speed - 98))
+    return (26 - expand) <= launch_angle <= (30 + expand)
+
+
+def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
+    """Build the same `statcast_highlights` payload from Savant's gamefeed JSON.
+
+    Same shape as `_statcast_highlights` so the prompt template doesn't change.
+    Uses xBA in place of xwOBA (gamefeed doesn't expose xwOBA on every event).
+    """
+    if not gf:
+        return {}
+
+    # All pitch-level events live in team_home + team_away lists.
+    # team_batting/team_fielding tell us who's on offense vs defense.
+    pitches: list[dict] = []
+    pitches.extend(gf.get("team_home") or [])
+    pitches.extend(gf.get("team_away") or [])
+
+    stl_hitting = [p for p in pitches if p.get("team_batting") == STL_TEAM_ABBR]
+    stl_pitching = [p for p in pitches if p.get("team_fielding") == STL_TEAM_ABBR]
+
+    # In-play events with launch metrics. EV list is the authoritative ball-in-play set.
+    ev_events = gf.get("exit_velocity") or []
+    stl_in_play = [e for e in ev_events if e.get("team_batting") == STL_TEAM_ABBR]
+    sd_in_play = [e for e in ev_events if e.get("team_fielding") == STL_TEAM_ABBR]
+
+    h: dict[str, list] = {}
+
+    # ---- Hitter highlights (STL hitting in-play) ----
+    if stl_in_play:
+        hardest = sorted(
+            (x for x in stl_in_play if _gf_float(x, "launch_speed") is not None),
+            key=lambda x: _gf_float(x, "launch_speed") or 0,
+            reverse=True,
+        )[:3]
+        h["hardest_hit"] = [
+            {
+                "batter": _gf_safe(x, "batter_name"),
+                "ev_mph": _gf_float(x, "launch_speed", 1),
+                "la_deg": _gf_float(x, "launch_angle", 1),
+                "xba": _xba_to_float(x.get("xba")),
+                "outcome": _gf_safe(x, "events") or _gf_safe(x, "result"),
+            }
+            for x in hardest
+        ]
+
+        # Best xBA on contact (proxy for xwOBA — gamefeed doesn't expose xwOBA)
+        with_xba = [(x, _xba_to_float(x.get("xba"))) for x in stl_in_play]
+        with_xba = [(x, v) for x, v in with_xba if v is not None]
+        best_xba = sorted(with_xba, key=lambda t: t[1], reverse=True)[:3]
+        if best_xba:
+            h["best_xba"] = [
+                {
+                    "batter": _gf_safe(x, "batter_name"),
+                    "xba": v,
+                    "ev_mph": _gf_float(x, "launch_speed", 1),
+                    "outcome": _gf_safe(x, "events") or _gf_safe(x, "result"),
+                }
+                for x, v in best_xba
+            ]
+
+        # Barrels (approximated via EV + LA since gamefeed lacks the explicit classifier)
+        barrels = [
+            x for x in stl_in_play
+            if _is_barrel(_gf_float(x, "launch_speed"), _gf_float(x, "launch_angle"))
+        ]
+        if barrels:
+            h["barrels"] = [
+                {
+                    "batter": _gf_safe(x, "batter_name"),
+                    "ev_mph": _gf_float(x, "launch_speed", 1),
+                    "la_deg": _gf_float(x, "launch_angle", 1),
+                    "outcome": _gf_safe(x, "events") or _gf_safe(x, "result"),
+                }
+                for x in barrels
+            ]
+
+    # ---- Pitcher highlights (STL pitching events) ----
+    if stl_pitching:
+        # Top velocity (any pitch, ranked by start_speed)
+        with_velo = [(p, _gf_float(p, "start_speed")) for p in stl_pitching]
+        with_velo = [(p, v) for p, v in with_velo if v is not None]
+        top = sorted(with_velo, key=lambda t: t[1], reverse=True)[:3]
+        if top:
+            h["top_pitches"] = [
+                {
+                    "pitcher": _gf_safe(p, "pitcher_name"),
+                    "velo_mph": v,
+                    "pitch_type": _gf_safe(p, "pitch_name"),
+                    "outcome": _gf_safe(p, "description") or _gf_safe(p, "events"),
+                }
+                for p, v in top
+            ]
+
+        # Top whiffs (swinging strikes), top 3 by velocity
+        whiffs = [
+            p for p in stl_pitching
+            if p.get("pitch_call") == "swinging_strike" or p.get("is_strike_swinging")
+        ]
+        if whiffs:
+            top_whiffs = sorted(
+                whiffs, key=lambda p: _gf_float(p, "start_speed") or 0, reverse=True
+            )[:3]
+            h["top_whiffs"] = [
+                {
+                    "pitcher": _gf_safe(p, "pitcher_name"),
+                    "velo_mph": _gf_float(p, "start_speed", 1),
+                    "pitch_type": _gf_safe(p, "pitch_name"),
+                    "spin_rpm": _gf_float(p, "spin_rate", 0),
+                }
+                for p in top_whiffs
+            ]
+
+        # Best putaway pitches (K-ending)
+        ks = [p for p in stl_pitching if p.get("events") == "Strikeout"]
+        if ks:
+            top_ks = sorted(
+                ks, key=lambda p: _gf_float(p, "start_speed") or 0, reverse=True
+            )[:3]
+            h["best_putaways"] = [
+                {
+                    "pitcher": _gf_safe(p, "pitcher_name"),
+                    "pitch_type": _gf_safe(p, "pitch_name"),
+                    "velo_mph": _gf_float(p, "start_speed", 1),
+                    "result": _gf_safe(p, "pitch_call") or _gf_safe(p, "description"),
+                }
+                for p in top_ks
+            ]
+
+        # Lowest xBA allowed on contact (best contact-suppression)
+        with_xba_allowed = [(x, _xba_to_float(x.get("xba"))) for x in sd_in_play]
+        with_xba_allowed = [(x, v) for x, v in with_xba_allowed if v is not None]
+        if with_xba_allowed:
+            suppressed = sorted(with_xba_allowed, key=lambda t: t[1])[:3]
+            h["lowest_xba_allowed"] = [
+                {
+                    "pitcher": _gf_safe(x, "pitcher_name"),
+                    "pitch_type": _gf_safe(x, "pitch_name"),
+                    "velo_mph": _gf_float(x, "start_speed", 1),
+                    "xba": v,
+                    "outcome": _gf_safe(x, "events") or _gf_safe(x, "result"),
+                }
+                for x, v in suppressed
+            ]
+
+    return h
 
 
 def _statcast_highlights(
@@ -457,10 +677,27 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
     # statcast_single_game returns BOTH halves (STL hitting + STL pitching) with
     # correct player_name per pitch. pybaseball.statcast(team='STL') only returns
     # the half where STL is pitching, which silently drops every hitter highlight.
-    df = _retry(pybaseball.statcast_single_game, game["game_id"])
-    if df is not None and not df.empty:
-        payload["statcast_highlights"] = _statcast_highlights(df, pid_to_name)
-    else:
+    # Primary source: Savant's per-game JSON gamefeed. Populated within minutes
+    # of game end — much faster than the CSV-search endpoint pybaseball uses.
+    gf = _fetch_savant_gamefeed(game_pk)
+    if gf:
+        highlights = _highlights_from_gamefeed(gf)
+        if highlights:
+            payload["statcast_highlights"] = highlights
+            log.info("Statcast highlights from Savant gamefeed: %s",
+                     ", ".join(f"{k}={len(v)}" for k, v in highlights.items()))
+
+    # Fallback: pybaseball single-game CSV (sometimes has data the gamefeed misses,
+    # or vice versa). Only try this if the gamefeed produced no usable highlights.
+    if not payload["statcast_highlights"]:
+        try:
+            df = _retry(pybaseball.statcast_single_game, game_pk)
+            if df is not None and not df.empty:
+                payload["statcast_highlights"] = _statcast_highlights(df, pid_to_name)
+        except Exception as e:
+            log.warning("pybaseball fallback failed: %s", e)
+
+    if not payload["statcast_highlights"]:
         log.info("Statcast data not yet available for %s; returning boxscore only", target_date.isoformat())
 
     return payload

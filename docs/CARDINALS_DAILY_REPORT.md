@@ -139,7 +139,11 @@ Headlines from the last 72 hours, deduplicated, capped at 40 candidates. The pro
 
 Returns `None` on off-days (no Cardinals game on the target date) — the report falls back to "no game" framing.
 
-**Pitcher-name resolution**: `pybaseball.statcast_single_game(game_pk)` returns `player_name` as the **batter** on every row. To get the actual pitcher name (e.g., "Dustin May"), the service builds an MLBAM-id → fullName lookup from the boxscore and resolves names via the `pitcher` column. See `_build_pid_to_name()` and `_pitcher_name()` for the implementation.
+**Primary source: Savant gamefeed JSON.** `_fetch_savant_gamefeed(game_pk)` pulls `https://baseballsavant.mlb.com/gf?game_pk={pk}`, which Savant populates within minutes of game end. `_highlights_from_gamefeed()` builds the same payload shape from the JSON's `team_home` / `team_away` / `exit_velocity` lists. Each event ships `pitcher_name` and `batter_name` directly — no MLBAM-id lookup needed. Statcast metric: **xBA** (gamefeed doesn't expose xwOBA on every event). Barrels are computed via an EV+launch-angle approximation (`launch_speed ≥ 98` with the standard barrel-zone angle band).
+
+**Fallback: pybaseball.statcast_single_game**. Only invoked if the gamefeed yields no usable highlights. Earlier the primary source — kept for resilience but rarely runs now. Note: under pybaseball, `player_name` is the **batter** on every row, so pitcher highlights have to look up names via the `pitcher` MLBAM id column against the boxscore's `_build_pid_to_name()` map.
+
+**Why the switch:** pybaseball queries the `statcast_search/csv` endpoint, which lags hours behind the gamefeed JSON for fresh games (especially Sunday games or late West Coast slots). On 5/11, the gamefeed had full Statcast for the 5/10 STL game by 3 AM while the CSV endpoint was still empty — the report shipped with "Statcast highlight detail unavailable" until we swapped to gamefeed.
 
 ---
 
@@ -269,7 +273,7 @@ This re-runs Opus via `claude -p`, overwrites the local MD, re-publishes to Blot
 | Tags render as empty chips on Blot homepage | Blot's tag iteration variable changed; the template falls through to parent context | Tags are now omitted in entries.html — confirm latest template files are pasted |
 | "Mlb" or "Jj" appears in H2/H3 headings on Blot | Blot's server-side small-caps wrapping mangles all-caps words inside headings | Confirm publisher applies `_defeat_blot_heading_titlecase` (ZWSP between adjacent caps); check Blot file with `hexdump` to see `4A E2 80 8B 4A` for `JJ` |
 | Cardinals section says "off day" but there was a game | Statsapi.schedule call failed or game data not yet posted | Check `data/content/logs/ingest_*.log` for postgame fetcher errors |
-| Statcast highlights all show "(field_out)" with no EV | Baseball Savant data lags game end by hours; for a late West Coast night game, the 3 AM job may run before Savant is updated | Re-run `cardinals_daily_report --force` later in the morning |
+| Statcast highlights all show "(field_out)" with no EV, or section says "unavailable" | Savant gamefeed JSON also empty (rare — usually populated within an hour of game end). Pybaseball CSV fallback may still be empty too. | Re-run `cardinals_daily_report --force` after the gamefeed populates. As of 2026-05-11 the primary source is the Savant gamefeed JSON (`/gf?game_pk=`), so this is far less common than under the old pybaseball-only setup. |
 | `claude -p` times out at 3 AM but succeeds when re-run | Cold start on scheduled wake; not a code problem | Already handled — timeout is 1800s with one retry on `TimeoutExpired` |
 | Headlines in Interesting Analysis section are mostly fantasy | Filter not strict enough in this run | Tighten the EXCLUDE rules in the section instruction; or regen — the model's filtering varies run to run |
 

@@ -414,21 +414,21 @@ If the game went extras, add columns 10, 11, etc. If `line_score` is null, omit 
 | ... |
 ```
 
-**(d) Statcast highlights.** Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase.
+**(d) Statcast highlights.** Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase. The expected-value metric is xBA (expected batting average) when present; some legacy data may still use xwOBA — render whichever field actually appears in the data block.
 
 ```
 ### Statcast Highlights
 
 **Hitters**
-- **Hardest hit:** Player Name — {ev} mph EV, {xwoba} xwOBA, {outcome}
-- **Best xwOBA on contact:** Player Name — {xwoba} ({ev} mph, {outcome})
+- **Hardest hit:** Player Name — {ev} mph EV, {xba} xBA, {outcome}
+- **Best xBA on contact:** Player Name — {xba} ({ev} mph, {outcome})
 - **Barrels:** Player Name — {ev} mph, {la}° LA ({outcome})
 
 **Pitchers**
 - **Top velocity:** Pitcher Name — {velo} mph {pitch_type} ({outcome})
 - **Top whiffs (swinging strikes):** Pitcher Name — {velo} mph {pitch_type} (spin {spin_rpm} rpm)
 - **Best putaway pitches (K-ending):** Pitcher Name — {velo} mph {pitch_type} ({result})
-- **Lowest xwOBA allowed (best contact suppression):** Pitcher Name — {pitch_type} {velo} mph, {xwoba} xwOBA ({outcome})
+- **Lowest xBA allowed (best contact suppression):** Pitcher Name — {pitch_type} {velo} mph, {xba} xBA ({outcome})
 ```
 
 If a sub-bucket has multiple entries (top 3), list each on its own line.
