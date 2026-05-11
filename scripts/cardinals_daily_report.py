@@ -427,7 +427,51 @@ The "xBA on Contact" cell shows the best xBA across the player's batted balls, w
 | ... |
 ```
 
-**(d) Statcast highlights.** Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase. The expected-value metric is xBA (expected batting average) when present; some legacy data may still use xwOBA — render whichever field actually appears in the data block.
+**(d) Game Analysis.** Header it `### Game Analysis`. Four to five paragraphs of beat-writer prose, **driven entirely by the POSTGAME DATA block** — no citations to blogs, podcasts, or other expert content in this subsection. The blog/podcast material is for Cardinals Notebook, not the game story.
+
+This is the narrative center of the report. It must do BOTH jobs: walk the reader through how the game actually unfolded, AND deliver the scout-flavored color commentary that ties pitch metrics to outcomes. Do not write a separate "Scout Notes" bullet list — that color belongs *inside* these paragraphs (e.g., "O'Brien's third 98.5 mph Sinker of the at-bat — the previous two were fouled off — ran back over the plate to Castellanos for a 105.2 mph homer and a +48.5% win-probability swing").
+
+Use the gamefeed data sources in this priority order. Every claim must tie to a specific datum:
+
+- **`wpa.key_swings`** — THE narrative spine. Top 6 at-bats by |WPA Δ|, each with batter, pitcher, pitch type, pitch velocity, EV, event, and full play description. Build the game arc around these — the +48.5% swing was the *moment* the game pivoted. Reference at least 4 of these by name and metric.
+- **`scoring_plays`** — chronological scoring sequence with the batter/pitcher/EV/xBA/pitch-velo. Connective tissue between key swings.
+- **`game_context.final_play`** — if the game ended on a scoring play (walk-off), open or close with it explicitly.
+- **`game_context.linescore_note`** — phrases like "One out when winning run scored" are pure beat-writer color; work them in naturally.
+- **`wpa.top_wpa_players`** — cumulative game WPA leaders (any team). Often the right protagonist for the lede or kicker even if their box-score line isn't loudest. Triangulate with `key_swings` for hero/goat.
+- **`wpa.last_plays`** — the last 3 plays of the game in chronological order; useful for kicker-paragraph color.
+- **`top_performers`** — MLB's own curated standouts. Use the `pitching_line` / `batting_line` strings verbatim (e.g., "5.0 IP, 0 ER, 5 K, 4 BB"). Distinguish Cardinals (`is_stl: true`) from opponents.
+- **`game_context.weather` / `wind` / `attendance` / `game_time`** — sprinkle for scene-setting (one mention max — don't make this a weather report).
+- **`game_context.abs_challenges`** — note when ABS challenges flipped a call in a leverage spot; reference the player.
+- **`statcast_highlights`** — pull specific EV/xBA/velo/spin numbers to back up claims (e.g., "Walker's 11th of the year, 108.3 mph EV, .980 xBA").
+- **`boxscore.batters` / `boxscore.pitchers`** — context lines (who else was in the lineup, bullpen usage, decisions).
+
+Scout-flavored sentences are encouraged throughout — pitch sequences, location reads, count leverage, pitch design observations — but they must be EMBEDDED in flowing prose, not split into a bulleted appendix. NEVER invent a number; every velocity/EV/xBA/WPA value must come straight from POSTGAME DATA.
+
+**Kicker line — strict rule.** End with one line that closes the game story using ONLY values present in POSTGAME DATA (final score, key WPA delta, a pitch metric, the linescore note). DO NOT mention:
+- The upcoming opponent, next series, travel day, or next probable pitcher (that lives in Beat Writer's Verdict).
+- Records, season-long stats, multi-game streaks, or any cumulative figure not present in POSTGAME DATA.
+- ANY information sourced from blogs, podcasts, or expert content (still no source attribution in this section).
+
+If the only honest kicker is a one-clause restatement of the final score with a pitch detail (e.g., "A 2-3 final at Petco, decided by O'Brien's third 98.5 mph Sinker"), that's fine. Better short and true than long and invented.
+
+If POSTGAME DATA is null (off day), say so directly and pivot to the most recent game discussed in the expert content with whatever detail is available — no fabricated boxscores or line scores.
+
+**(e) Win Probability Swings.** Header it `### Win Probability Swings`. Render the top 4-5 plays from POSTGAME DATA's `wpa.key_swings` as a markdown table, in WPA-impact order (largest |Δ| first, which is how the data already arrives). These are the at-bats that *actually moved the game*, with per-pitch context. Skip this whole subsection if `wpa.key_swings` is absent or empty.
+
+```
+### Win Probability Swings
+
+| Moment | Δ WP | Batter (Team) vs Pitcher | Result |
+|---|---:|---|---|
+| B9 | +48.5% | Nick Castellanos (SD) vs Riley O'Brien | HR on 98.5 mph Sinker, 105.2 mph EV |
+| T4 | −21.7% | Jordan Walker (STL) vs Walker Buehler | HR on 76.3 mph Knuckle Curve, 108.3 mph EV |
+| T10 | +12.0% | José Fermín (STL) vs Adrian Morejon | Pop Out on 98.8 mph Sinker (rally ends) |
+| ... |
+```
+
+Δ WP is the **home-team** win-probability change for that at-bat (positive = home gained, negative = home lost). Format the Result cell as a one-clause description that names the pitch type, pitch velocity, and either EV/outcome or context — pull from `description`, `pitch_type`, `pitch_velo_mph`, and `ev_mph`. Use the original Unicode minus sign `−` for negative deltas (not a hyphen).
+
+**(f) Statcast Highlights.** Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase. The expected-value metric is xBA (expected batting average) when present; some legacy data may still use xwOBA — render whichever field actually appears in the data block.
 
 ```
 ### Statcast Highlights
@@ -445,50 +489,6 @@ The "xBA on Contact" cell shows the best xBA across the player's batted balls, w
 ```
 
 If a sub-bucket has multiple entries (top 3), list each on its own line.
-
-**(d.5) Win Probability Swings.** Header it `### Win Probability Swings`. Render the top 4-5 plays from POSTGAME DATA's `wpa.key_swings` as a markdown table, in WPA-impact order (largest |Δ| first, which is how the data already arrives). These are the at-bats that *actually moved the game*, with per-pitch context. Skip this whole subsection if `wpa.key_swings` is absent or empty.
-
-```
-### Win Probability Swings
-
-| Moment | Δ WP | Batter (Team) vs Pitcher | Result |
-|---|---:|---|---|
-| B9 | +48.5% | Nick Castellanos (SD) vs Riley O'Brien | HR on 98.5 mph Sinker, 105.2 mph EV |
-| T4 | −21.7% | Jordan Walker (STL) vs Walker Buehler | HR on 76.3 mph Knuckle Curve, 108.3 mph EV |
-| T10 | +12.0% | José Fermín (STL) vs Adrian Morejon | Pop Out on 98.8 mph Sinker (rally ends) |
-| ... |
-```
-
-Δ WP is the **home-team** win-probability change for that at-bat (positive = home gained, negative = home lost). Format the Result cell as a one-clause description that names the pitch type, pitch velocity, and either EV/outcome or context — pull from `description`, `pitch_type`, `pitch_velo_mph`, and `ev_mph`. Use the original Unicode minus sign `−` for negative deltas (not a hyphen).
-
-**(e) Scout Notes.** Header it `### Scout Notes` and write 3-5 bullets of scout-flavored color commentary. Each bullet:
-- Short (one sentence, scout-flavored, declarative)
-- Reference at least ONE specific value from the postgame data (a velocity, an exit velocity, an xwOBA, a count situation, etc.) — do NOT generalize without a number
-- Situation-aware: tie pitch metrics to result (e.g., "Dustin May's third 99 mph sinker of the night caught Tatis Jr. looking on the inner half")
-- Beat-writer voice (third person, no "I" / "we")
-- Vary across the game — don't pile all 5 bullets on one pitcher or one at-bat
-
-NEVER invent a number for these bullets. If the data block doesn't contain it, do not write the bullet.
-
-**(f) Game analysis.** Three paragraphs of beat-writer prose, **driven entirely by the POSTGAME DATA block** — no citations to blogs, podcasts, or other expert content in this subsection. The blog/podcast material is for Cardinals Notebook, not the game story.
-
-Use the gamefeed data sources in this priority order. Every claim must tie to a specific datum:
-
-- **`wpa.key_swings`** — THE narrative spine. These are the top 6 individual at-bats by |WPA Δ|, each with the batter, pitcher, pitch type, pitch velocity, EV, event, and the full play description. Build the game arc around these — the +48.5% swing was the *moment* the game pivoted, not just one of many homers. Reference at least 3-4 of these by name and metric in the narrative.
-- **`scoring_plays`** — chronological scoring sequence with the batter/pitcher/EV/xBA/pitch-velo that produced each. Use these to fill in the connective tissue between key swings.
-- **`game_context.final_play`** — if the game ended on a scoring play (walk-off), open or close with it explicitly.
-- **`game_context.linescore_note`** — phrases like "One out when winning run scored" are pure beat-writer color; work them in naturally.
-- **`wpa.top_wpa_players`** — cumulative game WPA leaders (any team). The leader is often the right protagonist for the lede or kicker even if their box-score line isn't loudest. Combine with `key_swings` to triangulate the actual hero/goat.
-- **`wpa.last_plays`** — the last 3 plays of the game in chronological order; useful for kicker-paragraph color.
-- **`top_performers`** — MLB's own curated standouts. Use the `pitching_line` / `batting_line` strings verbatim when possible (e.g., "5.0 IP, 0 ER, 5 K, 4 BB"). Distinguish Cardinals (`is_stl: true`) from opponents.
-- **`game_context.weather` / `wind` / `attendance` / `game_time`** — sprinkle for scene-setting (one mention max — don't make this a weather report).
-- **`game_context.abs_challenges`** — note when ABS challenges flipped a call in a leverage spot; reference the player.
-- **`statcast_highlights`** — pull specific EV/xBA/velo numbers to back up claims already established by scoring_plays (e.g., "Walker's 11th of the year, hit at {ev} mph with a {xba} xBA").
-- **`boxscore.batters` / `boxscore.pitchers`** — for context lines (who else was in the lineup, bullpen usage).
-
-End with one line on what's at stake going forward — but only mention the series score, standings, or upcoming opponent if that information is in POSTGAME DATA. Do not invent it.
-
-If POSTGAME DATA is null (off day), say so directly and pivot to the most recent game discussed in the expert content with whatever detail is available — no fabricated boxscores or line scores.
 
 ## Cardinals Notebook
 
