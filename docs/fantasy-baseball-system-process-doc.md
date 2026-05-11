@@ -90,6 +90,15 @@ Each report file has YAML frontmatter with title, type, date, generation timesta
 
 File naming: `YYYY-MM-DD_daily-intel.md` or `YYYY-MM-DD_weekly-intel.md` for the combined report, plus individual section files like `YYYY-MM-DD_roster-intel.md`.
 
+### Sibling pipelines (Blot-only)
+
+Two additional morning artifacts ship from the same 3 AM cron but bypass the fantasy report's PDF / Readdle / Fly destinations:
+
+* **Cardinals digest** (`scripts/cardinals_daily_report.py`, output `YYYY-MM-DD_cardinals-daily.md`). Publishes to `Posts/{date}-cardinals-daily.md` on Dropbox. See `docs/cardinals-digest-process-doc.md`.
+* **MLB daily roundup** (`scripts/mlb_daily_roundup.py`, output `YYYY-MM-DD_mlb-roundup.md`). Publishes to `Posts/MLB/{date}-mlb-roundup.md` on Dropbox (the subfolder tags the post `MLB`). See `docs/mlb-roundup-process-doc.md`.
+
+Both run Opus 4.7 generation followed by an Opus 4.7 fact-check loop (cross-references Baseball Savant + Baseball Reference PBP, applies surgical edits up to `MAX_FACTCHECK_ATTEMPTS = 6` before quarantining). Both are skipped from the Fly.io upload step via the bash glob in `daily_content_ingest.sh`.
+
 ### Web App Outputs
 
 * **Optimized Lineups**: PuLP integer linear programming solver maximizes projected fantasy points across roster slots, respecting position eligibility. Output shows each player's optimal slot and projected points, plus total improvement over the current lineup.

@@ -66,6 +66,11 @@ MODEL = "claude-opus-4-7"
 USE_CLAUDE_CLI = os.getenv("DAILY_ANALYSIS_USE_CLI", "1") == "1"
 CONTENT_WINDOW_DAYS = 5
 REPORT_SLUG = "cardinals-daily"
+# Cap on fact-check + surgical-edit iterations before quarantine. Each pass is
+# one Opus call (~2 min). The 3 AM cron tolerates the runtime in exchange for
+# converging on a publishable post automatically rather than landing in
+# factcheck_failed/ for manual intervention.
+MAX_FACTCHECK_ATTEMPTS = 6
 
 # Feed keys (matched against the {date}_{key}_*.md filename prefix)
 CARDINALS_SOURCES: set[str] = {
@@ -572,8 +577,101 @@ SYSTEM_PROMPT = (
     "not cite a source for it.\n"
     "- Each major news item (a specific injury, a transaction, a roster decision) lives in detail "
     "in ONE section; cross-reference if it surfaces elsewhere.\n"
-    "- Write polished prose — no stream-of-consciousness self-corrections.\n"
-    "- DO NOT be lazy or brief. Each section earns its space.\n"
+    "- Write polished prose. No stream-of-consciousness self-corrections.\n"
+    "- DO NOT be lazy or brief. Each section earns its space.\n\n"
+    "HARD RULE: DO NOT DERIVE OR INFER NUMBERS IN THE SCORE AND DATA SECTION.\n"
+    "Every numeric claim in the Game Analysis prose must come from an explicit numeric field "
+    "in POSTGAME DATA. Do not count, sum, or compute values yourself. The fact-checker is "
+    "strict and will flag derived numbers even when they happen to be correct.\n"
+    "- RUNS PER INNING ('a four-run fifth', 'three-run sixth'): only assertable when "
+    "`line_score.innings[i].away.runs` or `.home.runs` for that inning shows that exact "
+    "value. If you cannot point to that field, do not characterize the inning by run total. "
+    "Describe the scoring plays individually instead.\n"
+    "- PER-PLAY RBI ('two-run homer', 'RBI single', 'three-run double'): only assertable "
+    "when the play's `rbi` field confirms it, or the description literally names that many "
+    "scorers. A homer with no 'X scores' in the description is a solo homer.\n"
+    "- TOTAL RBI for a player: only assertable when `top_performers[].batting_line` for that "
+    "player contains an explicit 'N RBI' segment (e.g., '3-4 | HR, 2 RBI'). If batting_line "
+    "lists hits/walks but no RBI, omit the total RBI count for that player.\n"
+    "- PITCHER EXIT / 'CHASED' / 'KNOCKED OUT' / 'PULLED EARLY' claims: only assertable "
+    "from the pitcher's `pitching_line` (which shows IP) and the bbref `play_by_play` (which "
+    "shows the last inning the pitcher appears). Do not infer an early exit from when a "
+    "team scored. If unsure, state IP only.\n"
+    "- OUTS CONTEXT for a play ('two-out homer', 'leadoff single', 'with two on and one out'): "
+    "only assertable from the bbref `play_by_play` row's `outs` (outs after the play) and "
+    "`runners` (base state before). Do not infer outs from where in the inning the play "
+    "appeared. If the data is not there, drop the outs detail.\n"
+    "- TEAM ATTRIBUTION for stat lines: read `top_performers[].team_id`. The player belongs "
+    "to THAT team in the game, not the opposing one. A double off a Padres pitcher came "
+    "from a non-Padres batter; do not attribute the batter to San Diego.\n"
+    "- SEASON TOTALS ('his 11th HR', 'her 4th SB', 'doubled (7)'): only assertable when the "
+    "play's `season_total` field is present, OR when the `description` contains the explicit "
+    "parenthetical 'verbs (N)' format from Savant. Do not invent or round season totals.\n"
+    "- STRIKEOUT-INNING claims ('struck out the side', 'three-K inning', 'fanned three in "
+    "order'): only assertable when (a) the pitcher's `pitching_line` shows K=3 in a one-inning "
+    "appearance, AND (b) the bbref `play_by_play` rows for that inning show three Strikeout "
+    "entries for that pitcher. Pitch count alone does not imply K count. If you cannot verify "
+    "both, describe what actually happened (e.g., 'worked a clean inning on 10 pitches with "
+    "two strikeouts').\n"
+    "- BASE-RUNNER ADVANCEMENT ('took second on a wild pitch', 'stole third', 'tagged from "
+    "first on the single'): each advancement is its own bbref `play_by_play` row. Read the "
+    "`play_desc` text literally. Do NOT conflate consecutive advancements (e.g., Defensive "
+    "Indifference followed by Wild Pitch are two separate bases; do not credit the wild pitch "
+    "with both). When in doubt, describe the runner's final base and skip the mechanism.\n"
+    "- PITCH COUNT for a specific plate appearance ('walked on five pitches', 'struck out on "
+    "a 1-2 curveball', 'fouled off three before...'): only assertable from the bbref `pitches` "
+    "field on that PA's row, which is formatted 'N,(final-count) sequence' (e.g., '6,(3-2) "
+    ".BLC*BBB' = 6 pitches, finished at 3-2). The first integer before the comma is the pitch "
+    "count; the parenthetical pair is the final count when the PA ended. Do NOT guess pitch "
+    "counts from prose context.\n"
+    "- BARREL CLASSIFICATION ('a barreled lineout', 'his barrels included', 'two barrels for "
+    "the day'): only assertable when the play appears in `statcast_highlights.barrels`. A "
+    "ball appearing in `hardest_hit` is NOT necessarily a barrel; barrels require both high "
+    "EV (98+ mph) AND a specific launch-angle window. Check the `barrels` list explicitly.\n"
+    "- PITCH-TO-BATTER attribution in statcast_highlights ('a 99.4 mph sinker that froze "
+    "Ty France', 'O'Brien's 98.5 punchout of Machado'): every entry in `top_pitches`, "
+    "`top_whiffs`, `best_putaways`, and `lowest_xba_allowed` has an explicit `batter` field. "
+    "Use THAT batter's name. Do NOT swap in a different batter from elsewhere in the box "
+    "score. If the `batter` field is null, describe the pitch without naming a batter.\n"
+    "- TOTAL OUTS across multiple pitchers ('three scoreless innings, nine outs', 'eight "
+    "outs without a hit'): only assertable from the sum of `pitching_line` IP values for "
+    "those pitchers. Convert IP correctly: 1.0 IP = 3 outs, 1.1 IP = 4 outs, 1.2 IP = 5 outs, "
+    "etc. (the decimal is THIRDS, not tenths). Do NOT count outs by inning blocks. If math "
+    "is required, omit the total and describe each pitcher's line individually.\n"
+    "- SAVE / HOLD NUMBERS ('his 12th save', '7th hold of the year'): only assertable when "
+    "the pitcher's `decision` field in `boxscore.pitchers` contains the explicit count (e.g., "
+    "'SV, 12' or 'H, 7'). A hold is NOT a save. Read the letter before the number.\n"
+    "- PLAYER ROLE / POSITION ('pinch-runner', 'pinch-hitter', 'defensive replacement', "
+    "'late-inning sub'): only assertable from `boxscore.batters[].position` (e.g., 'PH', "
+    "'PR') for that player. A player listed at a fielding position (LF, 2B, etc.) entered "
+    "in that role, NOT as a pinch-runner. Do NOT infer roles from when they appeared in "
+    "the game.\n"
+    "- PITCH ACTION INVENTIONS ('checked his swing', 'attempted a bunt', 'took a borderline "
+    "strike', 'shook off the catcher'): the pitch sequence codes in bbref `pitches` "
+    "(B=ball, C=called strike, S=swinging strike, F=foul, L=foul bunt or line drive, "
+    "X=in play, T=foul tip, * indicates pitch-out adjacent) do NOT unambiguously confirm "
+    "any of these biographical narrations. Describe what the play description literally "
+    "says; do not invent batter intent or catcher dynamics.\n"
+    "- WPA TIMING for a specific moment ('with two outs and a runner on first the Cardinals "
+    "were at 80.8% to win'): `stl_wp_after_pct` is the win probability IMMEDIATELY AFTER the "
+    "named play (the batter who is listed on that key_swings row). It is NOT the win "
+    "probability at a different out / runner state than the one produced by that play. Tie "
+    "the percentage to the specific play, not to a different downstream moment.\n"
+    "- WPA ARITHMETIC ('a 48.5-point swing from 80.8% to 46.4%'): the pre-play WP must equal "
+    "the post-play WP minus the signed delta. If `wpa_delta_pct_stl = -48.5` and "
+    "`stl_wp_after_pct = 46.4`, then the pre-play STL WP was 46.4 - (-48.5) = 94.9%, not "
+    "80.8%. Verify the arithmetic before stating both endpoints of a swing. If you cannot "
+    "verify, state only one anchor (the post-play WP or the delta), not both.\n"
+    "- BIOGRAPHICAL / CONTEXTUAL COLOR (calendar dates 'Mother's Day', 'the home opener'; "
+    "stadium landmarks 'into the Western Metal Supply building', 'over the Crawford Boxes', "
+    "'caromed off Tal's Hill'; weather mood 'a sleepy May afternoon'; crowd reactions 'silenced "
+    "the Petco faithful'; off-field references 'with President Biden in the stands'): NONE of "
+    "this is in the JSON unless an explicit field carries it. The only color fields available "
+    "are `game_context.weather`, `wind`, `attendance`, `linescore_note`, and the play "
+    "`description` text. Do NOT add geographic landmarks, holidays, mood phrases, crowd "
+    "reactions, or cultural references unless the data block literally contains them. "
+    "Bernie Miklasz / Derrick Goold style is allowed in voice and rhythm; it is NOT allowed "
+    "as a license to invent setting details.\n"
 )
 
 
@@ -1076,6 +1174,7 @@ def run(
     days: int = CONTENT_WINDOW_DAYS,
     dry_run: bool = False,
     report_date: date | None = None,
+    skip_factcheck: bool = False,
 ) -> None:
     today = report_date or date.today()
     out_path = ANALYSIS_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
@@ -1150,37 +1249,62 @@ def run(
 
     # ----- Fact-check the Score and Data section -----
     # The narrative runs on POSTGAME DATA only; the fact-checker compares every
-    # numeric / factual claim against the JSON. On fail, regenerate once with
-    # the issues fed back. If the retry still fails, the report is quarantined
-    # to FACTCHECK_FAILED_DIR — nothing downstream (PDF / Readdle / Fly / Blot)
-    # picks it up, and a macOS notification fires.
-    factcheck = factcheck_score_and_data(extract_score_and_data(text) or "", postgame)
-    if not factcheck.passed:
-        log.warning(
-            "Fact-check FAILED on first attempt — %d issues. Regenerating once with corrections.",
-            len(factcheck.issues),
-        )
-        for i in factcheck.issues:
-            log.warning("  - [%s] %s — %s", i.category, i.claim, i.why_suspect)
-        retry_message = _build_retry_message(user_message, factcheck)
-        try:
-            text2, in2, out2, _stop2 = _invoke_claude_cli(MODEL, SYSTEM_PROMPT, retry_message)
-        except Exception as e:
-            log.error("Retry generation failed: %s — quarantining first attempt.", e)
-            text2 = None
-            in2 = out2 = 0
-
-        if text2:
-            text, in_toks, out_toks = text2, in_toks + in2, out_toks + out2
-            factcheck = factcheck_score_and_data(extract_score_and_data(text) or "", postgame)
-
-        if not factcheck.passed:
-            _quarantine_failed_report(today, text, in_toks, out_toks, factcheck)
-            return
-
-        log.info("Fact-check PASSED on retry — %d issues remediated", len(factcheck.issues))
+    # numeric / factual claim against the JSON + bbref PBP. On fail, we apply a
+    # SURGICAL EDIT retry (only the flagged phrases get touched) and re-check.
+    # We keep iterating up to MAX_FACTCHECK_ATTEMPTS before quarantining — the
+    # 3 AM cron tolerates longer runtime in exchange for getting a clean post
+    # published automatically rather than landing in factcheck_failed/ for
+    # manual intervention. `--skip-factcheck` bypasses the whole loop.
+    if skip_factcheck:
+        log.warning("--skip-factcheck flag set, bypassing verification.")
     else:
-        log.info("Fact-check PASSED on first attempt")
+        attempt = 0
+        while True:
+            attempt += 1
+            factcheck = factcheck_score_and_data(
+                extract_score_and_data(text) or "", postgame,
+            )
+            if factcheck.passed:
+                log.info("Fact-check PASSED on attempt %d.", attempt)
+                break
+
+            log.warning(
+                "Fact-check FAILED on attempt %d. %d issues.",
+                attempt, len(factcheck.issues),
+            )
+            for i in factcheck.issues:
+                log.warning("  - [%s] %s — %s", i.category, i.claim, i.why_suspect)
+
+            if attempt >= MAX_FACTCHECK_ATTEMPTS:
+                log.error(
+                    "Hit MAX_FACTCHECK_ATTEMPTS (%d). Quarantining.",
+                    MAX_FACTCHECK_ATTEMPTS,
+                )
+                _quarantine_failed_report(today, text, in_toks, out_toks, factcheck)
+                return
+
+            log.info(
+                "Applying surgical edits (attempt %d → %d)...",
+                attempt, attempt + 1,
+            )
+            retry_message = _build_retry_message(text, postgame, factcheck)
+            try:
+                text2, in2, out2, _stop2 = _invoke_claude_cli(
+                    MODEL, SYSTEM_PROMPT, retry_message,
+                )
+            except Exception as e:
+                log.error("Retry edit failed: %s. Quarantining.", e)
+                _quarantine_failed_report(today, text, in_toks, out_toks, factcheck)
+                return
+
+            if not text2:
+                log.error("Empty retry response. Quarantining.")
+                _quarantine_failed_report(today, text, in_toks, out_toks, factcheck)
+                return
+
+            text = text2
+            in_toks += in2
+            out_toks += out2
 
     player_links = load_player_links()
     out = write_report(today, text, items, in_toks, out_toks, player_links)
@@ -1203,8 +1327,6 @@ def _build_retry_message(previous_draft: str, postgame: dict | None, factcheck) 
     rewriting paragraphs that already passed, and Claude introducing fresh
     inferences in the rewrite that the prior draft didn't have.
     """
-    import json as _json
-
     issue_lines = []
     for i in factcheck.issues:
         line = f'  - Claim: "{i.claim}"\n    Why suspect: {i.why_suspect}'
@@ -1213,7 +1335,7 @@ def _build_retry_message(previous_draft: str, postgame: dict | None, factcheck) 
         issue_lines.append(line)
 
     postgame_json = (
-        _json.dumps(postgame, indent=2, default=str) if postgame is not None
+        json.dumps(postgame, indent=2, default=str) if postgame is not None
         else "null  // no game on the target date"
     )
 
@@ -1291,11 +1413,16 @@ def main() -> None:
         "--date", dest="report_date", type=date.fromisoformat, default=None,
         help="Override report date (YYYY-MM-DD). The covered game is this date minus one.",
     )
+    parser.add_argument(
+        "--skip-factcheck", action="store_true",
+        help="Bypass the Opus 4.7 fact-check pass (emergency / debug only).",
+    )
     args = parser.parse_args()
     run(
         force=args.force,
         days=args.days,
         dry_run=args.dry_run,
+        skip_factcheck=args.skip_factcheck,
         report_date=args.report_date,
     )
 

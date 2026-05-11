@@ -102,6 +102,33 @@ else
     check "Blot post published" 0 "local Cardinals MD exists but Blot post is missing at $BLOT_POST — run scripts/republish_to_blot.sh to retry"
 fi
 
+# Soft check: MLB roundup local + Blot artifacts.
+ROUNDUP_MD="$ANALYSIS_DIR/${TODAY}_mlb-roundup.md"
+ROUNDUP_BLOT="$HOME/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts/MLB/${TODAY}-mlb-roundup.md"
+if [ -f "$ROUNDUP_MD" ]; then
+    echo "  PASS  MLB roundup local MD present"
+    if [ -f "$ROUNDUP_BLOT" ]; then
+        echo "  PASS  MLB roundup published to Blot"
+    else
+        echo "  WARN  MLB roundup local MD exists but Blot post missing at $ROUNDUP_BLOT"
+    fi
+else
+    echo "  WARN  MLB roundup missing ($ROUNDUP_MD) — soft check, not failing"
+fi
+
+# Hard check: a quarantined fact-check-failed roundup. If the runner generated
+# a roundup and the fact-checker rejected it twice, the MD is in factcheck_failed/.
+# Same pattern as the Cardinals check — bad numbers are exactly the kind of bug
+# that lands on Blot if we don't escalate.
+ROUNDUP_FACTCHECK_FAILED_MD="$ANALYSIS_DIR/factcheck_failed/${TODAY}_mlb-roundup.md"
+ROUNDUP_FACTCHECK_FAILED_LOG="$ANALYSIS_DIR/factcheck_failed/${TODAY}_mlb-roundup.factcheck.json"
+if [ -f "$ROUNDUP_FACTCHECK_FAILED_MD" ]; then
+    ISSUE_COUNT=$(grep -c '"claim":' "$ROUNDUP_FACTCHECK_FAILED_LOG" 2>/dev/null || echo "?")
+    check "MLB roundup fact-check passed" 0 "report quarantined with $ISSUE_COUNT unsupported claims — see $ROUNDUP_FACTCHECK_FAILED_LOG"
+else
+    echo "  PASS  MLB roundup fact-check (no quarantined report)"
+fi
+
 echo ""
 if [ ${#problems[@]} -eq 0 ]; then
     echo "ALL CHECKS PASSED"

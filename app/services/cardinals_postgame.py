@@ -948,11 +948,22 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
             payload["statcast_highlights"] = highlights
             log.info("Statcast highlights from Savant gamefeed: %s",
                      ", ".join(f"{k}={len(v)}" for k, v in highlights.items()))
+        from app.services.play_annotations import (
+            annotate_with_rbi,
+            annotate_with_season_totals,
+        )
         scoring = _scoring_plays_from_gamefeed(gf)
         if scoring:
+            annotate_with_season_totals(scoring)
+            annotate_with_rbi(scoring)
             payload["scoring_plays"] = scoring
         wpa = _wpa_leaders_from_gamefeed(gf, stl_is_home=payload["stl_is_home"])
         if wpa:
+            # The same explicit rbi / season_total fields the writer relies on
+            # for MLB roundup go onto the Cardinals key_swings too.
+            if wpa.get("key_swings"):
+                annotate_with_season_totals(wpa["key_swings"])
+                annotate_with_rbi(wpa["key_swings"])
             payload["wpa"] = wpa
         performers = _top_performers_from_gamefeed(gf)
         if performers:
@@ -985,6 +996,29 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
 
     if not payload["statcast_highlights"]:
         log.info("Statcast data not yet available for %s; returning boxscore only", target_date.isoformat())
+
+    # Baseball Reference cross-reference. Pulls bbref play-by-play (text per-PA
+    # descriptions with inning, outs-after-play, runners, signed wWPA, runs_outs
+    # flag, and play_desc) plus per-pitcher game_score (Bill James). The fact-
+    # checker uses these as a SECOND source against Savant's data, catching
+    # inferences the writer makes that Savant alone can't refute.
+    away_full = game.get("away_name") or ""
+    home_full = game.get("home_name") or ""
+    dh_flag = (game.get("doubleheader") or "N").upper()
+    game_num = int(game.get("game_num") or 1)
+    dh_index = 0 if dh_flag == "N" else game_num
+    try:
+        from app.services.bbref_boxscore import get_bbref_boxscore
+        bbref = get_bbref_boxscore(target_date, away_full, home_full, dh_index)
+        if bbref:
+            payload["bbref"] = bbref
+            log.info(
+                "bbref cross-reference attached: %d PBP rows, game_scores=%s",
+                len(bbref.get("play_by_play") or []),
+                bbref.get("game_scores") or {},
+            )
+    except Exception as e:
+        log.warning("bbref cross-reference failed (non-fatal): %s", e)
 
     return payload
 

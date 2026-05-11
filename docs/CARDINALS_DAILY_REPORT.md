@@ -254,6 +254,11 @@ This re-runs Opus via `claude -p`, overwrites the local MD, re-publishes to Blot
 - `--force` — regenerate even if today's report already exists
 - `--dry-run` — print prompt assembly stats without calling Claude
 - `--days N` — content-window lookback (default 5 days)
+- `--date YYYY-MM-DD` — override the report date (covered game = this date minus one)
+- `--skip-factcheck` — bypass the Opus 4.7 fact-check loop. Emergency / debug only; the 3 AM cron does not use this flag
+
+### Fact-check loop
+On every run the writer's Score and Data section is fed to a second Opus 4.7 call (`scripts/factcheck_cardinals.py`) that verifies every numeric and factual claim against the postgame JSON plus the Baseball Reference play-by-play cross-reference. On failure the runner loops surgical edits (sends Claude the previous draft + only the flagged phrases + an instruction to edit ONLY those phrases) up to `MAX_FACTCHECK_ATTEMPTS = 6` before quarantining to `data/content/analysis/factcheck_failed/`. See `docs/cardinals-digest-process-doc.md` for the full mechanics.
 
 ### Constants in code
 - `CARDINALS_SOURCES` — feed-key allowlist for Cardinals-specific content filtering

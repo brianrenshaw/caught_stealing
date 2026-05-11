@@ -1225,6 +1225,55 @@ def generate_intel(
     return None, 0, 0
 
 
+# Vowel/consonant accent variant groups for accent-insensitive name matching.
+# The player database stores ASCII forms ("Ivan Herrera", "Jose Fermin", "Pages"),
+# but Savant gamefeed + bbref prose carry accented forms ("Iván Herrera",
+# "José Fermín", "Pagés"). The matcher must bridge both directions, and the
+# substitution must preserve whatever accent form actually appeared in prose.
+_ACCENT_GROUPS_LOWER = {
+    "a": "aàáâãäåāăą",
+    "e": "eèéêëēĕėęě",
+    "i": "iìíîïīĭįı",
+    "o": "oòóôõöøōŏő",
+    "u": "uùúûüūŭůűų",
+    "n": "nñń",
+    "c": "cç",
+    "y": "yýÿ",
+}
+_ACCENT_GROUPS_UPPER = {
+    "A": "AÀÁÂÃÄÅĀĂĄ",
+    "E": "EÈÉÊËĒĔĖĘĚ",
+    "I": "IÌÍÎÏĪĬĮ",
+    "O": "OÒÓÔÕÖØŌŎŐ",
+    "U": "UÙÚÛÜŪŬŮŰŲ",
+    "N": "NÑŃ",
+    "C": "CÇ",
+    "Y": "YÝŸ",
+}
+
+
+def _accent_insensitive_pattern(name: str) -> str:
+    """Build a regex matching `name` and any common accent variant of it.
+
+    Each base letter expands to a character class containing the same letter
+    plus its accented forms (preserving case). 'Ivan Herrera' becomes a pattern
+    that matches 'Ivan Herrera' or 'Iván Herrera', etc. Non-letter characters
+    are escaped normally.
+    """
+    import unicodedata
+    parts: list[str] = []
+    for ch in name:
+        nfd = unicodedata.normalize("NFD", ch)
+        base = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
+        if base in _ACCENT_GROUPS_LOWER:
+            parts.append(f"[{_ACCENT_GROUPS_LOWER[base]}]")
+        elif base in _ACCENT_GROUPS_UPPER:
+            parts.append(f"[{_ACCENT_GROUPS_UPPER[base]}]")
+        else:
+            parts.append(re.escape(ch))
+    return "".join(parts)
+
+
 def linkify_players(text: str, player_links: dict[str, str]) -> str:
     """Replace player names with FanGraphs markdown links.
 
@@ -1232,16 +1281,23 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
     1. Always link names in ### headers (these are player entry points)
     2. Link first occurrence in body text for any remaining unlinked names
 
-    Sorts longest names first to avoid partial matches.
+    Sorts longest names first to avoid partial matches. The pattern is
+    accent-insensitive so the ASCII DB form ("Ivan Herrera") matches accented
+    prose ("Iván Herrera"); the link label preserves the accented form as it
+    appeared in prose.
     """
     sorted_names = sorted(player_links.keys(), key=len, reverse=True)
 
     # Pass 1: Link all ### headers
     for name in sorted_names:
         url = player_links[name]
-        # Match name in ### header that isn't already linked
-        header_pattern = rf"(###\s+)(?<!\[)({re.escape(name)})(?!\]\()"
-        text = re.sub(header_pattern, rf"\1[{name}]({url})", text)
+        variant = _accent_insensitive_pattern(name)
+        header_pattern = rf"(###\s+)(?<!\[)({variant})(?!\]\()"
+
+        def _replace_header(m: re.Match, u: str = url) -> str:
+            return f"{m.group(1)}[{m.group(2)}]({u})"
+
+        text = re.sub(header_pattern, _replace_header, text)
 
     # Pass 2: Link first body occurrence of each name (skip already-linked)
     linked = set()
@@ -1249,10 +1305,12 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
         if name in linked:
             continue
         url = player_links[name]
-        pattern = rf"(?<!\[)({re.escape(name)})(?!\]\()"
+        variant = _accent_insensitive_pattern(name)
+        pattern = rf"(?<!\[)({variant})(?!\]\()"
         match = re.search(pattern, text)
         if match:
-            text = text[: match.start()] + f"[{match.group(1)}]({url})" + text[match.end() :]
+            matched_text = match.group(1)
+            text = text[: match.start()] + f"[{matched_text}]({url})" + text[match.end() :]
             linked.add(name)
 
     return text

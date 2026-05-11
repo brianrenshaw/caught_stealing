@@ -67,6 +67,14 @@ uv run python -m scripts.cardinals_daily_report || {
     echo "WARNING: Cardinals daily report generation failed"
 }
 
+# Step 4.45: League-wide MLB roundup. Ships to Blot only (Posts/MLB/ subfolder).
+# Non-fatal — a Savant outage here shouldn't kill the rest of the pipeline.
+echo ""
+echo "--- MLB Daily Roundup ---"
+uv run python -m scripts.mlb_daily_roundup || {
+    echo "WARNING: MLB daily roundup generation failed"
+}
+
 # Step 4.5: Render the fantasy report to a Cardinals-themed PDF.
 # Only the fantasy report flows through PDF + Readdle + Fly; the Cardinals
 # digest ships to Blot only (the python script publishes inside Step 4.4).
@@ -128,9 +136,10 @@ UPLOADED=0
 for f in "$ANALYSIS_DIR/${TODAY}"_*.md; do
     [ -f "$f" ] || continue
     BASENAME=$(basename "$f")
-    # Skip the Cardinals digest — ships to Blot only.
+    # Skip Blot-only reports (Cardinals digest, MLB roundup) — ship to Blot, not Fly.
     case "$BASENAME" in
         *cardinals-daily*) continue ;;
+        *mlb-roundup*) continue ;;
     esac
     # `sftp put` silently SKIPS when the destination exists (e.g., a regen
     # within the same day). Delete first so the upload always reflects local.

@@ -9,7 +9,7 @@ The St. Louis Cardinals fan experience is fragmented. Game recaps live on MLB.co
 
 Before this digest existed, the only Cardinals content in the fantasy baseball system was a single "Cardinals Corner" section embedded inside the larger fantasy report. A few hundred words written by Claude from the same fantasy-flavored prompt as the rest of the report. Thin and lacking a beat-writer's voice.
 
-The Cardinals digest pipeline is the replacement. Every morning it generates a separate Cardinals-only report, built from Baseball Savant gamefeed JSON (the same source MLB's broadcast graphics use), filtered through a strict fact-checker that rejects any numeric claim the data doesn't support and published to a public blog at [cardinals.brianrenshaw.com](https://cardinals.brianrenshaw.com) (Blot.im, Dropbox-backed). The Cardinals digest is intentionally decoupled from the fantasy report. Different audience, different scope, different output destinations.
+The Cardinals digest pipeline is the replacement. Every morning it generates a separate Cardinals-only report, built from Baseball Savant gamefeed JSON (the same source MLB's broadcast graphics use), filtered through a strict fact-checker that rejects any numeric claim the data doesn't support and published to a public blog at [lankfordlegends.co](https://lankfordlegends.co) (Blot.im, Dropbox-backed). The Cardinals digest is intentionally decoupled from the fantasy report. Different audience, different scope, different output destinations.
 
 ## How the Ecosystem Works
 
@@ -26,7 +26,7 @@ The Cardinals digest is one of two morning report pipelines that share a foundat
 
 * `scripts/cardinals_daily_report.py`. The runner for this digest. Imports `_invoke_claude_cli` from `daily_analysis.py` but otherwise stands alone.
 * `app/services/cardinals_postgame.py`. Pulls the Baseball Savant `/gf?game_pk=...` gamefeed for the most recent Cardinals game and normalizes it into a single JSON payload.
-* `scripts/factcheck_cardinals.py`. A second Claude call (Sonnet 4.6) that fact-checks the Score and Data section against the postgame JSON before publish.
+* `scripts/factcheck_cardinals.py`. A second Claude call (Opus 4.7) that fact-checks the Score and Data section against the postgame JSON plus the bbref play-by-play cross-reference. On fail the runner loops surgical edits up to `MAX_FACTCHECK_ATTEMPTS = 6` before quarantine.
 * `scripts/republish_to_blot.sh`. Recovery tool for republishing an existing local MD without regenerating it.
 * The four `docs/cardinals-blot*.{css,html}` template files that style the Blot blog.
 
@@ -161,9 +161,10 @@ Written only when the report fails fact-check twice. Lists every unsupported cla
 | 3:00 AM | (same) | Step 3.5 | Yahoo ETL refresh (rosters plus standings. Fantasy only but runs first) |
 | 3:00 AM | (same) | Step 4 | Generate fantasy daily intel report via Opus 4.7 |
 | 3:00 AM | (same) | Step 4.4 | **Generate Cardinals digest.** See "How the Game-Narrative Pipeline Works" |
-| 3:00 AM | (same) | Step 4.5 | Render fantasy MD to PDF via `md2pdf cardinals` (Cardinals MD intentionally **not** rendered) |
+| 3:00 AM | (same) | Step 4.45 | **Generate MLB daily roundup.** Sibling pipeline. See `docs/mlb-roundup-process-doc.md` |
+| 3:00 AM | (same) | Step 4.5 | Render fantasy MD to PDF via `md2pdf cardinals` (Cardinals + MLB roundup MDs intentionally **not** rendered) |
 | 3:00 AM | (same) | Step 4.6 | Copy fantasy PDF to Readdle iCloud folder |
-| 3:00 AM | (same) | Step 5 | Upload fantasy markdowns to Fly.io volume (Cardinals MD intentionally **excluded** by `case "$BASENAME" in *cardinals-daily*) continue ;;`) |
+| 3:00 AM | (same) | Step 5 | Upload fantasy markdowns to Fly.io volume (Cardinals + MLB roundup MDs intentionally **excluded** by `case "$BASENAME" in *cardinals-daily* \| *mlb-roundup*) continue ;;`) |
 | 4:00 AM | LaunchAgent `com.fantasybaseball.verify-ingest` | All checks | Inspects artifacts from both pipelines. macOS notification plus log entry on any FAIL |
 
 The full launchd schedule is in two plist files, both at `~/Library/LaunchAgents/`:
@@ -185,16 +186,19 @@ Log files for each run land under `data/content/logs/`:
 
 The python script `scripts/cardinals_daily_report.py` runs this sequence:
 
-1. **Fetch postgame data** for yesterday (`get_cardinals_postgame(today - 1)` from `app/services/cardinals_postgame.py`). Primary source: Baseball Savant `/gf?game_pk=...` gamefeed JSON. Fallback: `pybaseball.statcast_single_game()` if the gamefeed produces zero highlights. Returns `None` on a Cardinals off-day.
+1. **Fetch postgame data** for yesterday (`get_cardinals_postgame(today - 1)` from `app/services/cardinals_postgame.py`). Primary source: Baseball Savant `/gf?game_pk=...` gamefeed JSON. Fallback: `pybaseball.statcast_single_game()` if the gamefeed produces zero highlights. Returns `None` on a Cardinals off-day. The payload now also carries a `bbref` cross-reference block (play-by-play rows + per-pitcher game_score) fetched via `app/services/bbref_boxscore.py` from `baseball-reference.com/boxes/...`, plus `rbi` and `season_total` integers attached to every play by `app/services/play_annotations.py`.
 2. **Load Cardinals content** from `data/content/blogs/` and `data/content/transcripts/` over a 5-day window, filtered by source key prefix in the filename (`{date}_viva_el_birdos_*.md`, etc.).
 3. **Fetch MLB news headlines** (ESPN MLB plus MLB.com RSS) for the Around the League section.
 4. **Fetch analysis headlines** from 9 baseball/fantasy feeds for the Interesting Analysis section.
 5. **Build the user prompt.** System prompt plus section instructions plus postgame JSON plus Cardinals content plus MLB headlines plus analysis headlines. Typical size: ~170k chars / ~44k tokens.
 6. **Invoke Opus 4.7** via `_invoke_claude_cli` (Max subscription, no API spend). Timeout 1800s with one retry on `subprocess.TimeoutExpired`.
-7. **Fact-check** the generated Score and Data section against the postgame JSON (`factcheck_score_and_data` in `scripts/factcheck_cardinals.py`, Sonnet 4.6).
-8. **If fail:** regenerate ONCE with the issues appended to the prompt as explicit corrections. Re-fact-check.
-9. **If still fail:** quarantine the MD plus issues JSON to `data/content/analysis/factcheck_failed/`. Fire a macOS notification. Skip Blot publish. Local clean MD is NOT written.
-10. **If pass:** write the local MD with frontmatter plus sources footer, then `_publish_to_blot()` writes the Blot post to the Dropbox folder.
+7. **Fact-check** the generated Score and Data section against the postgame JSON + bbref PBP (`factcheck_score_and_data` in `scripts/factcheck_cardinals.py`, Opus 4.7).
+8. **If fail:** apply a **surgical-edit retry**. The runner sends Claude the previous draft verbatim plus only the flagged phrases plus instructions to edit ONLY those phrases. Claude returns the full draft with surgical changes only; unflagged paragraphs are preserved character-for-character. Re-fact-check.
+9. **Loop steps 7-8** up to `MAX_FACTCHECK_ATTEMPTS` (currently 6). Each pass shrinks the issue surface without introducing new errors in untouched paragraphs.
+10. **If loop converges (pass):** write the local MD with frontmatter plus sources footer, then `_publish_to_blot()` writes the Blot post to the Dropbox folder.
+11. **If loop exhausts attempts without converging:** quarantine the latest draft plus the final issues JSON to `data/content/analysis/factcheck_failed/`. Fire a macOS notification. Skip Blot publish. Local clean MD is NOT written.
+
+**Emergency bypass.** Pass `--skip-factcheck` to skip the verification loop entirely. The draft publishes as-is. Use only when (a) the cron is stuck in a loop on a corner case the writer prompt cannot yet handle, and (b) you have manually reviewed the draft. The 3 AM cron does NOT use this flag.
 
 ### Recovery path
 
@@ -235,15 +239,24 @@ The prompt's Game Analysis instructions explicitly tell the model that `wpa.key_
 
 **Trust the Reader prose rules.** The system prompt enforces a set of writing rules pulled from `/Users/brianrenshaw/Projects/Trust the Reader.md`: no em dashes in genuine prose sentences, no comma before "and"/"but" in compound sentences, no corrective contrast ("not X but Y"), no false-transition openers ("Here's the thing", "What's interesting is", "It's worth noting that", etc.), no restating, no paragraph openers that depend on a pronoun referent in the prior paragraph. The rules apply to Game Analysis prose, Cardinals Notebook prose, Beat Writer's Verdict prose, and the trailing description sentence in every Around the League / Interesting Analysis bullet. Tables, the score-header line, Statcast Highlights bullets, and bullet-list separators ("Player Name — 99.7 mph Sinker") are exempt because the em dash there is a structural separator, not prose.
 
-### Why fact-check and why one retry then block
+**No-inference hard rules.** Beyond Trust the Reader, the system prompt enforces a hard rule that every numeric claim in the Score and Data section must come from an explicit numeric field in POSTGAME DATA. The rule enumerates the categories where Claude historically inferred values from context: per-play RBI (use the play's `rbi` field), total RBI for a player (only from an explicit "N RBI" in batting_line), runs per inning (only from `line_score.innings[i]`), pitcher exit / "chased" claims (only from pitching_line + bbref PBP), outs context per play (only from bbref `outs`), team attribution (only from `top_performers.team_id`), season totals (only from the play's `season_total`), strikeout-inning claims like "struck out the side" (only when pitching_line shows K=3 AND bbref PBP confirms three K rows), base-runner advancements (each advancement is its own bbref row, do not conflate consecutive plays), pitch-to-batter attribution in statcast highlights (use the explicit `batter` field), pitch count per PA (only from bbref `pitches`), barrel classification (only when the play is in `statcast_highlights.barrels`), save/hold numbers (only from `decision` like `SV, 12` or `H, 7`), player role (only from `boxscore.batters[].position`), WPA arithmetic (pre-play = post - delta, both must agree within 0.5pt tolerance), and biographical/contextual color (geographic landmarks, holidays, crowd reactions, off-field references are NOT in the JSON and must not appear in prose).
 
-Beat-writer prose is exactly the kind of writing that drifts: a 99.4 mph fastball gets rounded to 99 mph, then to "high-90s heat", then to "triple-digit heat" two paragraphs later. The model can hallucinate a batter into a `lowest_xba_allowed` row that only names the pitcher. Cumulative season-long stats ("his MLB co-lead in saves") are not in the postgame payload at all and cannot be verified.
+### Why fact-check and why loop-with-surgical-edits
 
-The fact-checker is a separate Sonnet 4.6 call with a strict system prompt that enumerates every verifiable claim category (velocity, EV, distance, xBA, spin, LA, WPA, score, pitching_line, name-event pairing) plus categories that must be flagged as fabrication (player ages, multi-game streaks, forward-looking content, blog citations in this section). It outputs strict JSON with verdict, issue_count and per-issue category plus reasoning. The runner parses that JSON.
+Beat-writer prose drifts in three predictable ways. **Rounding drift:** a 99.4 mph fastball gets rounded to 99 mph, then to "high-90s heat", then to "triple-digit heat". **Pairing drift:** a pitch attributed to one batter in `top_whiffs` gets paired with a different batter in prose. **Inference drift:** Claude infers an inning-run total ("a four-run fifth") or an outs count ("two-out homer") or a pitcher-exit timing ("chased early") from context rather than reading the explicit JSON field. Cumulative season stats ("his MLB co-lead in saves") cannot be verified at all, only flagged.
 
-The retry semantics are deliberate. **Retry once with the issues fed back to the original prompt.** A single round of correction usually resolves rounding and pairing errors. **Block on second failure.** If the model still can't ground its claims after explicit correction, the report is quarantined, not published. The user explicitly chose "block everything on failure" over "warn-and-ship": bad numbers on the public blog are worse than a missed day.
+The fact-checker is a separate Opus 4.7 call (`factcheck_score_and_data` in `scripts/factcheck_cardinals.py`) with a strict system prompt that enumerates every verifiable claim category (velocity, EV, distance, xBA, spin, LA, WPA, score, inning-runs, pitching_line, rbi, outs, pitcher_exit, team, game_score, season-total, forward-looking, source-citation, name) plus categories that must be flagged as fabrication. It runs against TWO sources jointly: the Savant gamefeed payload AND a Baseball Reference cross-reference (`bbref.play_by_play` rows + `bbref.game_scores`). A claim is supported when EITHER source confirms it; flagged when both contradict or neither supports. The bbref PBP is especially load-bearing for catching inning-run inferences, outs-when-the-play-happened errors, pitcher-exit errors, and base-runner-advancement misreads. The checker outputs strict JSON with verdict, issue_count, and per-issue category plus reasoning. WPA arithmetic is accepted within 0.5pt tolerance: pre-play STL WP = `stl_wp_after_pct - wpa_delta_pct_stl` is a valid derivation.
 
-On a fact-check block:
+The retry semantics are now a **loop with surgical edits**, not a single full-regeneration retry.
+
+* On fact-check failure, the runner sends Claude the previous draft verbatim plus only the flagged phrases plus an instruction set: edit ONLY those phrases, leave every other paragraph character-for-character identical. Replace the wrong value with the JSON value when one is supplied; otherwise delete the claim. No new sentences, no new prose, no compensation prose.
+* Re-fact-check. If pass, publish. If fail, loop: send the latest draft plus the latest issues plus surgical-edit instructions.
+* Cap at `MAX_FACTCHECK_ATTEMPTS = 6`. Each attempt is ~2 minutes of Opus runtime. The 3 AM cron tolerates the longer runtime in exchange for converging automatically rather than landing in `factcheck_failed/` for manual recovery.
+* On loop exhaustion (6 failed attempts), the latest draft + final issues JSON are quarantined.
+
+The surgical-edit pattern avoids the full-regeneration retry's two failure modes. **Wasted tokens:** rewriting 3000 words to fix 3 phrases. **New-error drift:** a fresh rewrite can introduce inventions in paragraphs that previously passed. By scoping edits to the flagged claims only, each pass strictly shrinks the issue surface.
+
+On a fact-check block (loop exhaustion):
 
 * The clean MD path (`data/content/analysis/{date}_cardinals-daily.md`) is NOT written, so the bash downstream glob in `daily_content_ingest.sh` finds nothing to upload.
 * The failing MD is written to `data/content/analysis/factcheck_failed/{date}_cardinals-daily.md`, alongside `{date}_cardinals-daily.factcheck.json`.
@@ -257,7 +270,23 @@ uv run python -m scripts.factcheck_cardinals \
   data/content/analysis/factcheck_failed/{date}_cardinals-daily.md
 ```
 
-When that passes, `mv` the file out of `factcheck_failed/` into `analysis/` and run `scripts/republish_to_blot.sh {date}`.
+When that passes, `mv` the file out of `factcheck_failed/` into `analysis/` and run `scripts/republish_to_blot.sh {date}`. Alternatively, re-run the generator with `--skip-factcheck` to publish whatever Claude wrote without verification (use only after manual review).
+
+### The bbref cross-reference
+
+`app/services/bbref_boxscore.py` scrapes `https://www.baseball-reference.com/boxes/{HOME_BBREF_CODE}/{HOME_BBREF_CODE}{YYYYMMDD}{N}.shtml` and returns three things attached as `bbref` on the postgame payload:
+
+* `play_by_play`: every plate appearance with `inning` (t1/b1/...), `outs` after the play, `runners` base state, `pitches` count + sequence + final count (e.g. `"6,(3-2) .BLC*BBB"`), `runs_outs` flag (`O` / `R` / `RR` / `RRR` / `RO` / etc.), batter, pitcher, signed `wpa_pct`, `win_expectancy_pct` (batting-team perspective per row), `play_desc` text.
+* `game_scores`: pitcher name → Bill James game_score integer for both teams.
+* `game_info`: weather, attendance, venue, duration, surface, umpire crew.
+
+bbref uses historical 3-letter team codes (NYA, SDN, SLN, CHN, CHA, etc.) that disagree with MLB.com abbreviations. The mapping lives in `BBREF_CODE_FROM_MLB_NAME` in the service. Doubleheader handling: URL suffix is `0` for non-DH, `1` or `2` for split-DH games (derived from the schedule's `doubleheader` and `game_num` fields).
+
+Fetches are polite: browser UA, 24-hour disk cache, 1.5s inter-request delay on cache miss, retry-with-backoff on transient failures.
+
+### Player-name linking and accent handling
+
+The DB stores ASCII forms ("Ivan Herrera", "Jose Fermin"), but Savant gamefeed and bbref carry accented forms ("Iván Herrera", "José Fermín"). `linkify_players` in `scripts/daily_analysis.py` builds an **accent-insensitive regex** per name where each letter expands to a character class containing its base form plus all common accent variants. The match label preserves whichever accent form actually appeared in prose, so `Iván Herrera` in the source renders as `[Iván Herrera](fangraphs-url)` with the accent intact and the slug still ASCII for FanGraphs.
 
 ## Key Files
 
@@ -265,15 +294,20 @@ When that passes, `mv` the file out of `factcheck_failed/` into `analysis/` and 
 
 | File | Location | Purpose |
 |---|---|---|
-| `cardinals_daily_report.py` | `scripts/` | Main runner. Loads content, fetches postgame, builds prompt, invokes Opus, runs fact-check, retries once, writes local MD, publishes to Blot |
-| `factcheck_cardinals.py` | `scripts/` | Sonnet-based fact-checker. Standalone CLI for ad-hoc verification. Importable by the runner. Reads report date from frontmatter or filename prefix |
-| `cardinals_postgame.py` | `app/services/` | Builds the postgame JSON payload from Savant gamefeed plus statsapi boxscore plus line score. Fallback to pybaseball |
+| `cardinals_daily_report.py` | `scripts/` | Main runner. Loads content, fetches postgame, builds prompt, invokes Opus, loops fact-check + surgical edits up to `MAX_FACTCHECK_ATTEMPTS`, writes local MD, publishes to Blot |
+| `factcheck_cardinals.py` | `scripts/` | Opus 4.7 fact-checker. Cross-references both Savant gamefeed and bbref PBP. Standalone CLI for ad-hoc verification. Importable by the runner. Reads report date from frontmatter or filename prefix |
+| `cardinals_postgame.py` | `app/services/` | Builds the postgame JSON payload from Savant gamefeed plus statsapi boxscore plus line score plus bbref cross-reference plus `rbi`/`season_total` annotations. Fallback to pybaseball |
+| `bbref_boxscore.py` | `app/services/` | Scrapes baseball-reference.com box score pages for play-by-play, per-pitcher game_score, and game info. Polite scraping (24h cache, 1.5s inter-request delay, browser UA) |
+| `play_annotations.py` | `app/services/` | Shared helpers: derives `rbi` from "X scores" mentions in play descriptions, extracts `season_total` from parenthetical totals like "homers (11)". Used by both Cardinals digest and MLB roundup |
 | `og_banner.py` | `app/services/` | Generates the 1200×630 OG link-preview banner per post (logo + score + W/L chip + date). Invoked from `_publish_to_blot()` |
 | `republish_to_blot.sh` | `scripts/` | Recovery: re-publishes an existing local MD to Blot without regenerating it. Defaults to today. Takes optional `YYYY-MM-DD` arg |
-| `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner. Steps 4.5/4.6/5 exclude the Cardinals MD by design |
-| `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals MD exists (soft), Blot post landed (hard), no quarantined report (hard) |
+| `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner, Step 4.45 invokes the MLB roundup runner. Steps 4.5/4.6/5 exclude both MDs by design |
+| `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals + MLB roundup MDs exist (soft), Blot posts landed (hard), no quarantined reports (hard) |
 | `blog_ingest.py` | `scripts/` | Shared RSS fetcher. Cardinals-specific feed keys: `viva_el_birdos`, `redbird_rants`, `cardinal_nation` |
 | `podcast_transcriber.py` | `scripts/` | Shared podcast downloader. Cardinals-specific feed keys: `locked_on_cardinals`, `walton_and_reis`, `bschaeff_daily` |
+| `mlb_daily_roundup.py` | `scripts/` | Sibling runner for the MLB-wide roundup. Same fact-check + surgical-edit loop pattern. See `docs/mlb-roundup-process-doc.md` |
+| `mlb_roundup.py` | `app/services/` | Per-game payload builder for the MLB roundup. Iterates the day's slate, fetches Savant gamefeed + bbref for each game |
+| `factcheck_mlb_roundup.py` | `scripts/` | Opus 4.7 fact-checker for the MLB roundup. Verifies all per-game summaries against per-game JSON + bbref + full standings |
 
 ### Templates and styling
 
@@ -313,7 +347,7 @@ A copy of each plist also lives at `/Users/brianrenshaw/Projects/` for editing c
 
 ### Management URLs
 
-* Blog (public): [cardinals.brianrenshaw.com](https://cardinals.brianrenshaw.com)
+* Blog (public): [lankfordlegends.co](https://lankfordlegends.co)
 * Blot admin: [blot.im](https://blot.im) (login with the account that owns the Dropbox-linked blog)
 * GitHub repo: [github.com/brianrenshaw/caught_stealing](https://github.com/brianrenshaw/caught_stealing)
 * Baseball Savant gamefeed (for verifying source data): `https://baseballsavant.mlb.com/gamefeed?date=YYYY-MM-DD&gamePk={id}`
