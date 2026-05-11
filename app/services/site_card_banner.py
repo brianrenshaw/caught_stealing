@@ -160,55 +160,25 @@ def generate_site_card(out_path: Path) -> Path:
         fill=YELLOW,
     )
 
-    # Tagline: Roboto Slab Regular ~28pt, white, centered, 24px gap below underline.
-    # Auto-fit to canvas width (with side padding) so the line never overflows.
-    tagline_text = "Daily Cardinals + MLB Game Summaries & Analysis"
+    # Tagline: Roboto Slab Regular ~28pt, white, centered, 28px gap below underline.
+    # "AI-Generated" is baked into the tagline (no separate yellow pill).
+    tagline_text = "AI-Generated Daily Cardinals + MLB Game Summaries"
     tagline_max_width = WIDTH - 120  # 60px side padding each side
     tagline_font = _fit_font(tagline_text, tagline_max_width, WGHT_REGULAR, max_size=28, min_size=18)
     tagline_bbox = tagline_font.getbbox(tagline_text)
     tagline_width = tagline_bbox[2] - tagline_bbox[0]
     tagline_x = (WIDTH - tagline_width) // 2
-    tagline_y = underline_y + underline_height + 24
+    tagline_y = underline_y + underline_height + 28
     draw.text((tagline_x, tagline_y), tagline_text, font=tagline_font, fill=WHITE)
 
-    # AI badge pill: yellow bg, navy text "AI-GENERATED", Roboto Slab Bold ~22pt
-    badge_text = "AI-GENERATED"
-    badge_font = _font(22, WGHT_BOLD)
-    badge_bbox = badge_font.getbbox(badge_text)
-    badge_text_w = badge_bbox[2] - badge_bbox[0]
-    badge_text_h = badge_bbox[3] - badge_bbox[1]
-    pad_x, pad_y = 14, 8
-    badge_w = badge_text_w + 2 * pad_x
-    badge_h = badge_text_h + 2 * pad_y
-    badge_x, badge_y = 60, 530
-    # Slightly rounded pill — use a rectangle; corners aren't a strict spec.
-    draw.rounded_rectangle(
-        (badge_x, badge_y, badge_x + badge_w, badge_y + badge_h),
-        radius=badge_h // 2,
-        fill=YELLOW,
-    )
-    # Offset by -bbox[1] so the glyph top sits inside the padding.
-    draw.text(
-        (badge_x + pad_x - badge_bbox[0], badge_y + pad_y - badge_bbox[1]),
-        badge_text,
-        font=badge_font,
-        fill=NAVY,
-    )
-
-    # Domain stamp (bottom-right): Roboto Slab Regular ~22pt, white,
-    # right-aligned with 60px right padding, baseline aligned with AI badge.
+    # Domain stamp (bottom-center): Roboto Slab Regular ~24pt, white,
+    # centered with 60px from the red rule.
     domain_text = "lankfordlegends.co"
-    domain_font = _font(22, WGHT_REGULAR)
+    domain_font = _font(24, WGHT_REGULAR)
     domain_bbox = domain_font.getbbox(domain_text)
     domain_w = domain_bbox[2] - domain_bbox[0]
-    domain_h = domain_bbox[3] - domain_bbox[1]
-    domain_x = WIDTH - 60 - domain_w
-    # Align baseline (bottom of badge text) with bottom of domain text.
-    badge_text_bottom = badge_y + pad_y - badge_bbox[1] + badge_bbox[3]
-    domain_y = badge_text_bottom - domain_bbox[3] - domain_bbox[1] + domain_h
-    # Simpler: vertically center the domain text on the badge's vertical midline.
-    badge_mid = badge_y + badge_h // 2
-    domain_y = badge_mid - domain_h // 2 - domain_bbox[1]
+    domain_x = (WIDTH - domain_w) // 2
+    domain_y = HEIGHT - 8 - 56  # 56px above the red rule
     draw.text((domain_x, domain_y), domain_text, font=domain_font, fill=WHITE)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

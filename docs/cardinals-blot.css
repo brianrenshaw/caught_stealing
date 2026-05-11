@@ -605,45 +605,25 @@ a.rounded-link .summary {
     margin-left: 0.4em;
 }
 
-/* ---------- Homepage intro block (entries.html) ----------
-   Sits above the post list on the homepage. Explains what the site is +
-   labels the content as AI-generated. Mirrors the post-index styling so it
-   feels like part of the page, not a banner. */
+/* ---------- Homepage intro line (entries.html) ----------
+   Plain tagline above the post list — no card, no border, no fanfare.
+   Just describes what the site is and links to the about page. */
 .site-intro {
-    margin: 1.6em 0 2em;
-    padding: 1.2em 1.4em;
-    background: var(--surface);
-    border-left: 3px solid var(--cardinal-red);
-    border-radius: 6px;
-}
-
-.site-intro-title {
-    font-family: var(--font-head);
-    font-weight: 700;
-    font-size: 1.25rem;
-    line-height: 1.25;
-    color: var(--cardinal-red);
-    margin: 0 0 0.5em;
-}
-
-.site-intro-body {
+    margin: 1.2em 0 1.8em;
     font-family: var(--font-body);
     font-size: 0.98rem;
     line-height: 1.55;
-    color: var(--body);
-    margin: 0;
+    color: var(--subtle);
 }
 
-.site-intro-body strong { color: var(--navy); }
-
-.site-intro-body a {
+.site-intro a {
     color: var(--cardinal-red);
     text-decoration: none;
     border-bottom: 1px solid var(--cardinal-red);
     white-space: nowrap;
 }
 
-.site-intro-body a:hover {
+.site-intro a:hover {
     color: var(--link-hover);
     border-bottom-color: var(--link-hover);
 }
