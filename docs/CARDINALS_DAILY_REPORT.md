@@ -70,8 +70,9 @@ Loaded from the local `data/content/blogs/` and `data/content/transcripts/` fold
 - `cardinal_nation` — The Cardinal Nation (often 403-blocked; ingested when feed is reachable)
 - `locked_on_cardinals` — Locked On St. Louis Cardinals podcast (transcribed via MacWhisper)
 - `walton_and_reis` — Wednesday With Walton and Reis (The Cardinal Nation podcast, transcribed)
+- `bschaeff_daily` — B-Schaeff Daily: St. Louis Cardinals Talk, Every Day (Brenden Schaeffer, transcribed via MacWhisper)
 
-To add a new Cardinals source: register it in `RSS_FEEDS` (blog) or `PODCAST_FEEDS` (podcast) and append the feed key to `CARDINALS_SOURCES`.
+To add a new Cardinals source: register it in `RSS_FEEDS` (blog) or `PODCAST_FEEDS` (podcast) and append the feed key to `CARDINALS_SOURCES`. Add the display name and homepage URL to `SOURCE_HOMEPAGES` and `SOURCE_NAME_TO_KEY` in `cardinals_daily_report.py` so `linkify_sources` can attach hyperlinks.
 
 ### 2. League-wide news headlines (live RSS at generation time)
 

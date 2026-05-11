@@ -40,7 +40,7 @@ CLAIMS THAT MUST BE VERIFIED AGAINST THE JSON:
 - xBA / xwOBA (".980 xBA", ".010 xBA") → must match an `xba` / `best_xba` value
 - Spin rates ("2,317 rpm") → must match a `spin_rate` / `spin_rpm` value
 - Launch angles ("31-degree", "31° LA") → must match a `launch_angle` / `la_deg` value
-- WPA / win-probability percentages ("+48.5%", "29.5% WPA") → must match `wpa_delta_pct` / `wpa_pct` / `home_wp_after_pct`
+- WPA / win-probability percentages ("+48.5%", "29.5% WPA") → must match `wpa_delta_pct_stl` / `wpa_pct` / `stl_wp_after_pct`. The `wpa_delta_pct_stl` field is in **Cardinals perspective**: positive = STL gained, negative = STL lost. A Padres HR off O'Brien shows as a negative number for the Cardinals; a Walker HR shows as a positive number. The prose may flip the sign verbally (e.g. "9.7-point swing against the Cardinals" is correct when `wpa_delta_pct_stl = -9.7`). Flag a claim only when the magnitude is wrong or the direction is wrong relative to the Cardinals' perspective. Do NOT flag a verbal "against the Cardinals" or "in favor of the Cardinals" framing if it matches the sign of `wpa_delta_pct_stl`.
 - Inning-specific final scores, run totals, hit totals → must match `line_score.totals` or `scoring_plays`
 - Pitching lines ("5.0 IP, 0 ER, 5 K, 4 BB") → must match `top_performers[].pitching_line` or `boxscore.pitchers`
 - Player names attached to events → must match a name appearing in `scoring_plays`, `wpa.key_swings`, `top_performers`, `boxscore`, or `statcast_highlights`

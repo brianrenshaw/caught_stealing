@@ -73,6 +73,7 @@ CARDINALS_SOURCES: set[str] = {
     "cardinal_nation",
     "locked_on_cardinals",
     "walton_and_reis",
+    "bschaeff_daily",
 }
 
 # MLB-wide headlines feeds used by the "Around the League" section
@@ -341,21 +342,208 @@ def load_player_links() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Source linking (blog/podcast homepage + per-article URL lookup)
+# ---------------------------------------------------------------------------
+
+
+# Homepage URLs for Cardinals media outlets. Used for inline mentions
+# ("Locked On Cardinals relayed..." → linked) and as a fallback when a
+# citation's date doesn't resolve to a unique ingested article.
+#
+# Includes outlets we DON'T ingest (Cardinal Territory) but that get
+# mentioned in prose. Order matters for substring matching: longer
+# canonical names must appear before shorter prefixes that overlap.
+SOURCE_HOMEPAGES: dict[str, str] = {
+    "Wednesday With Walton and Reis": "https://podcasters.spotify.com/pod/show/brian54",
+    "Locked On Cardinals": "https://lockedonpodcasts.com/podcasts/locked-on-st-louis-cardinals/",
+    "Viva El Birdos": "https://www.vivaelbirdos.com/",
+    "Redbird Rants": "https://redbirdrants.com/",
+    "The Cardinal Nation": "https://www.thecardinalnation.com/",
+    "Cardinal Territory": "https://twitter.com/CardTerritory",
+    "Walton and Reis": "https://podcasters.spotify.com/pod/show/brian54",
+    "B-Schaeff Daily": "https://anchor.fm/bschaeffer12",
+}
+
+# Maps the display name used in prose to the manifest `source` key used for
+# per-article URL lookup. Outlets not in this map (Cardinal Territory) fall
+# through to homepage-only.
+SOURCE_NAME_TO_KEY: dict[str, str] = {
+    "Viva El Birdos": "viva_el_birdos",
+    "Redbird Rants": "redbird_rants",
+    "Locked On Cardinals": "locked_on_cardinals",
+    "The Cardinal Nation": "cardinal_nation",
+    "Wednesday With Walton and Reis": "walton_and_reis",
+    "Walton and Reis": "walton_and_reis",
+    "B-Schaeff Daily": "bschaeff_daily",
+}
+
+MANIFEST_PATH = CONTENT_DIR / "manifest.json"
+
+_MONTH_NUMS = {
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
+    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8,
+    "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+}
+
+
+def load_source_articles(report_date: date) -> dict[tuple[str, str], str]:
+    """Build a (source_key, ISO_date) → article URL map from manifest.json.
+
+    Loads all ingested Cardinals-source articles. When the report cites
+    *(Redbird Rants, May 9)*, the citation matcher looks up
+    ("redbird_rants", "2026-05-09") in this map. If exactly one article
+    matches, the citation is linked to that article; if multiple or none
+    match, the citation falls back to the source homepage.
+    """
+    articles: dict[tuple[str, str], list[str]] = {}
+    if not MANIFEST_PATH.exists():
+        return {}
+    try:
+        manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    except Exception as e:
+        log.warning("Could not load manifest.json: %s", e)
+        return {}
+    for section in ("blogs", "transcripts"):
+        for _fn, item in (manifest.get(section) or {}).items():
+            src_key = item.get("source")
+            if src_key not in CARDINALS_SOURCES:
+                continue
+            url = item.get("url") or ""
+            date_str = (item.get("date") or "")[:10]
+            if not url or not date_str:
+                continue
+            articles.setdefault((src_key, date_str), []).append(url)
+    # Keep only single-article keys so citations resolve unambiguously.
+    return {k: v[0] for k, v in articles.items() if len(v) == 1}
+
+
+def _parse_citation_date(date_str: str, report_date: date) -> str | None:
+    """Parse a citation date like 'May 9' or 'May 9, 2026' into ISO YYYY-MM-DD.
+
+    Uses the report year if no year is supplied. Returns None on parse failure.
+    """
+    s = date_str.strip().rstrip(".").rstrip(",")
+    # Try 'Month D, YYYY' first
+    m = re.match(r"([A-Za-z]+)\s+(\d{1,2})(?:,\s*(\d{4}))?$", s)
+    if not m:
+        return None
+    month_word, day, year = m.group(1).lower(), int(m.group(2)), m.group(3)
+    month = _MONTH_NUMS.get(month_word)
+    if not month:
+        return None
+    y = int(year) if year else report_date.year
+    try:
+        return date(y, month, day).isoformat()
+    except ValueError:
+        return None
+
+
+def linkify_sources(
+    text: str,
+    homepages: dict[str, str],
+    articles: dict[tuple[str, str], str],
+    report_date: date,
+) -> str:
+    """Convert source-name mentions and italic citations into markdown links.
+
+    Two passes:
+      1. Citations matching ``*(Source Name, Date)*`` → ``*([Source Name](url), Date)*``.
+         If the (source_key, ISO date) is in the manifest article map with exactly
+         one article, that article URL is used. Otherwise the source homepage URL
+         is used.
+      2. Inline source name mentions (e.g. "Viva El Birdos noted...") get linked
+         to the source's homepage URL. Existing markdown links are preserved by
+         splitting on link spans and only operating on the non-link chunks.
+
+    The post-processor is intentionally conservative: a source name already
+    surrounded by ``[...](...)`` is never re-linked, and citations whose source
+    name doesn't appear in either map are left as plain italics.
+    """
+    if not text:
+        return text
+
+    # Pass 1: italic citations
+    def cite_repl(m: re.Match) -> str:
+        src_name = m.group(1).strip()
+        date_str = m.group(2).strip()
+        # If the citation already contains a markdown link, skip
+        if "[" in src_name or "]" in src_name:
+            return m.group(0)
+        homepage = homepages.get(src_name)
+        url = None
+        src_key = SOURCE_NAME_TO_KEY.get(src_name)
+        iso = _parse_citation_date(date_str, report_date)
+        if src_key and iso:
+            url = articles.get((src_key, iso))
+        if not url:
+            url = homepage
+        if not url:
+            return m.group(0)
+        return f"*([{src_name}]({url}), {date_str})*"
+
+    text = re.sub(
+        r"\*\(([^,\(\)\[\]]+?),\s*([^\(\)\[\]]+?)\)\*",
+        cite_repl,
+        text,
+    )
+
+    # Pass 2: inline mentions. Split on existing markdown links so we don't
+    # double-link source names that already appear inside a [..](..) span.
+    parts = re.split(r"(\[[^\]]+\]\([^)]+\))", text)
+    # Match longest source names first so "Wednesday With Walton and Reis"
+    # is tried before "Walton and Reis".
+    ordered = sorted(homepages.items(), key=lambda kv: len(kv[0]), reverse=True)
+    for i in range(0, len(parts), 2):  # even indices = non-link text
+        chunk = parts[i]
+        for src_name, url in ordered:
+            pattern = r"\b" + re.escape(src_name) + r"\b"
+            chunk = re.sub(
+                pattern,
+                lambda m, n=src_name, u=url: f"[{n}]({u})",
+                chunk,
+            )
+        parts[i] = chunk
+
+    return "".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Prompts
 # ---------------------------------------------------------------------------
 
 
 SYSTEM_PROMPT = (
-    "You are a St. Louis Cardinals beat writer in the Bernie Miklasz / Derrick Goold tradition — "
-    "stat-driven, knowledgeable about the 26-man roster, the bullpen, the rotation, and the farm system. "
+    "You are a St. Louis Cardinals beat writer in the Bernie Miklasz / Derrick Goold tradition. "
+    "Stat-driven, knowledgeable about the 26-man roster, the bullpen, the rotation, and the farm system. "
     "Write in **THIRD PERSON** about the Cardinals: 'the Cardinals', 'St. Louis', 'their rotation', "
-    "'the Cardinals' prospect pipeline'. NEVER use 'I', 'me', 'we', 'us', 'our'. The reader is a fan; "
-    "the writer is a reporter. Stat-driven authority — every claim ties to a specific number, expert "
-    "quote, or game outcome. No glib hot takes; no fan-rant first person.\n\n"
+    "'the Cardinals' prospect pipeline'. NEVER use 'I', 'me', 'we', 'us', 'our'. The reader is a fan. "
+    "The writer is a reporter. Stat-driven authority. Every claim ties to a specific number, expert "
+    "quote, or game outcome. No glib hot takes. No fan-rant first person.\n\n"
+    "PROSE RULES (apply to all prose in Game Analysis, Cardinals Notebook, Beat Writer's Verdict, "
+    "and the trailing description sentence of every Around the League / Interesting Analysis bullet):\n"
+    "- NEVER use em dashes (—). Replace with periods, commas, colons, or restructure the sentence.\n"
+    "- Do NOT add a comma before 'and' or 'but' in a compound sentence. Oxford commas in lists of three\n"
+    "  or more are fine.\n"
+    "- Do NOT use corrective contrast ('not X but Y' / 'wasn't X, it was Y' / 'isn't X, it's Y'). State Y\n"
+    "  directly. Trust the reader to infer what Y excludes. The only exception: if the reader genuinely\n"
+    "  holds the wrong belief and you are correcting it.\n"
+    "- Do NOT open paragraphs with false-transition phrases: 'Here's the thing', 'What's interesting is',\n"
+    "  'It's worth noting that', 'The reality is', 'But here's the catch', 'To be clear', 'At its core',\n"
+    "  'This matters because', 'Let's be honest', 'The truth is', 'What people don't realize is'.\n"
+    "- Do NOT open a paragraph with a pronoun whose referent is only in the previous paragraph.\n"
+    "- Do NOT restate a point you just made in different words. Do not telegraph a conclusion before\n"
+    "  delivering it. Do not narrate your own rhetorical moves.\n"
+    "- Tables, the score-header line, Statcast Highlights bullets, and bullet-list separators "
+    "  ('Player Name — 99.7 mph Sinker') are exempt from the em-dash rule. The rule applies to genuine\n"
+    "  prose sentences.\n\n"
     "FORMATTING:\n"
     "- ## for section headers, ### for player names or sub-beats\n"
     "- Bold sparingly for tags or key facts (**W**, **L**, **HR**, **IL**)\n"
-    "- *Italics* for source citations: *(Locked On Cardinals, May 9)*\n"
+    "- *Italics* for source citations: *(Locked On Cardinals, May 9)*. The source name will be auto-linked\n"
+    "  by a post-processor — write the citation as plain italic text, do not insert markdown links\n"
+    "  yourself. Inline mentions of source names ('Viva El Birdos noted...', 'per Locked On Cardinals')\n"
+    "  are also auto-linked. Use the exact source name as it appears in the EXPERT CONTENT block.\n"
     "- Box-score data goes in markdown tables, not prose, in the Previous Game section\n"
     "- Bullet lists under sub-beats; bigger context as flowing prose\n\n"
     "CONTENT RULES:\n"
@@ -441,7 +629,7 @@ This is the narrative center of the report. It must do BOTH jobs: walk the reade
 
 Use the gamefeed data sources in this priority order. Every claim must tie to a specific datum:
 
-- **`wpa.key_swings`** — THE narrative spine. Top 6 at-bats by |WPA Δ|, each with batter, pitcher, pitch type, pitch velocity, EV, event, and full play description. Build the game arc around these — the +48.5% swing was the *moment* the game pivoted. Reference at least 4 of these by name and metric.
+- **`wpa.key_swings`** — THE narrative spine. Top 6 at-bats by |WPA Δ|, each with batter, pitcher, pitch type, pitch velocity, EV, event, and full play description. Every `wpa_delta_pct_stl` is in **Cardinals perspective**: positive = Cardinals' win probability went UP, negative = Cardinals' win probability went DOWN. A Castellanos walk-off HR for San Diego shows as a negative number for the Cardinals. A Walker HR for St. Louis shows as a positive number. The `stl_wp_after_pct` field is the Cardinals' win probability immediately after that at-bat. Build the game arc around these — the −48.5% swing was the *moment* the game pivoted. Reference at least 4 of these by name and metric.
 - **`scoring_plays`** — chronological scoring sequence with the batter/pitcher/EV/xBA/pitch-velo. Connective tissue between key swings.
 - **`game_context.final_play`** — if the game ended on a scoring play (walk-off), open or close with it explicitly.
 - **`game_context.linescore_note`** — phrases like "One out when winning run scored" are pure beat-writer color; work them in naturally.
@@ -475,15 +663,15 @@ If POSTGAME DATA is null (off day), say so directly and pivot to the most recent
 ```
 ### Win Probability Swings
 
-| Moment | Δ WP | Batter (Team) vs Pitcher | Result |
+| Moment | Δ WP (STL) | Batter (Team) vs Pitcher | Result |
 |---|---:|---|---|
-| B9 | +48.5% | Nick Castellanos (SD) vs Riley O'Brien | HR on 98.5 mph Sinker, 105.2 mph EV |
-| T4 | −21.7% | Jordan Walker (STL) vs Walker Buehler | HR on 76.3 mph Knuckle Curve, 108.3 mph EV |
-| T10 | +12.0% | José Fermín (STL) vs Adrian Morejon | Pop Out on 98.8 mph Sinker (rally ends) |
+| B9 | −48.5% | Nick Castellanos (SD) vs Riley O'Brien | HR on 98.5 mph Sinker, 105.2 mph EV |
+| T4 | +21.7% | Jordan Walker (STL) vs Walker Buehler | HR on 76.3 mph Knuckle Curve, 108.3 mph EV |
+| T10 | −12.0% | José Fermín (STL) vs Adrian Morejon | Pop Out on 98.8 mph Sinker (rally ends) |
 | ... |
 ```
 
-Δ WP is the **home-team** win-probability change for that at-bat (positive = home gained, negative = home lost). Format the Result cell as a one-clause description that names the pitch type, pitch velocity, and either EV/outcome or context — pull from `description`, `pitch_type`, `pitch_velo_mph`, and `ev_mph`. Use the original Unicode minus sign `−` for negative deltas (not a hyphen).
+Δ WP (STL) is the **Cardinals** win-probability change for that at-bat. Pull from `wpa_delta_pct_stl`. Positive = Cardinals' chances went UP. Negative = Cardinals' chances went DOWN. A San Diego HR off the Cardinals shows as a negative number for the Cardinals. A Cardinals HR shows as a positive number. The column header MUST read `Δ WP (STL)`. Format the Result cell as a one-clause description that names the pitch type, pitch velocity, and either EV/outcome or context — pull from `description`, `pitch_type`, `pitch_velo_mph`, and `ev_mph`. Use the original Unicode minus sign `−` for negative deltas (not a hyphen).
 
 The Score and Data section ENDS after the Win Probability Swings table. Statcast Highlights lives in its own H2 section further down the report (after Beat Writer's Verdict). Do NOT include a Statcast Highlights subsection inside Score and Data.
 
@@ -713,15 +901,15 @@ def _defeat_blot_heading_titlecase(markdown: str) -> str:
 def _format_blot_title(today: date, postgame: dict | None) -> str:
     """Build the Blot post Title from postgame data.
 
-    Uses the GAME date (yesterday) for the date stamp — not today's report date.
+    Uses the GAME date (yesterday) for the date stamp, not today's report date.
 
     Examples:
-      "@ Padres 2-4 (L) — May 9"
-      "vs. Reds 7-3 (W) — May 11"
-      "Cardinals — May 10 (off day)"   ← falls back to today when no game
+      "@ Padres 2-4 (L). May 9"
+      "vs. Reds 7-3 (W). May 11"
+      "Cardinals. May 10 (off day)"   ← falls back to today when no game
     """
     if not postgame:
-        return f"Cardinals — {today.strftime('%B %-d')} (off day)"
+        return f"Cardinals. {today.strftime('%B %-d')} (off day)"
 
     # Pull the actual game date from postgame.date (ISO YYYY-MM-DD); fall back to today.
     try:
@@ -752,7 +940,7 @@ def _format_blot_title(today: date, postgame: dict | None) -> str:
         wl = "L"
     else:
         wl = "T"
-    return f"{connector} {opp_short} {stl_r}-{opp_r} ({wl}) — {date_short}"
+    return f"{connector} {opp_short} {stl_r}-{opp_r} ({wl}). {date_short}"
 
 
 def _extract_summary(postgame: dict | None) -> str:
@@ -792,6 +980,10 @@ def _publish_to_blot(
         return None
 
     linked = linkify_players(body_text, player_links) if player_links else body_text
+    # Linkify blogs/podcasts AFTER players so existing player [name](url) spans
+    # are skipped by the source-name regex.
+    source_articles = load_source_articles(today)
+    linked = linkify_sources(linked, SOURCE_HOMEPAGES, source_articles, today)
     title = _format_blot_title(today, postgame)
     summary = _extract_summary(postgame)
 
@@ -831,6 +1023,8 @@ def write_report(
     out_path = ANALYSIS_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
 
     linked = linkify_players(body_text, player_links) if player_links else body_text
+    source_articles = load_source_articles(today)
+    linked = linkify_sources(linked, SOURCE_HOMEPAGES, source_articles, today)
     sources = build_sources_section(items)
 
     frontmatter = (

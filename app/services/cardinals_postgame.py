@@ -306,7 +306,7 @@ def _scoring_plays_from_gamefeed(gf: dict) -> list[dict]:
     return out
 
 
-def _wpa_leaders_from_gamefeed(gf: dict) -> dict[str, list]:
+def _wpa_leaders_from_gamefeed(gf: dict, stl_is_home: bool = False) -> dict[str, list]:
     """Pull WPA leaderboards: top game-impact players, last-inning sequence, and the
     biggest individual at-bat swings joined with their play descriptions.
 
@@ -317,9 +317,14 @@ def _wpa_leaders_from_gamefeed(gf: dict) -> dict[str, list]:
       - key_swings: top 6 individual at-bats by |WPA Δ|, each paired with the
         play description, the inning, batter, pitcher, and event — these are
         the *moments that decided the game*.
+
+    All `*_pct_stl` fields are flipped to Cardinals-perspective when STL is on
+    the road so the prompt always reads "positive = Cardinals gained, negative
+    = Cardinals lost" regardless of venue.
     """
     if not gf:
         return {}
+    sign = 1 if stl_is_home else -1
     wpa = (gf.get("scoreboard") or {}).get("stats", {}).get("wpa") or {}
     out: dict[str, list] = {}
     top_players = wpa.get("topWpaPlayers") or []
@@ -363,10 +368,13 @@ def _wpa_leaders_from_gamefeed(gf: dict) -> dict[str, list]:
             play = ab_last_pitch.get(atbi + 1)
             if not play or not play.get("events"):
                 continue
+            home_delta = float(w.get("homeTeamWinProbabilityAdded") or 0)
+            home_after = float(w.get("homeTeamWinProbability") or 0)
+            stl_after = home_after if stl_is_home else (100.0 - home_after)
             key_swings.append({
                 "inning_half": w.get("i"),
-                "wpa_delta_pct": round(float(w.get("homeTeamWinProbabilityAdded") or 0), 1),
-                "home_wp_after_pct": round(float(w.get("homeTeamWinProbability") or 0), 1),
+                "wpa_delta_pct_stl": round(sign * home_delta, 1),
+                "stl_wp_after_pct": round(stl_after, 1),
                 "batter": play.get("batter_name"),
                 "pitcher": play.get("pitcher_name"),
                 "team_batting": play.get("team_batting"),
@@ -943,7 +951,7 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
         scoring = _scoring_plays_from_gamefeed(gf)
         if scoring:
             payload["scoring_plays"] = scoring
-        wpa = _wpa_leaders_from_gamefeed(gf)
+        wpa = _wpa_leaders_from_gamefeed(gf, stl_is_home=payload["stl_is_home"])
         if wpa:
             payload["wpa"] = wpa
         performers = _top_performers_from_gamefeed(gf)

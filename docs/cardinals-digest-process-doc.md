@@ -103,7 +103,7 @@ Plus a `## Sources Analyzed` footer listing every Cardinals blog/podcast item th
 | `### Cardinals Batters` | `boxscore.batters` plus per-batter Statcast aggregates | Savant-style table: standard slash line PLUS Max EV, Hit Dist, xBA on Contact columns |
 | `### Cardinals Pitchers` | `boxscore.pitchers` | IP / H / R / ER / BB / K / HR / Pitches / Decision |
 | `### Game Analysis` | `wpa.key_swings`, `scoring_plays`, `game_context`, `wpa.top_wpa_players`, `statcast_highlights` | 4-5 paragraphs of beat-writer prose. Scout-flavored color (pitch sequences, count leverage, location reads) is embedded here, not in a separate bulleted Scout Notes section |
-| `### Win Probability Swings` | `wpa.key_swings` | Top 4-5 plays by &#124;Δ WP&#124;, home-team-positive convention |
+| `### Win Probability Swings` | `wpa.key_swings` | Top 4-5 plays by &#124;Δ WP&#124;, **Cardinals-positive** convention (positive = STL gained, negative = STL lost). Column header reads `Δ WP (STL)` |
 
 ### Blot post
 
@@ -149,7 +149,7 @@ Written only when the report fails fact-check twice. Lists every unsupported cla
 |---|---|---|---|
 | 3:00 AM | LaunchAgent `com.fantasybaseball.content-ingest` | Step 1 | Collect MacWhisper transcripts finished overnight |
 | 3:00 AM | (same) | Step 2 | Fetch RSS blogs (FanGraphs, Pitcher List, RotoWire, Viva El Birdos, Redbird Rants, The Cardinal Nation) |
-| 3:00 AM | (same) | Step 3 | Download new podcast episodes (Locked On, In This League, CBS, FantasyPros, Locked On Cardinals, Wednesday With Walton and Reis) |
+| 3:00 AM | (same) | Step 3 | Download new podcast episodes (Locked On, In This League, CBS, FantasyPros, Locked On Cardinals, Wednesday With Walton and Reis, B-Schaeff Daily) |
 | 3:00 AM | (same) | Step 3.5 | Yahoo ETL refresh (rosters plus standings. Fantasy only but runs first) |
 | 3:00 AM | (same) | Step 4 | Generate fantasy daily intel report via Opus 4.7 |
 | 3:00 AM | (same) | Step 4.4 | **Generate Cardinals digest.** See "How the Game-Narrative Pipeline Works" |
@@ -219,7 +219,13 @@ The postgame payload exposes the gamefeed data in eight buckets:
 
 Both `scoring_plays` and `wpa.key_swings` pick the **AB-ending pitch** (highest `pitch_number` within the at-bat). This wasn't always true. An earlier version of `_scoring_plays_from_gamefeed` picked the first pitch in the AB with a `des` populated, producing velocity values that disagreed with `wpa.key_swings` for the same plate appearance. The fact-checker correctly flagged it. Commit `29ca6fb` aligned both extractors.
 
-The prompt's Game Analysis instructions explicitly tell the model that `wpa.key_swings` is "THE narrative spine". The +48.5% game-tying swing is the moment the game pivoted, not just one of many homers. The model is told to reference at least four key swings by name and metric. The prompt also forbids blog/podcast citations in the Score and Data section: source attribution belongs in Cardinals Notebook, not the game story.
+The prompt's Game Analysis instructions explicitly tell the model that `wpa.key_swings` is "THE narrative spine". The −48.5% game-flipping swing is the moment the game pivoted. The model is told to reference at least four key swings by name and metric. The prompt also forbids blog/podcast citations in the Score and Data section: source attribution belongs in Cardinals Notebook, not the game story.
+
+**WPA sign convention.** All `wpa_delta_pct_stl` values are in Cardinals perspective: positive = STL win probability went UP, negative = STL win probability went DOWN. The `stl_wp_after_pct` field is the Cardinals' WP immediately after the at-bat. When STL is the road team `_wpa_leaders_from_gamefeed` flips Savant's home-team `homeTeamWinProbabilityAdded` to STL perspective. When STL is home it passes through unchanged. The Win Probability Swings table column header reads `Δ WP (STL)` and the prose describes swings as "X-point swing against the Cardinals" / "in favor of the Cardinals" rather than naming the home team's WP movement.
+
+**Source linking.** A second post-processor (`linkify_sources` in `cardinals_daily_report.py`) converts italic citations like `*(Redbird Rants, May 9)*` into `*([Redbird Rants](article_url), May 9)*` and adds homepage links to inline mentions of Cardinals blogs/podcasts. The article URL comes from `data/content/manifest.json` keyed by `(source_key, ISO_date)`. When that key has multiple matches (e.g. Viva El Birdos publishes three pieces on a single day) the citation falls back to the source homepage. Outlets we don't ingest (Cardinal Territory, MLB Network) are linkified using a hardcoded homepage map in `SOURCE_HOMEPAGES`. Run order in `_publish_to_blot` and `write_report`: `linkify_players` first (so player links exist as protected spans), then `linkify_sources` (which splits on existing markdown links to avoid re-linking).
+
+**Trust the Reader prose rules.** The system prompt enforces a set of writing rules pulled from `/Users/brianrenshaw/Projects/Trust the Reader.md`: no em dashes in genuine prose sentences, no comma before "and"/"but" in compound sentences, no corrective contrast ("not X but Y"), no false-transition openers ("Here's the thing", "What's interesting is", "It's worth noting that", etc.), no restating, no paragraph openers that depend on a pronoun referent in the prior paragraph. The rules apply to Game Analysis prose, Cardinals Notebook prose, Beat Writer's Verdict prose, and the trailing description sentence in every Around the League / Interesting Analysis bullet. Tables, the score-header line, Statcast Highlights bullets, and bullet-list separators ("Player Name — 99.7 mph Sinker") are exempt because the em dash there is a structural separator, not prose.
 
 ### Why fact-check and why one retry then block
 
@@ -258,7 +264,7 @@ When that passes, `mv` the file out of `factcheck_failed/` into `analysis/` and 
 | `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner. Steps 4.5/4.6/5 exclude the Cardinals MD by design |
 | `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals MD exists (soft), Blot post landed (hard), no quarantined report (hard) |
 | `blog_ingest.py` | `scripts/` | Shared RSS fetcher. Cardinals-specific feed keys: `viva_el_birdos`, `redbird_rants`, `cardinal_nation` |
-| `podcast_transcriber.py` | `scripts/` | Shared podcast downloader. Cardinals-specific feed keys: `locked_on_cardinals`, `walton_and_reis` |
+| `podcast_transcriber.py` | `scripts/` | Shared podcast downloader. Cardinals-specific feed keys: `locked_on_cardinals`, `walton_and_reis`, `bschaeff_daily` |
 
 ### Templates and styling
 
@@ -606,3 +612,6 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 | 2026-05-11 | Fixed `_scoring_plays_from_gamefeed` to pick the AB-ending pitch so it agrees with `wpa.key_swings`. Added `--date` flag for historical regenerations. Commit `29ca6fb`. |
 | 2026-05-11 | Section order changed again: Statcast Highlights moved out of Score and Data into its own H2 between Beat Writer's Verdict and Around the League. Commit `c6fa302`. |
 | 2026-05-11 | Cardinals digest pipeline cleanly separated from the fantasy report's PDF plus Readdle plus Fly destinations. Cardinals ships to Blot only. Commit `fa1c804`. |
+| 2026-05-11 | WPA convention flipped from home-team-positive to Cardinals-positive. `wpa.key_swings` now carries `wpa_delta_pct_stl` and `stl_wp_after_pct`. Win Probability Swings column header reads `Δ WP (STL)`. |
+| 2026-05-11 | Added `linkify_sources` post-processor that converts `*(Source Name, Date)*` citations and inline blog/podcast mentions to markdown links using `manifest.json` for article-specific URLs and `SOURCE_HOMEPAGES` for fallbacks. |
+| 2026-05-11 | System prompt picked up Trust the Reader prose rules: no em dashes, no comma-before-and/but in compound sentences, no corrective contrast, no false-transition paragraph openers, no restating. |

@@ -74,6 +74,10 @@ PODCAST_FEEDS = {
         "name": "Wednesday With Walton and Reis of The Cardinal Nation",
         "url": "https://anchor.fm/s/10c22ea54/podcast/rss",
     },
+    "bschaeff_daily": {
+        "name": "B-Schaeff Daily",
+        "url": "https://anchor.fm/s/12f52af0/podcast/rss",
+    },
 }
 
 REQUEST_TIMEOUT = 120
