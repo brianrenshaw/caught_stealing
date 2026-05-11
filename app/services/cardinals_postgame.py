@@ -256,6 +256,236 @@ def _is_barrel(launch_speed: float | None, launch_angle: float | None) -> bool:
     return (26 - expand) <= launch_angle <= (30 + expand)
 
 
+def _scoring_plays_from_gamefeed(gf: dict) -> list[dict]:
+    """Pull the chronological scoring plays from the gamefeed pitch streams.
+
+    A "scoring play" is any pitch row whose `des` mentions a runner scoring
+    AND whose `events` field is populated (the result of the at-bat). We
+    dedupe by `ab_number` so each plate appearance produces one entry.
+    """
+    if not gf:
+        return []
+    all_pitches = (gf.get("team_home") or []) + (gf.get("team_away") or [])
+    seen: set[int] = set()
+    out: list[dict] = []
+    for p in all_pitches:
+        des = p.get("des") or ""
+        if not des or "score" not in des.lower():
+            continue
+        if not p.get("events"):
+            continue
+        ab = p.get("ab_number")
+        if ab in seen:
+            continue
+        seen.add(ab)
+        out.append({
+            "inning": p.get("inning"),
+            "half": p.get("inning_topbot") or p.get("half_inning"),
+            "batter": p.get("batter_name"),
+            "pitcher": p.get("pitcher_name"),
+            "team_batting": p.get("team_batting"),
+            "event": p.get("events"),
+            "description": des.strip(),
+            "ev_mph": _gf_float(p, "launch_speed", 1),
+            "la_deg": _gf_float(p, "launch_angle", 1),
+            "xba": _xba_to_float(p.get("xba")),
+            "pitch_velo_mph": _gf_float(p, "start_speed", 1),
+            "pitch_type": p.get("pitch_name"),
+        })
+    out.sort(key=lambda x: (x.get("inning") or 0, 0 if x.get("half") == "Top" else 1))
+    return out
+
+
+def _wpa_leaders_from_gamefeed(gf: dict) -> dict[str, list]:
+    """Pull WPA leaderboards: top game-impact players, last-inning sequence, and the
+    biggest individual at-bat swings joined with their play descriptions.
+
+    Three buckets in the returned dict:
+      - top_wpa_players: cumulative game WPA leaders (any team)
+      - last_plays: the final at-bats of the game in chronological order (color
+        for the kicker)
+      - key_swings: top 6 individual at-bats by |WPA Δ|, each paired with the
+        play description, the inning, batter, pitcher, and event — these are
+        the *moments that decided the game*.
+    """
+    if not gf:
+        return {}
+    wpa = (gf.get("scoreboard") or {}).get("stats", {}).get("wpa") or {}
+    out: dict[str, list] = {}
+    top_players = wpa.get("topWpaPlayers") or []
+    if top_players:
+        out["top_wpa_players"] = [
+            {"name": p.get("name"), "wpa_pct": round(float(p.get("wpa") or 0), 1)}
+            for p in top_players[:5]
+        ]
+    last_plays = wpa.get("lastPlays") or []
+    if last_plays:
+        out["last_plays"] = [
+            {"name": p.get("name"), "wpa_pct": round(float(p.get("wpa") or 0), 1)}
+            for p in last_plays[:5]
+        ]
+
+    # Join per-AB WPA deltas with the play descriptions. Empirical: Savant's
+    # gameWpa atBatIndex is offset by 1 from the pitch stream's ab_number
+    # (atBatIndex N's WP delta corresponds to ab_number N+1's outcome).
+    game_wpa = wpa.get("gameWpa") or []
+    if game_wpa:
+        pitches = (gf.get("team_home") or []) + (gf.get("team_away") or [])
+        ab_last_pitch: dict[int, dict] = {}
+        for p in pitches:
+            ab = p.get("ab_number")
+            if ab is None:
+                continue
+            prev = ab_last_pitch.get(ab)
+            if prev is None or (p.get("pitch_number") or 0) > (prev.get("pitch_number") or 0):
+                ab_last_pitch[ab] = p
+
+        top_swings = sorted(
+            game_wpa,
+            key=lambda w: abs(w.get("homeTeamWinProbabilityAdded") or 0),
+            reverse=True,
+        )[:6]
+        key_swings: list[dict] = []
+        for w in top_swings:
+            atbi = w.get("atBatIndex")
+            if atbi is None:
+                continue
+            play = ab_last_pitch.get(atbi + 1)
+            if not play or not play.get("events"):
+                continue
+            key_swings.append({
+                "inning_half": w.get("i"),
+                "wpa_delta_pct": round(float(w.get("homeTeamWinProbabilityAdded") or 0), 1),
+                "home_wp_after_pct": round(float(w.get("homeTeamWinProbability") or 0), 1),
+                "batter": play.get("batter_name"),
+                "pitcher": play.get("pitcher_name"),
+                "team_batting": play.get("team_batting"),
+                "event": play.get("events"),
+                "description": (play.get("des") or "").strip(),
+                "ev_mph": _gf_float(play, "launch_speed", 1),
+                "pitch_velo_mph": _gf_float(play, "start_speed", 1),
+                "pitch_type": play.get("pitch_name"),
+            })
+        if key_swings:
+            out["key_swings"] = key_swings
+    return out
+
+
+def _batter_statcast_aggregate(
+    gf: dict, batter_team: str
+) -> dict[str, dict]:
+    """Aggregate per-batter Statcast metrics from the exit_velocity in-play list.
+
+    Returns name → { max_ev, max_hit_distance, best_xba, best_outcome } so the
+    standard box score can be augmented with Savant-style columns. Filters to
+    one team's batters only (pass "STL").
+    """
+    if not gf:
+        return {}
+    ev_list = gf.get("exit_velocity") or []
+    rows = [e for e in ev_list if e.get("team_batting") == batter_team]
+    if not rows:
+        return {}
+    out: dict[str, dict] = {}
+    for r in rows:
+        name = r.get("batter_name")
+        if not name:
+            continue
+        ev = _gf_float(r, "launch_speed", 1)
+        hd = _gf_float(r, "hit_distance", 0)
+        xba = _xba_to_float(r.get("xba"))
+        outcome = r.get("events") or r.get("result")
+        agg = out.setdefault(name, {
+            "max_ev_mph": None,
+            "max_hit_distance_ft": None,
+            "best_xba": None,
+            "best_outcome": None,
+            "batted_balls": 0,
+        })
+        agg["batted_balls"] += 1
+        if ev is not None and (agg["max_ev_mph"] is None or ev > agg["max_ev_mph"]):
+            agg["max_ev_mph"] = ev
+        if hd is not None and (agg["max_hit_distance_ft"] is None or hd > agg["max_hit_distance_ft"]):
+            agg["max_hit_distance_ft"] = hd
+        if xba is not None and (agg["best_xba"] is None or xba > agg["best_xba"]):
+            agg["best_xba"] = xba
+            agg["best_outcome"] = outcome
+    return out
+
+
+def _top_performers_from_gamefeed(gf: dict) -> list[dict]:
+    """Extract MLB's curated top performers (already split into hitter/starter buckets).
+
+    Returns each performer with name, team_id, role label, and the one-line
+    stat summary MLB provides ("5.0 IP, 0 ER, 5 K, 4 BB"). The model can use
+    these as anchor names in the narrative without having to mine the
+    full box score.
+    """
+    if not gf:
+        return []
+    tps = (gf.get("boxscore") or {}).get("topPerformers") or []
+    out: list[dict] = []
+    for tp in tps:
+        player = tp.get("player") or {}
+        person = player.get("person") or {}
+        stats = player.get("stats") or {}
+        batting = (stats.get("batting") or {}).get("summary")
+        pitching = (stats.get("pitching") or {}).get("summary")
+        out.append({
+            "name": person.get("fullName"),
+            "team_id": player.get("parentTeamId"),
+            "role": tp.get("type"),
+            "batting_line": batting,
+            "pitching_line": pitching,
+            "is_stl": player.get("parentTeamId") == STL_TEAM_ID,
+        })
+    return out
+
+
+def _game_context_from_gamefeed(gf: dict) -> dict:
+    """Extract narrative-flavored game context from the boxscore.info block.
+
+    Pulls weather, wind, attendance, time-of-game, ABS challenges, and the
+    linescore note (e.g., "One out when winning run scored.") — the stuff
+    a beat writer would actually open a paragraph with.
+    """
+    ctx: dict = {}
+    if not gf:
+        return ctx
+    info_list = (gf.get("boxscore") or {}).get("info") or []
+    info = {entry.get("label"): entry.get("value") for entry in info_list if entry.get("label")}
+    for key, label in [
+        ("weather", "Weather"),
+        ("wind", "Wind"),
+        ("attendance", "Att"),
+        ("game_time", "T"),
+        ("first_pitch", "First pitch"),
+        ("venue", "Venue"),
+        ("abs_challenges", "ABS Challenge"),
+    ]:
+        v = info.get(label)
+        if v:
+            ctx[key] = v.rstrip(".")
+    sb = gf.get("scoreboard") or {}
+    note = (sb.get("linescore") or {}).get("note")
+    if note:
+        ctx["linescore_note"] = note.rstrip(".")
+    cp = sb.get("currentPlay") or {}
+    about = cp.get("about") or {}
+    result = cp.get("result") or {}
+    if about.get("isScoringPlay") and result.get("description"):
+        ctx["final_play"] = {
+            "inning": about.get("inning"),
+            "half": about.get("halfInning"),
+            "event": result.get("event"),
+            "description": result.get("description"),
+            "rbi": result.get("rbi"),
+            "away_score": result.get("awayScore"),
+            "home_score": result.get("homeScore"),
+        }
+    return ctx
+
+
 def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
     """Build the same `statcast_highlights` payload from Savant's gamefeed JSON.
 
@@ -686,6 +916,30 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
             payload["statcast_highlights"] = highlights
             log.info("Statcast highlights from Savant gamefeed: %s",
                      ", ".join(f"{k}={len(v)}" for k, v in highlights.items()))
+        scoring = _scoring_plays_from_gamefeed(gf)
+        if scoring:
+            payload["scoring_plays"] = scoring
+        wpa = _wpa_leaders_from_gamefeed(gf)
+        if wpa:
+            payload["wpa"] = wpa
+        performers = _top_performers_from_gamefeed(gf)
+        if performers:
+            payload["top_performers"] = performers
+        ctx = _game_context_from_gamefeed(gf)
+        if ctx:
+            payload["game_context"] = ctx
+        # Enrich the standard box score batter rows with per-batter Statcast
+        # aggregates so the prompt can render a Savant-flavored extended box.
+        stl_agg = _batter_statcast_aggregate(gf, STL_TEAM_ABBR)
+        if stl_agg:
+            for batter in payload["boxscore"]["batters"]:
+                agg = stl_agg.get(batter.get("name"))
+                if agg:
+                    batter["max_ev_mph"] = agg["max_ev_mph"]
+                    batter["max_hit_distance_ft"] = agg["max_hit_distance_ft"]
+                    batter["best_xba"] = agg["best_xba"]
+                    batter["best_outcome"] = agg["best_outcome"]
+                    batter["batted_balls"] = agg["batted_balls"]
 
     # Fallback: pybaseball single-game CSV (sometimes has data the gamefeed misses,
     # or vice versa). Only try this if the gamefeed produced no usable highlights.

@@ -137,6 +137,9 @@ UPLOADED=0
 for f in "$ANALYSIS_DIR/${TODAY}"_*.md; do
     [ -f "$f" ] || continue
     BASENAME=$(basename "$f")
+    # `sftp put` silently SKIPS when the destination exists (e.g., a regen
+    # within the same day). Delete first so the upload always reflects local.
+    flyctl ssh console --app fantasy-baseball-br -C "rm -f /data/content/analysis/$BASENAME" >/dev/null 2>&1
     flyctl ssh sftp shell --app fantasy-baseball-br <<EOF
 put $f /data/content/analysis/$BASENAME
 EOF
