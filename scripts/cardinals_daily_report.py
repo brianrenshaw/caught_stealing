@@ -485,24 +485,7 @@ If POSTGAME DATA is null (off day), say so directly and pivot to the most recent
 
 Δ WP is the **home-team** win-probability change for that at-bat (positive = home gained, negative = home lost). Format the Result cell as a one-clause description that names the pitch type, pitch velocity, and either EV/outcome or context — pull from `description`, `pitch_type`, `pitch_velo_mph`, and `ev_mph`. Use the original Unicode minus sign `−` for negative deltas (not a hyphen).
 
-**(f) Statcast Highlights.** Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase. The expected-value metric is xBA (expected batting average) when present; some legacy data may still use xwOBA — render whichever field actually appears in the data block.
-
-```
-### Statcast Highlights
-
-**Hitters**
-- **Hardest hit:** Player Name — {ev} mph EV, {xba} xBA, {outcome}
-- **Best xBA on contact:** Player Name — {xba} ({ev} mph, {outcome})
-- **Barrels:** Player Name — {ev} mph, {la}° LA ({outcome})
-
-**Pitchers**
-- **Top velocity:** Pitcher Name — {velo} mph {pitch_type} ({outcome})
-- **Top whiffs (swinging strikes):** Pitcher Name — {velo} mph {pitch_type} (spin {spin_rpm} rpm)
-- **Best putaway pitches (K-ending):** Pitcher Name — {velo} mph {pitch_type} ({result})
-- **Lowest xBA allowed (best contact suppression):** Pitcher Name — {pitch_type} {velo} mph, {xba} xBA ({outcome})
-```
-
-If a sub-bucket has multiple entries (top 3), list each on its own line.
+The Score and Data section ENDS after the Win Probability Swings table. Statcast Highlights lives in its own H2 section further down the report (after Beat Writer's Verdict). Do NOT include a Statcast Highlights subsection inside Score and Data.
 
 ## Cardinals Notebook
 
@@ -534,6 +517,25 @@ Two to three paragraphs closing the report from a third-person beat-writer POV. 
 - One concrete thing that would shift the picture meaningfully in 7 days
 
 End with a single sharp line. Beat-writer voice — declarative, sourced, not "I think".
+
+## Statcast Highlights
+
+Two clearly-labeled groups (Hitters and Pitchers). Pull from `statcast_highlights`. Skip any bucket that is empty or missing. Each bullet must include the specific numeric values from the data — do NOT round or paraphrase. The expected-value metric is xBA (expected batting average) when present; some legacy data may still use xwOBA — render whichever field actually appears in the data block.
+
+```
+**Hitters**
+- **Hardest hit:** Player Name — {ev} mph EV, {xba} xBA, {outcome}
+- **Best xBA on contact:** Player Name — {xba} ({ev} mph, {outcome})
+- **Barrels:** Player Name — {ev} mph, {la}° LA ({outcome})
+
+**Pitchers**
+- **Top velocity:** Pitcher Name — {velo} mph {pitch_type} ({outcome})
+- **Top whiffs (swinging strikes):** Pitcher Name — {velo} mph {pitch_type} (spin {spin_rpm} rpm)
+- **Best putaway pitches (K-ending):** Pitcher Name — {velo} mph {pitch_type} ({result})
+- **Lowest xBA allowed (best contact suppression):** Pitcher Name — {pitch_type} {velo} mph, {xba} xBA ({outcome})
+```
+
+If a sub-bucket has multiple entries (top 3), list each on its own line. The numbers are the same data the game narrative already cited — this section is the appendix that lets a reader scan the bullets after they've read the prose.
 
 ## Around the League
 
@@ -608,10 +610,11 @@ def build_prompt(
         f"Write the daily St. Louis Cardinals intelligence report for {today.strftime('%B %d, %Y')}.\n\n"
         "Sections (in this exact order, ## level): "
         "Score and Data for {Month D, YYYY} (where the date is the actual game date from POSTGAME DATA), "
-        "Cardinals Notebook, Beat Writer's Verdict, Around the League, Interesting Analysis.\n\n"
+        "Cardinals Notebook, Beat Writer's Verdict, Statcast Highlights, Around the League, Interesting Analysis.\n\n"
         "Do NOT add any other sections. No 'Previous Game', no 'MLB Cardinals', no 'MLB News Brief', "
         "no 'Around the Internet', no 'Minor League Cardinals', no 'Sibling Rivalry', no 'Cardinals Corner'. "
-        "Five sections only.\n\n"
+        "Six sections only. Statcast Highlights lives as its own ## section between Beat Writer's Verdict "
+        "and Around the League — NOT inside Score and Data.\n\n"
     )
     parts.append(SECTION_INSTRUCTIONS)
 
