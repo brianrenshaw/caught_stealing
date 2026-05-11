@@ -39,14 +39,15 @@ YAML frontmatter: `title`, `type: mlb-roundup`, `date`, `generated_at`, `game_co
 
 Body:
 
-1. `## Games, {Month D, YYYY}` (the date is the game date, one day before the report date)
-2. One H3 block per game, in chronological order by game start:
-   * `### [Marlins 5, Nationals 2 at loanDepot park](savant_url)` — winner-first AP convention, full header wrapped in a markdown link to the Savant gamefeed page
+1. `[Go to Standings](#standings)` jump link as the first line of body content, immediately under the H1. Anchors to the `## Standings` H2 at the bottom of the post. Emitted by `build_post_body()` on every run.
+2. `## Games, {Month D, YYYY}` (the date is the game date, one day before the report date)
+3. One H3 block per game, in chronological order by game start:
+   * `### [Marlins 5, Nationals 2 at loanDepot park](savant_url)`. Winner-first AP convention, full header wrapped in a markdown link to the Savant gamefeed page.
    * 3-4 sentence Claude-written summary (post-fact-check)
    * Inning-by-inning line score table (extras append `(N inn)` to the header)
    * Decisions line: `WP: ... LP: ... SV: ...`
    * `**Key swings**` bullet list, top 4 by `|WPA Δ|`, each with inning, signed home-relative WPA delta, batter, event, pitcher, EV, pitch type, pitch velo
-3. `## Standings` at the bottom, six H3 division tables (Team, W-L, PCT, GB, L10, Streak)
+4. `## Standings` at the bottom, six H3 division tables (Team, W-L, PCT, GB, L10, Streak)
 
 ### Blot post
 
