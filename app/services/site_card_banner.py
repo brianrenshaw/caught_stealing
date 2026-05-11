@@ -160,16 +160,24 @@ def generate_site_card(out_path: Path) -> Path:
         fill=YELLOW,
     )
 
-    # Tagline: Roboto Slab Regular ~28pt, white, centered, 28px gap below underline.
-    # "AI-Generated" is baked into the tagline (no separate yellow pill).
-    tagline_text = "AI-Generated Daily Cardinals + MLB Game Summaries"
+    # Tagline: two centered lines, white, Roboto Slab Regular. AI labeling is
+    # baked into line 1 (no separate yellow pill).
+    tagline_lines = [
+        "AI-Generated Daily Cardinals Analysis +",
+        "Daily MLB Game Summaries",
+    ]
     tagline_max_width = WIDTH - 120  # 60px side padding each side
-    tagline_font = _fit_font(tagline_text, tagline_max_width, WGHT_REGULAR, max_size=28, min_size=18)
-    tagline_bbox = tagline_font.getbbox(tagline_text)
-    tagline_width = tagline_bbox[2] - tagline_bbox[0]
-    tagline_x = (WIDTH - tagline_width) // 2
-    tagline_y = underline_y + underline_height + 28
-    draw.text((tagline_x, tagline_y), tagline_text, font=tagline_font, fill=WHITE)
+    # Auto-fit to the longest line so both lines use the same font size.
+    longest_line = max(tagline_lines, key=len)
+    tagline_font = _fit_font(longest_line, tagline_max_width, WGHT_REGULAR, max_size=32, min_size=20)
+    t_ascent, t_descent = tagline_font.getmetrics()
+    line_height = t_ascent + t_descent + 4
+    tagline_y = underline_y + underline_height + 26
+    for i, line in enumerate(tagline_lines):
+        line_bbox = tagline_font.getbbox(line)
+        line_width = line_bbox[2] - line_bbox[0]
+        line_x = (WIDTH - line_width) // 2
+        draw.text((line_x, tagline_y + i * line_height), line, font=tagline_font, fill=WHITE)
 
     # Domain stamp (bottom-center): Roboto Slab Regular ~24pt, white,
     # centered with 60px from the red rule.
