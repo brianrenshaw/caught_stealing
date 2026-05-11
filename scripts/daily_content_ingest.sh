@@ -67,10 +67,9 @@ uv run python -m scripts.cardinals_daily_report || {
     echo "WARNING: Cardinals daily report generation failed"
 }
 
-# Step 4.5: Render compiled markdown reports to single Cardinals-themed PDFs.
-# Renders both the fantasy report (weekly-intel or daily-intel) and the Cardinals report.
-# Per-section markdowns are kept locally and uploaded to Fly for the web app, but the
-# mobile reader (Readdle) only needs the bundled documents.
+# Step 4.5: Render the fantasy report to a Cardinals-themed PDF.
+# Only the fantasy report flows through PDF + Readdle + Fly; the Cardinals
+# digest ships to Blot only (the python script publishes inside Step 4.4).
 echo ""
 echo "--- PDF Export (Cardinals theme) ---"
 MD2PDF="$HOME/Projects/md2pdf/md2pdf.mjs"
@@ -85,27 +84,17 @@ for candidate in "$ANALYSIS_DIR/${TODAY}_weekly-intel.md" "$ANALYSIS_DIR/${TODAY
     fi
 done
 
-# Cardinals report.
-CARDINALS_MD="$ANALYSIS_DIR/${TODAY}_cardinals-daily.md"
-
 if [ ! -x "$(command -v node)" ] || [ ! -f "$MD2PDF" ]; then
     echo "WARNING: skipped PDF export (node or $MD2PDF missing)"
+elif [ -z "$FANTASY_MD" ]; then
+    echo "WARNING: no compiled fantasy markdown found for $TODAY"
 else
-    for src in "$FANTASY_MD" "$CARDINALS_MD"; do
-        [ -f "$src" ] || continue
-        if node "$MD2PDF" cardinals "$src" >/dev/null 2>&1; then
-            pdf="${src%.md}.pdf"
-            echo "Rendered: $(basename "$pdf")"
-            RENDERED_PDFS+=("$pdf")
-        else
-            echo "WARNING: PDF render failed for $(basename "$src")"
-        fi
-    done
-    if [ -z "$FANTASY_MD" ]; then
-        echo "WARNING: no compiled fantasy markdown found for $TODAY"
-    fi
-    if [ ! -f "$CARDINALS_MD" ]; then
-        echo "WARNING: no Cardinals markdown found for $TODAY"
+    if node "$MD2PDF" cardinals "$FANTASY_MD" >/dev/null 2>&1; then
+        pdf="${FANTASY_MD%.md}.pdf"
+        echo "Rendered: $(basename "$pdf")"
+        RENDERED_PDFS+=("$pdf")
+    else
+        echo "WARNING: PDF render failed for $(basename "$FANTASY_MD")"
     fi
 fi
 
@@ -130,13 +119,19 @@ else
     echo "Synced $SYNCED PDF(s) to Readdle"
 fi
 
-# Step 5: Upload markdown reports to Fly.io volume (markdown only — web app renders MD)
+# Step 5: Upload fantasy markdown reports to Fly.io volume (markdown only —
+# web app renders MD). The Cardinals digest is intentionally excluded — that
+# report ships to Blot only, not the Fly-hosted fantasy web app.
 echo ""
-echo "--- Syncing Markdown Reports to Fly.io ---"
+echo "--- Syncing Fantasy Markdown Reports to Fly.io ---"
 UPLOADED=0
 for f in "$ANALYSIS_DIR/${TODAY}"_*.md; do
     [ -f "$f" ] || continue
     BASENAME=$(basename "$f")
+    # Skip the Cardinals digest — ships to Blot only.
+    case "$BASENAME" in
+        *cardinals-daily*) continue ;;
+    esac
     # `sftp put` silently SKIPS when the destination exists (e.g., a regen
     # within the same day). Delete first so the upload always reflects local.
     flyctl ssh console --app fantasy-baseball-br -C "rm -f /data/content/analysis/$BASENAME" >/dev/null 2>&1
@@ -150,7 +145,7 @@ EOF
         echo "  WARNING: Failed to upload $BASENAME"
     fi
 done
-echo "Uploaded $UPLOADED report(s) to Fly.io"
+echo "Uploaded $UPLOADED fantasy report(s) to Fly.io"
 
 echo ""
 echo "=========================================="
