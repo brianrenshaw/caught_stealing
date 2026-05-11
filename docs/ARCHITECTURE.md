@@ -715,11 +715,11 @@ The Claude API is used in 6 places, not just the chat assistant:
 ### Model Configuration
 
 ```python
-assistant_model: str = "claude-sonnet-4-20250514"
+assistant_model: str = "claude-sonnet-4-6"
 assistant_max_tokens: int = 1024
 ```
 
-The model is configurable via the `ASSISTANT_MODEL` environment variable. Claude Sonnet 4 is used by default for its balance of speed, cost, and quality.
+The model is configurable via the `ASSISTANT_MODEL` environment variable. Claude Sonnet 4.6 is used by default for its balance of speed, cost, and quality.
 
 ---
 
@@ -977,7 +977,7 @@ YAHOO_LEAGUE_ID=your_league_id
 YAHOO_GAME_KEY=mlb
 DATABASE_URL=sqlite+aiosqlite:///./fantasy_baseball.db
 ANTHROPIC_API_KEY=your_api_key
-ASSISTANT_MODEL=claude-sonnet-4-20250514     # Optional override
+ASSISTANT_MODEL=claude-sonnet-4-6            # Optional override
 ```
 
 ### Startup Flow

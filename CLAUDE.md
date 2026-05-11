@@ -72,6 +72,7 @@ fantasy-baseball/
 │   │   ├── projection_accuracy_service.py # Weekly + season accuracy reports (markdown)
 │   │   ├── assistant.py          # Claude AI chat assistant
 │   │   ├── assistant_tools.py    # Tool functions for the assistant
+│   │   ├── cardinals_postgame.py # MLB Cardinals postgame: boxscore + Statcast highlights
 │   │   └── id_mapper.py          # Cross-platform player ID mapping
 │   ├── routes/                   # FastAPI route handlers
 │   │   ├── __init__.py
@@ -122,11 +123,13 @@ fantasy-baseball/
 │   ├── data_pipeline.py          # Historical data download (2015-2025)
 │   ├── backtest_harness.py       # Walk-forward projection testing
 │   ├── optimize_parameters.py    # scipy parameter tuning (April 30 hold)
-│   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List, RotoWire)
-│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder (CBS, FantasyPros, Locked On, In This League)
+│   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List, RotoWire, Viva El Birdos, Redbird Rants, The Cardinal Nation)
+│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder (CBS, FantasyPros, Locked On Fantasy, In This League, Locked On Cardinals)
 │   ├── transcript_collector.py   # Collects MacWhisper output → formatted markdown
-│   ├── daily_analysis.py         # Claude-powered analysis of content + league data → MD + PDF
-│   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM); generates PDFs with Cardinals CSS, moves to sync folder for mobile
+│   ├── daily_analysis.py         # Claude-powered fantasy analysis of content + league data → MD + PDF
+│   ├── cardinals_daily_report.py # Cardinals-only daily report (postgame + MLB + minors + fan takeaway)
+│   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM); generates fantasy + Cardinals reports, renders Cardinals-CSS PDFs, syncs to Readdle iCloud folder for mobile
+│   ├── verify_daily_ingest.sh    # 4 AM verifier: checks artifacts, pings macOS notification on failure
 │   ├── capture_yahoo_token.py   # Yahoo OAuth token capture for Fly.io
 │   └── analysis/                 # Analysis scripts → Excel reports
 ├── data/                         # Backtesting data (raw CSVs, results, optimization)

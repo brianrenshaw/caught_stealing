@@ -65,6 +65,15 @@ PODCAST_FEEDS = {
         "name": "In This League Fantasy Baseball",
         "url": "https://www.spreaker.com/show/3691391/episodes/feed",
     },
+    # Cardinals-specific feeds (used by scripts.cardinals_daily_report)
+    "locked_on_cardinals": {
+        "name": "Locked On St. Louis Cardinals",
+        "url": "https://pdrl.fm/3dd3e1/feeds.simplecast.com/tfRqEPHw",
+    },
+    "walton_and_reis": {
+        "name": "Wednesday With Walton and Reis of The Cardinal Nation",
+        "url": "https://anchor.fm/s/10c22ea54/podcast/rss",
+    },
 }
 
 REQUEST_TIMEOUT = 120

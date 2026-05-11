@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  {{> head}}
+  <body>
+    {{> header}}
+    <div class="container">
+      <div class="main">
+        <div class="entry">
+
+          <ul class="post-index">
+            {{#posts}}
+              <li class="post-index-item">
+                <a class="post-index-title" href="{{{url}}}" title="{{title}}">{{title}}</a>
+                {{#summary}}
+                <p class="post-index-summary">{{summary}}</p>
+                {{/summary}}
+              </li>
+            {{/posts}}
+          </ul>
+
+          <p class="entry-archives" style="text-align:center; margin-top:2em;">View <a href="/archives">the archives</a></p>
+
+        </div>
+        {{> footer}}
+      </div>
+    </div>
+  </body>
+</html>

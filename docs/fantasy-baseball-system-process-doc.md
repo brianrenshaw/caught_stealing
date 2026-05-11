@@ -245,7 +245,7 @@ A single API call structure:
 
 ### Step 6: Call Claude API
 
-Model: `claude-opus-4-6`. Single call with retry logic for rate limits (up to 5 retries with increasing wait: 60s, 120s, 180s, 240s, 300s).
+Model: `claude-opus-4-7`. Single call with retry logic for rate limits (up to 5 retries with increasing wait: 60s, 120s, 180s, 240s, 300s). Invoked via `claude -p` (Max subscription quota) by default; falls back to the Anthropic API when `DAILY_ANALYSIS_USE_CLI=0`.
 
 Estimated cost per call: ~$0.15-0.25 for daily, ~$0.50-1.00 for weekly (at Opus pricing of $5/M input, $25/M output).
 

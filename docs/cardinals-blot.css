@@ -1,0 +1,621 @@
+/* =========================================================================
+   Cardinals theme for Blot.im (Copy of Blog template)
+   Adapted from md2pdf/styles/cardinals.css and targeted at the actual Blog
+   theme markup: .sidebar / .entry / .light / .logo / .adjacent.
+
+   Where to paste: Blot dashboard → Template → Edit code → style.css
+   (replace the file's contents, or append at the bottom to override).
+   ========================================================================= */
+
+/* ---------- Color & Type Tokens ---------- */
+:root {
+    --cardinal-red: #C41E3A;
+    --navy: #0C2340;
+    --yellow: #FEDB00;
+    --body: #0C2340;
+    --subtle: #4A5568;
+    --border: #E2D9D9;
+    --surface: #FDF5F6;
+    --code-bg: #0E1B2E;
+    --code-text: #E8ECF1;
+    --link: #C41E3A;
+    --link-hover: #9B1830;
+
+    --font-head: "Roboto Slab", "Merriweather", Georgia, serif;
+    --font-body: "Inter", "Source Sans 3", system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+/* Fonts: preferred path is the <link> in head.html. The @import below is a
+   fallback if you don't update head.html — slower but works on its own. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=JetBrains+Mono:wght@400&family=Roboto+Slab:ital,wght@0,400;0,600;0,700;1,400;1,700&display=swap');
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    background: #fff;
+    color: var(--body);
+    font-family: var(--font-body);
+    font-weight: 400;
+    font-size: 17px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+}
+
+/* ---------- Layout — page wrappers from entry.html / entries.html ---------- */
+.container {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+.main {
+    padding: 0;
+}
+
+/* ---------- Site header (header.html) ---------- */
+.header {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 24px 24px 12px;
+    display: flex;
+    align-items: center;
+    gap: 1.5em;
+}
+
+.header.alignment-justified {
+    justify-content: space-between;
+}
+
+.header.position-top {
+    margin-top: 0;
+}
+
+#logo {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1.65rem;
+    line-height: 1.2;
+    color: var(--cardinal-red);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+}
+
+#logo:hover {
+    color: var(--link-hover);
+}
+
+.header .nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.1em;
+}
+
+.header .nav a {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--subtle);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.header .nav a:hover {
+    color: var(--cardinal-red);
+    border-bottom-color: var(--cardinal-red);
+}
+
+@media (max-width: 600px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4em;
+        padding: 18px 16px 8px;
+    }
+    #logo { font-size: 1.4rem; }
+}
+
+/* ---------- Sidebar (Blog theme default; harmless if unused) ---------- */
+.sidebar {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 28px 24px 0;
+}
+
+.sidebar .logo {
+    display: inline-block;
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: var(--cardinal-red);
+    text-decoration: none;
+    letter-spacing: -0.01em;
+    margin-right: 1.2em;
+}
+
+.sidebar .logo:hover { color: var(--link-hover); }
+
+.sidebar .logo.hasAvatar { display: inline-flex; align-items: center; gap: 0.6em; }
+.sidebar .avatar { border-radius: 4px; }
+.sidebar .avatar.round { border-radius: 50%; }
+
+.sidebar a.light {
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--subtle);
+    text-decoration: none;
+    margin-right: 0.9em;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 2px;
+}
+
+.sidebar a.light:hover {
+    color: var(--cardinal-red);
+    border-bottom-color: var(--cardinal-red);
+}
+
+/* The post body & archive list lives inside .entry */
+.entry {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 24px 24px 64px;
+}
+
+/* ---------- Headings ---------- */
+.entry h1, body > h1 {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 2rem;
+    line-height: 1.2;
+    color: var(--cardinal-red);
+    margin: 1.6rem 0 0.6rem;
+    padding-bottom: 8px;
+    border-bottom: 3px solid var(--cardinal-red);
+}
+
+.entry h2 {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1.35rem;
+    line-height: 1.25;
+    color: var(--navy);
+    margin: 2rem 0 0.4rem;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}
+
+.entry h3 {
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-style: italic;
+    font-size: 1.15rem;
+    line-height: 1.25;
+    color: var(--navy);
+    margin: 1.4rem 0 0.3rem;
+}
+
+.entry h4 {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--navy);
+    margin: 1rem 0 0.3rem;
+}
+
+.entry h5 {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--cardinal-red);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0.9rem 0 0.3rem;
+}
+
+.entry h6 {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-style: italic;
+    font-size: 0.85rem;
+    color: var(--subtle);
+    margin: 0.9rem 0 0.3rem;
+}
+
+/* ---------- Text & Links ---------- */
+.entry p { margin: 0 0 1em; overflow-wrap: break-word; }
+
+.entry a {
+    color: var(--link);
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+}
+.entry a:hover { color: var(--link-hover); }
+
+.entry strong { color: var(--navy); }
+
+/* Italic source citations like *(Locked On Cardinals, May 9)* */
+.entry em { color: var(--subtle); }
+
+/* Post meta line — date + tag chips below each entry */
+.light {
+    color: var(--subtle);
+    font-size: 0.9em;
+    font-family: var(--font-body);
+}
+
+.light a {
+    color: var(--subtle);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--subtle);
+}
+
+.light a:hover {
+    color: var(--cardinal-red);
+    border-bottom-color: var(--cardinal-red);
+}
+
+/* "Previous: / Next:" labels */
+.light.adjacent {
+    text-transform: uppercase;
+    font-size: 0.75em;
+    letter-spacing: 0.08em;
+    color: var(--cardinal-red);
+    margin-right: 0.5em;
+}
+
+/* ---------- Lists ---------- */
+.entry ul, .entry ol { padding-left: 1.8em; margin: 0.4em 0 1em; }
+.entry li { margin: 0.15em 0; }
+
+/* ---------- Blockquotes ---------- */
+.entry blockquote {
+    margin: 1.6em 0;
+    padding: 0.5em 1.4em;
+    border-left: 3px solid var(--cardinal-red);
+    background: var(--surface);
+    font-style: italic;
+    color: var(--body);
+}
+.entry blockquote em { color: var(--body); }
+
+/* ---------- Horizontal Rules ---------- */
+.entry hr,
+hr.full {
+    border: none;
+    border-top: 1px solid var(--cardinal-red);
+    margin: 2em 0;
+}
+
+/* ---------- Tables (box scores + line score) ---------- */
+.entry table {
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--yellow);
+    width: 100%;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 0.8em 0 1.4em;
+    table-layout: auto;
+    font-size: 0.95em;
+}
+
+.entry th {
+    background: var(--navy);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.45em 0.7em;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-body);
+}
+
+.entry td {
+    padding: 0.45em 0.7em;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+.entry tr:nth-child(even) td { background: var(--surface); }
+
+/* Right-align numeric columns: every column after the first in stat tables. */
+.entry th:not(:first-child),
+.entry td:not(:first-child) { text-align: right; }
+
+/* ---------- Code ---------- */
+.entry code {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: #f0ecf0;
+    color: var(--navy);
+    padding: 2px 5px;
+    border-radius: 4px;
+}
+
+.entry pre {
+    overflow: auto;
+    padding: 0.85em 1em;
+    line-height: 1.45;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.entry pre code {
+    background: none;
+    color: var(--code-text);
+    padding: 0;
+    border-radius: 0;
+}
+
+/* ---------- Images ---------- */
+.entry img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 6px;
+    margin: 0.6em 0;
+}
+
+/* ---------- Entry meta sections (Tags / Date / Up next / Previously) ---------- */
+
+/* Subtle horizontal divider between meta sections */
+hr.minimal {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.6em 0 1em;
+}
+
+/* Labeled meta section ("Tags", "Date", "Links to this post", etc.) */
+.left-label {
+    margin: 0.5em 0 1.5em;
+    line-height: 1.5;
+}
+
+.left-label h5 {
+    margin: 0 0 0.4em;
+    /* H5 styling already set globally — Cardinal red small caps */
+}
+
+/* Tag chips */
+a.tag,
+a.small.tag {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-size: 0.8rem;
+    color: var(--subtle);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin: 0 4px 4px 0;
+    text-decoration: none;
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+a.tag:hover,
+a.small.tag:hover {
+    color: var(--cardinal-red);
+    border-color: var(--cardinal-red);
+}
+
+/* Backlink / next / previously cards */
+a.rounded-link {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--cardinal-red);
+    border-radius: 6px;
+    padding: 0.7em 0.9em;
+    margin: 0.5em 0;
+    text-decoration: none;
+    color: var(--body);
+    transition: border-color 120ms ease, background 120ms ease;
+}
+
+a.rounded-link:hover {
+    border-color: var(--cardinal-red);
+    background: #fff;
+}
+
+a.rounded-link .title {
+    display: block;
+    font-family: var(--font-head);
+    font-weight: 600;
+    color: var(--cardinal-red);
+    font-size: 1rem;
+    line-height: 1.3;
+}
+
+a.rounded-link .summary {
+    display: block;
+    margin-top: 0.25em;
+    font-size: 0.88rem;
+    color: var(--subtle);
+    line-height: 1.4;
+}
+
+/* Clearfix used by entry.html */
+.clear {
+    clear: both;
+    width: 100%;
+}
+
+/* ---------- Archives page (archives.html) ---------- */
+
+/* Search input */
+#search,
+.container input[type="text"] {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-body);
+    font-size: 1rem;
+    padding: 0.55em 0.8em;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--body);
+    margin: 0.5em 0 0;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+#search:focus,
+.container input[type="text"]:focus {
+    outline: none;
+    border-color: var(--cardinal-red);
+    box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.12);
+}
+
+#search::placeholder { color: var(--subtle); }
+
+/* Popular tags cloud (archives page) */
+.tags {
+    margin: 0.6em 0 0.4em;
+}
+
+.tags > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+}
+
+.tags > div > a {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--subtle);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 9px;
+    text-decoration: none;
+    transition: color 120ms ease, border-color 120ms ease;
+}
+
+.tags > div > a:hover {
+    color: var(--cardinal-red);
+    border-color: var(--cardinal-red);
+}
+
+/* Small text helper (used for dates next to archive entries) */
+.small {
+    font-size: 0.82rem;
+    color: var(--subtle);
+}
+
+/* Archives entries list: each row is `<a>title</a>&nbsp;<span class="small">date</span><br />`.
+   Scope by :has() so we only restyle anchors that have a .small date sibling — keeps
+   us out of the post body where many anchors live inside paragraphs. */
+.main a:has(+ .small) {
+    font-family: var(--font-head);
+    font-weight: 600;
+    color: var(--cardinal-red);
+    text-decoration: none;
+    line-height: 1.9;
+}
+
+.main a:has(+ .small):hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+.main a + .small {
+    margin-left: 0.4em;
+}
+
+/* ---------- Post Index (entries.html / homepage) ---------- */
+.post-index {
+    list-style: none;
+    padding: 0;
+    margin: 1.5em 0 0;
+}
+
+.post-index-item {
+    padding: 1.2em 0;
+    border-bottom: 1px solid var(--border);
+    margin: 0;
+}
+
+.post-index-item:last-child {
+    border-bottom: none;
+}
+
+.post-index-title {
+    display: block;
+    font-family: var(--font-head);
+    font-weight: 700;
+    font-size: 1.5rem;
+    line-height: 1.25;
+    color: var(--cardinal-red);
+    text-decoration: none;
+    margin: 0 0 0.25em;
+}
+
+.post-index-title:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
+}
+
+.post-index-meta {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--subtle);
+}
+
+.post-index-meta time { color: var(--subtle); }
+
+.post-index-meta a {
+    color: var(--subtle);
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+}
+
+.post-index-meta a:hover {
+    color: var(--cardinal-red);
+    border-bottom-color: var(--cardinal-red);
+}
+
+/* Tag chip row beneath each homepage post title */
+.post-index-tags {
+    margin-top: 0.4em;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 4px;
+}
+
+/* One-line summary under each homepage post title (from Blot Summary metadata) */
+.post-index-summary {
+    margin: 0.35em 0 0;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    color: var(--subtle);
+    line-height: 1.45;
+}
+
+/* ---------- Blot small-caps override ---------- */
+/* Blot's content processor wraps all-caps words like "JJ" and "MLB" in
+   <span class="small-caps">. The default visual treatment (font-variant or
+   text-transform) makes "JJ" look like "Jj". Force normal rendering so the
+   source text shows through as-is. */
+.small-caps {
+    font-variant: normal !important;
+    font-variant-caps: normal !important;
+    font-feature-settings: normal !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 600px) {
+    html, body { font-size: 16px; }
+    .sidebar, .entry { padding-left: 16px; padding-right: 16px; }
+    .entry h1, body > h1 { font-size: 1.65rem; }
+    .entry h2 { font-size: 1.2rem; }
+    .entry table { font-size: 0.85em; }
+    .entry table th, .entry table td { padding: 0.35em 0.45em; }
+}

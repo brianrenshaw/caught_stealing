@@ -49,6 +49,22 @@ RSS_FEEDS = {
         "url": "https://www.rotowire.com/rss/news.php?sport=MLB",
         "type": "rss",
     },
+    # Cardinals-specific feeds (used by scripts.cardinals_daily_report)
+    "viva_el_birdos": {
+        "name": "Viva El Birdos",
+        "url": "https://www.vivaelbirdos.com/rss/index.xml",
+        "type": "rss",
+    },
+    "redbird_rants": {
+        "name": "Redbird Rants",
+        "url": "https://redbirdrants.com/feed",
+        "type": "rss",
+    },
+    "cardinal_nation": {
+        "name": "The Cardinal Nation",
+        "url": "https://www.thecardinalnation.com/feed/",
+        "type": "rss",
+    },
 }
 
 REQUEST_DELAY = 1.0  # seconds between HTTP requests

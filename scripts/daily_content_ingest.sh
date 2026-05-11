@@ -56,11 +56,83 @@ uv run python -m scripts.daily_analysis || {
     echo "WARNING: Daily analysis generation failed"
 }
 
-# Step 5: Upload new reports to Fly.io volume
-echo ""
-echo "--- Syncing Reports to Fly.io ---"
 ANALYSIS_DIR="$PROJECT_DIR/data/content/analysis"
 TODAY=$(date +%Y-%m-%d)
+
+# Step 4.4: Generate Cardinals-only daily report (parallel to fantasy report).
+# Pulls Cardinals-specific blogs/podcasts + yesterday's MLB postgame Statcast data.
+echo ""
+echo "--- Cardinals Daily Report ---"
+uv run python -m scripts.cardinals_daily_report || {
+    echo "WARNING: Cardinals daily report generation failed"
+}
+
+# Step 4.5: Render compiled markdown reports to single Cardinals-themed PDFs.
+# Renders both the fantasy report (weekly-intel or daily-intel) and the Cardinals report.
+# Per-section markdowns are kept locally and uploaded to Fly for the web app, but the
+# mobile reader (Readdle) only needs the bundled documents.
+echo ""
+echo "--- PDF Export (Cardinals theme) ---"
+MD2PDF="$HOME/Projects/md2pdf/md2pdf.mjs"
+RENDERED_PDFS=()
+
+# Fantasy report (only one of weekly-intel / daily-intel exists per day).
+FANTASY_MD=""
+for candidate in "$ANALYSIS_DIR/${TODAY}_weekly-intel.md" "$ANALYSIS_DIR/${TODAY}_daily-intel.md"; do
+    if [ -f "$candidate" ]; then
+        FANTASY_MD="$candidate"
+        break
+    fi
+done
+
+# Cardinals report.
+CARDINALS_MD="$ANALYSIS_DIR/${TODAY}_cardinals-daily.md"
+
+if [ ! -x "$(command -v node)" ] || [ ! -f "$MD2PDF" ]; then
+    echo "WARNING: skipped PDF export (node or $MD2PDF missing)"
+else
+    for src in "$FANTASY_MD" "$CARDINALS_MD"; do
+        [ -f "$src" ] || continue
+        if node "$MD2PDF" cardinals "$src" >/dev/null 2>&1; then
+            pdf="${src%.md}.pdf"
+            echo "Rendered: $(basename "$pdf")"
+            RENDERED_PDFS+=("$pdf")
+        else
+            echo "WARNING: PDF render failed for $(basename "$src")"
+        fi
+    done
+    if [ -z "$FANTASY_MD" ]; then
+        echo "WARNING: no compiled fantasy markdown found for $TODAY"
+    fi
+    if [ ! -f "$CARDINALS_MD" ]; then
+        echo "WARNING: no Cardinals markdown found for $TODAY"
+    fi
+fi
+
+# Step 4.6: Copy each rendered PDF into the Readdle iCloud sync folder for mobile.
+echo ""
+echo "--- Sync compiled PDFs to Readdle iCloud folder ---"
+READDLE_DIR="$HOME/Library/Mobile Documents/3L68KQB4HG~com~readdle~CommonDocuments/Documents/Fantasy Baseball Analysis"
+if [ ! -d "$READDLE_DIR" ]; then
+    echo "WARNING: Readdle sync folder not found at $READDLE_DIR"
+elif [ ${#RENDERED_PDFS[@]} -eq 0 ]; then
+    echo "WARNING: no PDFs to sync"
+else
+    SYNCED=0
+    for pdf in "${RENDERED_PDFS[@]}"; do
+        if cp "$pdf" "$READDLE_DIR/"; then
+            echo "Copied: $(basename "$pdf") to Readdle"
+            SYNCED=$((SYNCED + 1))
+        else
+            echo "WARNING: copy to Readdle failed for $(basename "$pdf")"
+        fi
+    done
+    echo "Synced $SYNCED PDF(s) to Readdle"
+fi
+
+# Step 5: Upload markdown reports to Fly.io volume (markdown only — web app renders MD)
+echo ""
+echo "--- Syncing Markdown Reports to Fly.io ---"
 UPLOADED=0
 for f in "$ANALYSIS_DIR/${TODAY}"_*.md; do
     [ -f "$f" ] || continue

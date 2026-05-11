@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     yahoo_game_key: str = "mlb"
     database_url: str = "sqlite+aiosqlite:///./fantasy_baseball.db"
     anthropic_api_key: str = ""
-    assistant_model: str = "claude-sonnet-4-20250514"
+    assistant_model: str = "claude-sonnet-4-6"
     assistant_max_tokens: int = 1024
     assistant_daily_token_limit: int = 500_000
 

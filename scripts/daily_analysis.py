@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
-"""Daily fantasy baseball intelligence report powered by Claude API.
+"""Daily fantasy baseball intelligence report powered by Claude.
 
-Makes a single comprehensive API call combining expert content analysis
+Makes a single comprehensive completion combining expert content analysis
 (blogs + podcast transcripts) with league data, then splits the response
 into individual section files for the Intel tab and Obsidian.
 
+By default uses the bundled `claude -p` CLI (Claude Max subscription quota,
+no metered API spend). Set DAILY_ANALYSIS_USE_CLI=0 to fall back to the
+Anthropic API path.
+
 Usage:
     uv run python -m scripts.daily_analysis              # generate daily intel
-    uv run python -m scripts.daily_analysis --dry-run    # print prompt, no API call
+    uv run python -m scripts.daily_analysis --dry-run    # print prompt, no Claude call
     uv run python -m scripts.daily_analysis --force      # regenerate even if today's exists
     uv run python -m scripts.daily_analysis --days 10    # override content window (default: 7 for weekly)
 
 Environment:
-    ANTHROPIC_API_KEY must be set in .env for Claude API calls.
+    DAILY_ANALYSIS_USE_CLI=1   (default) — use bundled claude -p, draws from Max subscription
+    DAILY_ANALYSIS_USE_CLI=0   — use Anthropic API, requires ANTHROPIC_API_KEY in .env
+    CLAUDE_CLI_PATH=...        — override autodetected claude binary path (CLI mode)
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ import logging
 import os
 import re
 import sqlite3
+import subprocess
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -41,12 +48,90 @@ DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-MODEL = "claude-opus-4-6"
+MODEL = "claude-opus-4-7"
+USE_CLAUDE_CLI = os.getenv("DAILY_ANALYSIS_USE_CLI", "1") == "1"
 SEASON = date.today().year if date.today().month >= 3 else date.today().year - 1
+
+
+def _invoke_claude_cli(
+    model: str, system_prompt: str, user_message: str, timeout_s: int = 1800
+) -> tuple[str, int, int, str]:
+    """Invoke `claude -p` headlessly via the bundled Claude Code binary.
+
+    Draws from the Max subscription quota (OAuth via keychain), not metered
+    API spend. The user message is piped via stdin to skip argv length limits;
+    we run from /tmp so no CLAUDE.md / project memory is auto-discovered.
+
+    Returns (text, input_tokens, output_tokens, stop_reason). Raises on failure.
+    """
+    import json as _json
+    import subprocess
+    from glob import glob
+
+    explicit = os.getenv("CLAUDE_CLI_PATH")
+    if explicit and Path(explicit).exists():
+        claude_bin = explicit
+    else:
+        ext = sorted(
+            glob(
+                os.path.expanduser(
+                    "~/.vscode/extensions/anthropic.claude-code-*-darwin-arm64/resources/native-binary/claude"
+                )
+            )
+        )
+        claude_bin = ext[-1] if ext else "claude"
+
+    cli_model = "claude-opus-4-7" if "opus" in model.lower() else "claude-sonnet-4-6"
+
+    env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
+    proc = subprocess.run(
+        [
+            claude_bin,
+            "-p",
+            "--model",
+            cli_model,
+            "--output-format",
+            "json",
+            "--no-session-persistence",
+            "--system-prompt",
+            system_prompt,
+            "--tools",
+            "",
+            "--disable-slash-commands",
+        ],
+        input=user_message,
+        capture_output=True,
+        text=True,
+        timeout=timeout_s,
+        env=env,
+        cwd="/tmp",
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"claude -p exited {proc.returncode}: {proc.stderr[:500]}"
+        )
+    payload = _json.loads(proc.stdout)
+    if payload.get("is_error"):
+        raise RuntimeError(
+            f"claude -p reported error: {str(payload.get('result', ''))[:500]}"
+        )
+
+    text = payload["result"]
+    usage = payload.get("modelUsage", {}).get(cli_model, {})
+    input_tokens = (
+        usage.get("inputTokens", 0)
+        + usage.get("cacheCreationInputTokens", 0)
+        + usage.get("cacheReadInputTokens", 0)
+    )
+    output_tokens = usage.get("outputTokens", 0)
+    stop_reason = payload.get("stop_reason", "end_turn")
+    return text, input_tokens, output_tokens, stop_reason
 
 # Sections to split from the combined report.
 # Keys are slugified header names, values are the expected ## header text.
 SECTIONS = {
+    "bottom-line": "Bottom Line Up Front",
     "last-week-recap": "Last Week's Recap",
     "roster-intel": "My Roster Intel",
     "injury-watch": "Injury Watch",
@@ -62,9 +147,10 @@ SECTIONS = {
 
 # Same format within each section across all report types.
 # Only difference is which sections are included.
-DAILY_SECTIONS = ["roster-intel", "injury-watch", "around-the-league", "action-items"]
-MONDAY_SECTIONS = ["last-week-recap"] + DAILY_SECTIONS
+DAILY_SECTIONS = ["bottom-line", "roster-intel", "injury-watch", "around-the-league", "action-items"]
+MONDAY_SECTIONS = ["bottom-line", "last-week-recap"] + DAILY_SECTIONS[1:]
 WEEKLY_SECTIONS = [
+    "bottom-line",
     "roster-intel",
     "injury-watch",
     "matchup-preview",
@@ -449,10 +535,15 @@ def load_league_context(db_path: Path) -> dict | None:
         )
         free_agents = [dict(row) for row in cursor.fetchall()]
 
-        # Player name → FanGraphs URL lookup (for linking in reports)
+        # Player name → FanGraphs URL lookup (for linking in reports).
+        # When two players share a name (e.g. Max Muncy LAD vs ATH, Will Smith LAD vs KC),
+        # the one rostered in this league wins the dict-overwrite — order rostered LAST.
         cursor.execute("""
-            SELECT name, fangraphs_id, position FROM players
-            WHERE fangraphs_id IS NOT NULL AND fangraphs_id != ''
+            SELECT p.name, p.fangraphs_id, p.position,
+                   EXISTS (SELECT 1 FROM rosters r WHERE r.player_id = p.id) AS on_roster
+            FROM players p
+            WHERE p.fangraphs_id IS NOT NULL AND p.fangraphs_id != ''
+            ORDER BY on_roster ASC
         """)
         player_links = {}
         pitching_positions = {"SP", "RP", "P"}
@@ -741,14 +832,49 @@ SYSTEM_PROMPT = (
     "- CRITICAL: Only recommend START/SIT for players on MY ROSTER. Do not tell me to "
     "start players I don't own. If a player is on another team, that's a TRADE TARGET, not a start.\n"
     "- The reader is a Cardinals fan — make the Cardinals Corner section insightful\n"
-    "- The reader's brother runs 'Ithilien' — keep the rivalry section brief and factual\n"
+    "- The reader's brother is Brad, who runs 'Ithilien'. The Sibling Rivalry section "
+    "should be in-depth, snarky, and entertaining — channel a mix of Stephen A. Smith "
+    "(declarative, bombastic, occasional ALL CAPS for emphasis) and Bill Simmons (pop-culture "
+    "references, named theories, flowing prose, dry humor). EVERY snark line must be backed by "
+    "specific data or cited expert content — no empty trash talk. Refer to him as 'Brad' "
+    "throughout, never just 'his' or 'your brother'.\n"
     "- ALWAYS use a player's full first and last name — never just a last name. "
     "Write 'Yusei Kikuchi' not 'Kikuchi'. This is required for player linking.\n"
+    "- Spell player names exactly as they appear in the league data. Do not guess "
+    "(e.g., 'Tarik Skubal' not 'Tarek Skubal').\n"
+    "- Write polished prose. If you start a sentence and realize the framing is wrong, "
+    "REWRITE it cleanly — never publish stream-of-consciousness self-corrections like "
+    "'wait, that's not relevant' or 'actually, scratch that'. The reader sees only the "
+    "final draft.\n"
+    "- Each major news item (e.g., a specific injury, a VEO diagnosis, a closer change) "
+    "lives in detail in ONE section. If it's relevant to another section, cross-reference "
+    "in a single line (e.g., 'see Around the League for VEO context') instead of repeating "
+    "the same paragraph. Avoid telling the reader the same thing three times.\n"
+    "- When comparing two numerical values, verify the inequality direction before stating it "
+    "(481 < 594 means Caminero is BELOW Skenes, not above).\n"
     "- DO NOT be lazy or brief. Each section should have real substance and deep analysis."
 )
 
 
 SECTION_INSTRUCTIONS = {
+    "bottom-line": """## Bottom Line Up Front
+
+The reader's TL;DR. Five bullets max. This is the section a reader can read in 30 seconds and walk away with the week's most important moves. Write it AFTER mentally drafting the rest of the report — these bullets are the distilled output, not throwaway summaries.
+
+Each bullet must:
+- Lead with a one-word action label in **bold**: **START**, **SIT**, **ADD**, **DROP**, **TRADE**, **MONITOR**, **HOLD**.
+- Name the player(s) with full name (no last-name shorthand).
+- State the action AND the reason in one sentence — specific, not vague.
+- Be ranked by urgency (top bullet = most urgent / highest impact this week).
+
+Example shape (do not copy verbatim — fill from the actual data):
+- **START** Carlos Rodón (NYY) — Sunday vs MIL is his season debut and a top-5 ROS rotation slot just got handed back to me.
+- **TRADE** Jack Flaherty — sell after the 10K/5IP mirage; *Pollack flagged the velocity drop and 76% two-strike rate as unsustainable*.
+- **ADD** Robby Snelling (MIA) — *Locked On* called him a must-add prospect; he's the Suarez-IL hedge if the hamstring goes.
+- **DROP** Ryan O'Hearn — -88 surplus, lowest-projection bat on the roster, no path to upside.
+- **MONITOR** Ranger Suarez (BOS) — hamstring; if he hits the IL, my SP depth collapses and I need to act fast.
+
+Five bullets, no preamble, no closing summary. Just the bullets.""",
     "last-week-recap": """## Last Week's Recap
 Using the LAST WEEK'S MATCHUP RESULT and STANDINGS data provided:
 
@@ -810,7 +936,7 @@ For each: who the player is, what experts are saying that concerns you, their cu
 ### Buy Low Targets (Other Teams)
 For each: who owns them, why experts are higher than projections, the catalyst, and what I might offer from my roster.
 
-At least 3 players across the sell high and buy low categories with real analysis for each. Do NOT include Ithilien trade targets here — those belong in the Sibling Rivalry section.""",
+At least 3 players across the sell high and buy low categories with real analysis for each. Brad's (Ithilien's) players belong here too — the Sibling Rivalry section is now a head-to-head performance comparison, not a trade strategy section. When suggesting buy-lows from Brad's roster, include the literal "pitch text to Brad" line — one sentence I could paste into iMessage.""",
     "projection-watch": """## Projection Watch
 Focus exclusively on MY ROSTERED PLAYERS where expert opinion diverges from Steamer/consensus projections. Projection disagreements for waiver or trade targets are covered in those sections.
 - For each disagreement: name the player, the expert projection vs consensus, the specific stat gap, and why it matters
@@ -827,20 +953,50 @@ A comprehensive summary of everything discussed across all expert content that d
 - Any meta-analysis (e.g., how different projection systems are approaching the new season)
 Write this as an engaging narrative — this section should capture everything interesting from the expert content even if it's not directly about my team.""",
     "cardinals-corner": """## Cardinals Corner
-All Cardinals-relevant news and analysis from expert content:
-- Any STL players discussed (what was said, by whom, full context)
-- STL players on my roster, opponent's team, or Ithilien's team — fantasy implications
-- Cardinals organizational news: roster moves, prospect timelines, rotation decisions
-- Spring training observations about Cardinals players
-If minimal Cardinals content, note that and mention any Cardinals-adjacent news.""",
+
+Write this section in the **first person, as a Cardinals fan** — not a neutral analyst. The reader has skin in the game; the prose should too. Hopes, frustrations, "we", "us", earned cynicism about the front office, genuine excitement when prospects deliver, real pain when they lose. Stat-driven, but emotionally invested. Think Bernie Miklasz column, not AP wire.
+
+Cover:
+- Cardinals players in the expert content this week — what's said, by whom, **how I should feel about it as a fan**
+- STL players on my roster, the opponent's roster, or Brad's roster — fantasy implications, but also the fan-emotional angle (e.g., "Walker is going to torment us this week, and the worst part is he should be on our roster")
+- Cardinals team performance — record, trends, the part we should be encouraged about, the part that's quietly worrying
+- Organizational news: prospect timelines, rotation decisions, front office moves — with a fan's POV on whether to be hopeful or frustrated
+- Closing thought: one paragraph on whether this team is something to believe in, hold breath on, or already in the "wait till next year" zone for 2026
+
+Length: 400-700 words. Lean into the fan voice without abandoning the analytical backbone — every emotional reaction should be tied to a specific stat, quote, or fact.""",
     "sibling-rivalry": """## Sibling Rivalry
-All analysis about Ithilien (brother's team) goes here. Cover:
-- His current standing, record, and trajectory in the league
-- Expert mentions of his key players — positive or negative sentiment
-- Trade leverage: which of his players are underperforming vs projections? Which are overperforming?
-- Specific trade targets: which of his players should I try to buy low on? Which of my players might appeal to him?
-- Suggest 1-2 specific trade packages with reasoning
-Brief and factual, but with actionable intelligence.""",
+
+This is the marquee section — the reader's favorite. The brother is **Brad**, who runs **Ithilien**. The reader's team is "**My Team**" (the team flagged is_my_team in league data). Channel Stephen A. Smith meets Bill Simmons: declarative, snarky, pop-culture-aware, occasionally affectionate, always specific. DO NOT write a dry recap. Length: 700-1100 words.
+
+**VOICE / POINT OF VIEW — CRITICAL:** Refer to Brad in **third person** throughout ("Brad's roster", "Brad has", "Brad's 452-point closer", "Brad sits at 3-3"). Refer to the reader's team in **first person** ("my team", "I'm at 1,410 PF", "my closer corps"). NEVER use "you" / "your" to mean Brad — the reader of this report is the user, not Brad. The line "Jhoan Duran, your 452-point closer" reads as if Duran is on the reader's team; instead write "Brad's 452-point closer Jhoan Duran". This pronoun discipline is non-negotiable; the section is unreadable without it.
+
+**This section is a head-to-head COMPARISON of Brad's team vs My team.** It is NOT a trade strategy section — buy-low / sell-high / trade packages belong in the Trade Signals section (and the prompt there allows Brad's players). Here, focus entirely on **how I'm doing vs how Brad is doing** — performance, roster shape, trajectory, who's winning the season-long argument between us.
+
+Use ### subheaders for the major beats, in this order:
+
+### Standings Showdown
+Side-by-side: my record/rank/PF/PA/diff vs Brad's. Who's ahead, by how much, and whether the underlying numbers (PF, points-for-against ratio, recent trajectory) tell the same story as the win-loss. Be specific. Coin or reuse a "Brad Theory" or epithet that captures THIS season's identity (keep it 2-3 words, reusable in future weeks). If we've already played head-to-head this season, mention the result.
+
+### Roster Strengths Compared
+Walk position-by-position (or category-by-category — SP, RP, C, MI, CI, OF, UTIL): who has the edge and why. Cite specific players, projections, recent expert sentiment. Don't just hand-wave — show the matchup. Where I have a clear win, say so. Where Brad is genuinely better, admit it (grudgingly).
+
+### What's Working for Me / What's Working for Brad
+Two paragraphs, parallel structure. The 2-3 things that are quietly powering each team's season so far. Lean on expert citations and stats. This is the place to give Brad credit where it's earned (Bill Simmons-style respect-with-side-eye).
+
+### Where He's More Exposed Than I Am
+2-3 structural weaknesses Brad has that I don't (or that hurt him more). Injury exposure, positional thinness, regression candidates, lineup misuse. This is the diagnostic, snark-the-diagnosis paragraph. Then briefly name 1-2 vulnerabilities I have that he doesn't — honest accounting, no chest-puffing.
+
+### Trajectory: Next 4 Weeks
+Who's better positioned for the next month? Schedule, returning IL guys, regression candidates, ROS projection deltas. Specific call: which one of us pulls ahead, by how much, and why.
+
+### The Verdict
+One paragraph closing call. Am I winning the season-long Brad argument right now, or is he? Pick a lane. End with a single sharp line that lands — Stephen A.-style closer welcome.
+
+**HARD RULES:**
+- NO trade packages, NO "buy-low / sell-high" sections, NO pitch texts. Those live in Trade Signals now.
+- EVERY snark line must be backed by a specific stat or expert citation (in italics).
+- Refer to the brother as "Brad" throughout. Refer to the reader's team as "my team" or "us" — first person.
+- When comparing two numbers, verify the inequality direction before stating it (e.g., 481 < 594 means Caminero's projection is *below* Skenes', not above).""",
     "injury-watch": """## Injury Watch
 List ONLY my rostered players who have injury concerns mentioned in the expert content. For each:
 
@@ -884,10 +1040,15 @@ def build_prompt(
     section_text = "\n\n".join(
         SECTION_INSTRUCTIONS[s] for s in sections_to_include if s in SECTION_INSTRUCTIONS
     )
+    section_titles = ", ".join(SECTIONS[s] for s in sections_to_include if s in SECTIONS)
 
     instructions = f"""Write a {report_label} for {today.strftime("%B %d, %Y")}.
 
-Use exactly these section headers (## level) in this order. Be thorough and analytical in EVERY section — write like a columnist, not a summary bot. Do NOT include [[toc-levels:2]] or any table of contents marker — that is handled separately.
+The report MUST contain ONLY these sections, in this exact order: {section_titles}.
+
+Do NOT add any other sections — no "Sibling Rivalry", "Cardinals Corner", "Trade Signals", "Waiver Targets", "Matchup Preview", "Projection Watch", or any other ## header beyond those listed above. The reader has explicitly chosen this report's scope; respect it.
+
+Use ## for each section header at exactly the names above. Be thorough and analytical in EVERY section — write like a columnist, not a summary bot. Do NOT include [[toc-levels:2]] or any table of contents marker — that is handled separately.
 
 {section_text}
 """
@@ -954,35 +1115,52 @@ def generate_intel(
         )
         return None, 0, 0
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        log.error("ANTHROPIC_API_KEY not set in .env")
-        return None, 0, 0
+    if USE_CLAUDE_CLI:
+        log.info(
+            "Generating intel report via Claude Code subscription (claude -p)..."
+        )
+        client = None
+    else:
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if not api_key:
+            log.error(
+                "ANTHROPIC_API_KEY not set in .env (or set DAILY_ANALYSIS_USE_CLI=1 to use the Max subscription)"
+            )
+            return None, 0, 0
+        log.info("Generating intel report via Anthropic API...")
+        client = anthropic.Anthropic(api_key=api_key)
 
-    log.info("Generating comprehensive daily intel report...")
+    max_tokens = 16000 if mode == "weekly" else 8000
 
-    client = anthropic.Anthropic(api_key=api_key)
+    def _one_shot(prompt_user_msg: str) -> tuple[str, int, int, str]:
+        """Single completion via the configured backend."""
+        if USE_CLAUDE_CLI:
+            return _invoke_claude_cli(MODEL, SYSTEM_PROMPT, prompt_user_msg)
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt_user_msg}],
+        )
+        return (
+            response.content[0].text,
+            response.usage.input_tokens,
+            response.usage.output_tokens,
+            response.stop_reason,
+        )
 
-    # Retry with backoff for rate limits
+    # Retry with backoff for rate limits / short outputs
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            response = client.messages.create(
-                model=MODEL,
-                max_tokens=16000 if mode == "weekly" else 8000,
-                system=SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_message}],
-            )
-            text = response.content[0].text
-            input_tokens = response.usage.input_tokens
-            output_tokens = response.usage.output_tokens
+            text, input_tokens, output_tokens, stop_reason = _one_shot(user_message)
 
             log.info(
                 "Generated: %d words, %d input tokens, %d output tokens (stop: %s)",
                 len(text.split()),
                 input_tokens,
                 output_tokens,
-                response.stop_reason,
+                stop_reason,
             )
 
             # Guard against near-empty responses (model overwhelmed by context)
@@ -1002,23 +1180,10 @@ def generate_intel(
                     "You MUST write ALL sections in full. Do NOT skip any content. "
                     "Begin writing the report NOW.\n\n"
                 )
-                retry_resp = client.messages.create(
-                    model=MODEL,
-                    max_tokens=16000 if mode == "weekly" else 8000,
-                    system=SYSTEM_PROMPT,
-                    messages=[
-                        {"role": "user", "content": nudge + user_message},
-                    ],
-                )
-                retry_text = retry_resp.content[0].text
-                retry_out = retry_resp.usage.output_tokens
+                retry_text, retry_in, retry_out, _ = _one_shot(nudge + user_message)
                 log.info("Retry produced %d output tokens", retry_out)
                 if retry_out > output_tokens:
-                    return (
-                        retry_text,
-                        retry_resp.usage.input_tokens,
-                        retry_out,
-                    )
+                    return retry_text, retry_in, retry_out
                 # If retry is also short, fall through with original
 
             return text, input_tokens, output_tokens
@@ -1038,6 +1203,20 @@ def generate_intel(
             else:
                 log.error("Rate limit exceeded after %d retries", max_retries)
                 return None, 0, 0
+
+        except subprocess.TimeoutExpired as e:
+            # `claude -p` can be slow on cold start (e.g., scheduled 3 AM runs after
+            # long idle). Retry once before giving up — usually faster the second time.
+            if attempt < max_retries - 1:
+                log.warning(
+                    "claude -p timed out after %ss. Retrying %d/%d...",
+                    e.timeout,
+                    attempt + 2,
+                    max_retries,
+                )
+                continue
+            log.error("claude -p timed out on every retry: %s", e)
+            return None, 0, 0
 
         except Exception as e:
             log.error("Failed to generate intel: %s", e)
@@ -1338,20 +1517,28 @@ def run(
             player_links=player_links,
         )
 
-        # Cost estimate (Opus: $5/M input, $25/M output)
+        # Dollar-equivalent (Opus API rates: $5/M input, $25/M output).
+        # Under subscription mode this is informational quota usage, not billed.
         cost = (input_tokens * 5 + output_tokens * 25) / 1_000_000
+        billing_note = (
+            "subscription quota, not billed" if USE_CLAUDE_CLI else "API spend"
+        )
         log.info(
-            "Done. Wrote %d files. Tokens: %d in / %d out (~$%.2f)",
+            "Done. Wrote %d files. Tokens: %d in / %d out (~$%.2f %s)",
             len(paths),
             input_tokens,
             output_tokens,
             cost,
+            billing_note,
         )
     else:
-        log.error(
-            "No report generated — Claude API returned empty response. "
-            "Check API key, rate limits, and network connectivity."
-        )
+        if dry_run:
+            log.info("Dry run complete — no report generated (expected)")
+        else:
+            log.error(
+                "No report generated. Check Claude CLI auth (claude auth status) "
+                "or, if using API mode, ANTHROPIC_API_KEY / rate limits / network."
+            )
 
 
 def main() -> None:
