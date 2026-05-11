@@ -1002,10 +1002,13 @@ def _publish_to_blot(
     body = re.sub(r"^\s*#\s+.+?\n+", "", linked.lstrip(), count=1)
 
     # Generate the per-post OG banner and embed it as the first inline image.
-    # Blot picks up the first image as {{#thumbnail.large}}, which lights up the
-    # iMessage / social rich-card preview via the og:image tags in head.html.
-    # Wrapped in try/except so a banner failure never blocks the publish itself.
-    banner_name = f"{today.isoformat()}-cardinals-daily.png"
+    # Underscore-prefixed filename keeps Blot from publishing the PNG as its
+    # own standalone photo post (per blot.im/how/files/images) — it stays a
+    # referenced asset of the .md post. Sibling placement in Posts/ lets Blot
+    # resolve the relative path and pick it up as {{#thumbnail.large}}, which
+    # lights up the iMessage / social rich-card preview via the og:image tags
+    # in head.html. Wrapped: a banner failure never blocks the publish.
+    banner_name = f"_{today.isoformat()}-cardinals-daily.png"
     try:
         game_date = today
         if postgame and postgame.get("date"):

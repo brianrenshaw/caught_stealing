@@ -126,6 +126,8 @@ Every published post starts with an auto-generated 1200×630 PNG banner — hist
 
 Service: `app/services/og_banner.py`. Assets: `assets/StLCardinals7197.png` (500×500 RGB logo) plus `assets/fonts/RobotoSlab.ttf` (variable Roboto Slab from Google Fonts, used at 700 wght for the wordmark/score and 400 for the subtitle).
 
+The banner filename has a leading underscore (`_{date}-cardinals-daily.png`). Per Blot's [image conventions](https://blot.im/how/files/images), files in `Posts/` without an underscore are published as standalone photo posts — which clashes with the .md of the same name and breaks the inline reference (image renders as a broken icon on the live page). The underscore tells Blot to treat the file as a referenced asset, not a post.
+
 ### Fact-check JSON (only on retry-then-fail)
 
 Path: `data/content/analysis/factcheck_failed/{YYYY-MM-DD}_cardinals-daily.factcheck.json`
