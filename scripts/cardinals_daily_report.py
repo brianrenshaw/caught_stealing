@@ -38,6 +38,10 @@ from scripts.daily_analysis import (
     linkify_players,
     parse_frontmatter,
 )
+from scripts.factcheck_cardinals import (
+    extract_score_and_data,
+    factcheck_score_and_data,
+)
 from app.services.cardinals_postgame import get_cardinals_postgame
 
 # ---------------------------------------------------------------------------
@@ -49,6 +53,10 @@ CONTENT_DIR = PROJECT_ROOT / "data" / "content"
 BLOGS_DIR = CONTENT_DIR / "blogs"
 TRANSCRIPTS_DIR = CONTENT_DIR / "transcripts"
 ANALYSIS_DIR = CONTENT_DIR / "analysis"
+# Reports that fail fact-check twice land here instead of ANALYSIS_DIR so the
+# downstream pipeline (PDF render, Readdle sync, Fly upload) glob does not pick
+# them up. The 4 AM verifier reads this dir to escalate.
+FACTCHECK_FAILED_DIR = ANALYSIS_DIR / "factcheck_failed"
 DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
@@ -446,6 +454,12 @@ Use the gamefeed data sources in this priority order. Every claim must tie to a 
 - **`boxscore.batters` / `boxscore.pitchers`** — context lines (who else was in the lineup, bullpen usage, decisions).
 
 Scout-flavored sentences are encouraged throughout — pitch sequences, location reads, count leverage, pitch design observations — but they must be EMBEDDED in flowing prose, not split into a bulleted appendix. NEVER invent a number; every velocity/EV/xBA/WPA value must come straight from POSTGAME DATA.
+
+**Strict pairing rule.** When a pitcher highlight (top_pitches, top_whiffs, best_putaways, lowest_xba_allowed) names a batter, you may say "Pitcher X retired/whiffed/punched out Batter Y". When the data block has no `batter` field for that pitch, you must NOT pair it with a specific batter name — describe it as "an 86 mph Sweeper drew a .020 xBA flyout" instead of "his 86 mph Sweeper retired Manny Machado".
+
+**Adjective fidelity.** Hit-classification words (line drive, bloop, flare, grounder, lineout, popup) must match the JSON `description` text from scoring_plays or wpa.key_swings. If the description says "line drive", do not call it a "bloop". If the data says "grounds out, shortstop to first", do not call it a chopper.
+
+**Intentional walks.** Only describe a walk as "intentional" if `game_context.intentional_walks` explicitly names that batter (format: "Merrill (by Graceffo).").
 
 **Kicker line — strict rule.** End with one line that closes the game story using ONLY values present in POSTGAME DATA (final score, key WPA delta, a pitch metric, the linescore note). DO NOT mention:
 - The upcoming opponent, next series, travel day, or next probable pitcher (that lives in Beat Writer's Verdict).
@@ -910,6 +924,40 @@ def run(force: bool = False, days: int = CONTENT_WINDOW_DAYS, dry_run: bool = Fa
         len(text.split()), in_toks, out_toks, stop,
     )
 
+    # ----- Fact-check the Score and Data section -----
+    # The narrative runs on POSTGAME DATA only; the fact-checker compares every
+    # numeric / factual claim against the JSON. On fail, regenerate once with
+    # the issues fed back. If the retry still fails, the report is quarantined
+    # to FACTCHECK_FAILED_DIR — nothing downstream (PDF / Readdle / Fly / Blot)
+    # picks it up, and a macOS notification fires.
+    factcheck = factcheck_score_and_data(extract_score_and_data(text) or "", postgame)
+    if not factcheck.passed:
+        log.warning(
+            "Fact-check FAILED on first attempt — %d issues. Regenerating once with corrections.",
+            len(factcheck.issues),
+        )
+        for i in factcheck.issues:
+            log.warning("  - [%s] %s — %s", i.category, i.claim, i.why_suspect)
+        retry_message = _build_retry_message(user_message, factcheck)
+        try:
+            text2, in2, out2, _stop2 = _invoke_claude_cli(MODEL, SYSTEM_PROMPT, retry_message)
+        except Exception as e:
+            log.error("Retry generation failed: %s — quarantining first attempt.", e)
+            text2 = None
+            in2 = out2 = 0
+
+        if text2:
+            text, in_toks, out_toks = text2, in_toks + in2, out_toks + out2
+            factcheck = factcheck_score_and_data(extract_score_and_data(text) or "", postgame)
+
+        if not factcheck.passed:
+            _quarantine_failed_report(today, text, in_toks, out_toks, factcheck)
+            return
+
+        log.info("Fact-check PASSED on retry — %d issues remediated", len(factcheck.issues))
+    else:
+        log.info("Fact-check PASSED on first attempt")
+
     player_links = load_player_links()
     out = write_report(today, text, items, in_toks, out_toks, player_links)
     cost = (in_toks * 5 + out_toks * 25) / 1_000_000
@@ -920,6 +968,70 @@ def run(force: bool = False, days: int = CONTENT_WINDOW_DAYS, dry_run: bool = Fa
         _publish_to_blot(today, text, player_links, postgame=postgame)
     except Exception as e:
         log.warning("Blot publish failed (non-fatal): %s", e)
+
+
+def _build_retry_message(original_user_message: str, factcheck) -> str:
+    """Append fact-check issues to the original prompt as a correction directive."""
+    issue_lines = []
+    for i in factcheck.issues:
+        line = f"  - [{i.category}] \"{i.claim}\" — {i.why_suspect}"
+        if i.json_value_if_close:
+            line += f"  (actual value in POSTGAME DATA: {i.json_value_if_close})"
+        issue_lines.append(line)
+    return (
+        original_user_message
+        + "\n\n---\n\n"
+        "# FACT-CHECK ISSUES TO CORRECT IN REGENERATION\n\n"
+        "Your previous draft contained the following claims that could not be verified "
+        "against POSTGAME DATA. Regenerate the FULL report with these specific corrections:\n\n"
+        + "\n".join(issue_lines)
+        + "\n\nRules:\n"
+        "- For each flagged claim, either (a) replace the wrong value with the actual JSON "
+        "value, or (b) remove the claim entirely if the JSON has no support for it.\n"
+        "- Do NOT add any new fabrications while fixing these. Keep prose grounded strictly "
+        "in POSTGAME DATA throughout the Score and Data section.\n"
+        "- Forward-looking content (next opponent, travel day, probable pitcher) belongs in "
+        "Beat Writer's Verdict, not Score and Data. Remove any such content from Score and Data.\n"
+        "- Source citations (Locked On Cardinals, Viva El Birdos, etc.) do not belong in "
+        "Score and Data. Remove any such citations from that section.\n"
+    )
+
+
+def _quarantine_failed_report(
+    today: date, text: str, in_toks: int, out_toks: int, factcheck
+) -> None:
+    """Move a fact-check-failed report out of the normal pipeline path.
+
+    Writes the failing MD plus a sibling `.factcheck.json` log to
+    FACTCHECK_FAILED_DIR so it is preserved for review but excluded from the
+    glob the downstream bash pipeline uses to find today's reports.
+    """
+    FACTCHECK_FAILED_DIR.mkdir(parents=True, exist_ok=True)
+    failed_md = FACTCHECK_FAILED_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
+    failed_md.write_text(text, encoding="utf-8")
+    failed_log = FACTCHECK_FAILED_DIR / f"{today.isoformat()}_{REPORT_SLUG}.factcheck.json"
+    failed_log.write_text(
+        json.dumps(factcheck.to_dict(), indent=2),
+        encoding="utf-8",
+    )
+    log.error(
+        "Fact-check FAILED after retry — %d issues remain. Report quarantined to %s",
+        len(factcheck.issues),
+        failed_md,
+    )
+    log.error("Issues:\n%s", factcheck.issue_summary())
+
+    # Best-effort macOS notification so the user notices before the 4 AM verifier.
+    try:
+        import subprocess
+        msg = f"{len(factcheck.issues)} fact-check issues — quarantined to factcheck_failed/"
+        subprocess.run([
+            "osascript", "-e",
+            f'display notification "{msg}" with title "Cardinals report BLOCKED" '
+            f'subtitle "{today.isoformat()} — see {failed_log.name}"',
+        ], check=False, timeout=5)
+    except Exception:
+        pass
 
 
 def main() -> None:

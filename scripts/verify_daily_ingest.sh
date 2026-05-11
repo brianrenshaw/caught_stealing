@@ -75,6 +75,19 @@ else
     echo "  WARN  Cardinals daily report missing ($CARDINALS_MD) — soft check, not failing"
 fi
 
+# Hard check: a quarantined fact-check-failed report. If the runner generated a
+# Cardinals report and the fact-checker rejected it twice, the MD is in
+# factcheck_failed/. Escalate immediately — bad numbers are the kind of bug
+# that lands on Blot if we don't notice.
+FACTCHECK_FAILED_MD="$ANALYSIS_DIR/factcheck_failed/${TODAY}_cardinals-daily.md"
+FACTCHECK_FAILED_LOG="$ANALYSIS_DIR/factcheck_failed/${TODAY}_cardinals-daily.factcheck.json"
+if [ -f "$FACTCHECK_FAILED_MD" ]; then
+    ISSUE_COUNT=$(grep -c '"claim":' "$FACTCHECK_FAILED_LOG" 2>/dev/null || echo "?")
+    check "Cardinals fact-check passed" 0 "report quarantined with $ISSUE_COUNT unsupported claims — see $FACTCHECK_FAILED_LOG"
+else
+    echo "  PASS  Cardinals fact-check (no quarantined report)"
+fi
+
 # Soft check: Cardinals post landed in the Blot Dropbox folder. Catches the case
 # where the report generated locally but the Blot publisher silently skipped
 # (e.g., Dropbox app paused, folder unmounted, transient write error). FAIL-level

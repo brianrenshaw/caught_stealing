@@ -462,6 +462,12 @@ def _game_context_from_gamefeed(gf: dict) -> dict:
         ("first_pitch", "First pitch"),
         ("venue", "Venue"),
         ("abs_challenges", "ABS Challenge"),
+        # IBB note tells the fact-checker which walks were intentional, e.g.
+        # "Merrill (by Graceffo)." — needed to verify "intentionally walked" prose.
+        ("intentional_walks", "IBB"),
+        ("wild_pitches", "WP"),
+        ("hit_batsmen", "HBP"),
+        ("inherited_runners", "Inherited runners-scored"),
     ]:
         v = info.get(label)
         if v:
@@ -561,6 +567,8 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
             ]
 
     # ---- Pitcher highlights (STL pitching events) ----
+    # Every bucket includes batter_name when the gamefeed has it, so any prose
+    # pairing of "pitcher X retired/whiffed/punched out batter Y" can be verified.
     if stl_pitching:
         # Top velocity (any pitch, ranked by start_speed)
         with_velo = [(p, _gf_float(p, "start_speed")) for p in stl_pitching]
@@ -570,6 +578,7 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
             h["top_pitches"] = [
                 {
                     "pitcher": _gf_safe(p, "pitcher_name"),
+                    "batter": _gf_safe(p, "batter_name"),
                     "velo_mph": v,
                     "pitch_type": _gf_safe(p, "pitch_name"),
                     "outcome": _gf_safe(p, "description") or _gf_safe(p, "events"),
@@ -589,6 +598,7 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
             h["top_whiffs"] = [
                 {
                     "pitcher": _gf_safe(p, "pitcher_name"),
+                    "batter": _gf_safe(p, "batter_name"),
                     "velo_mph": _gf_float(p, "start_speed", 1),
                     "pitch_type": _gf_safe(p, "pitch_name"),
                     "spin_rpm": _gf_float(p, "spin_rate", 0),
@@ -605,6 +615,7 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
             h["best_putaways"] = [
                 {
                     "pitcher": _gf_safe(p, "pitcher_name"),
+                    "batter": _gf_safe(p, "batter_name"),
                     "pitch_type": _gf_safe(p, "pitch_name"),
                     "velo_mph": _gf_float(p, "start_speed", 1),
                     "result": _gf_safe(p, "pitch_call") or _gf_safe(p, "description"),
@@ -612,7 +623,9 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
                 for p in top_ks
             ]
 
-        # Lowest xBA allowed on contact (best contact-suppression)
+        # Lowest xBA allowed on contact (best contact-suppression). The exit_velocity
+        # entries DO carry batter_name, so include it — fact-checker needs to verify
+        # any "Pitcher X retired Batter Y" prose pairing.
         with_xba_allowed = [(x, _xba_to_float(x.get("xba"))) for x in sd_in_play]
         with_xba_allowed = [(x, v) for x, v in with_xba_allowed if v is not None]
         if with_xba_allowed:
@@ -620,6 +633,7 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
             h["lowest_xba_allowed"] = [
                 {
                     "pitcher": _gf_safe(x, "pitcher_name"),
+                    "batter": _gf_safe(x, "batter_name"),
                     "pitch_type": _gf_safe(x, "pitch_name"),
                     "velo_mph": _gf_float(x, "start_speed", 1),
                     "xba": v,
