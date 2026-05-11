@@ -600,11 +600,18 @@ def publish_to_blot(
     title = f"MLB Roundup, {game_date.strftime('%B %-d, %Y')}"
     fallback_summary = f"{n_games} games on {game_date.strftime('%B %-d')}."
     summary = post_summary.strip() if post_summary else fallback_summary
+    # Thumbnail points at the OG banner generated below; Tags combine with the
+    # Posts/MLB/ subfolder tag for redundant MLB categorization plus a more
+    # specific "Daily Roundup" facet. Comments disabled site-wide.
+    banner_name = f"_{today.isoformat()}-mlb-roundup.png"
     header = (
         f"Title: {title}\n"
         f"Date: {today.isoformat()}\n"
         f"Summary: {summary}\n"
         f"Link: mlb-roundup-{today.isoformat()}\n"
+        f"Tags: MLB, Daily Roundup\n"
+        f"Thumbnail: {banner_name}\n"
+        f"Comments: No\n"
         "\n"
     )
 
@@ -618,7 +625,6 @@ def publish_to_blot(
     # {{#thumbnail.large}}, which lights up the iMessage / social rich-card
     # preview via the og:image tags in head.html. Wrapped: a banner failure
     # never blocks the publish itself.
-    banner_name = f"_{today.isoformat()}-mlb-roundup.png"
     try:
         generate_mlb_og_banner(game_date, n_games, BLOT_MLB_DIR / banner_name)
         stripped = f"![MLB Roundup — {game_date.strftime('%B %-d, %Y')}]({banner_name})\n\n{stripped}"

@@ -1087,11 +1087,20 @@ def _publish_to_blot(
     summary = _extract_summary(postgame)
 
     # Blot metadata header. Blank line separates metadata from post body.
+    # Thumbnail points at the OG banner generated below; setting it explicitly
+    # gives Blot's template a reliable hook for archive previews + og:image
+    # rather than relying on "first image >64px" heuristic. Comments disabled
+    # site-wide. Tags retest: Blot supports comma-separated metadata tags;
+    # earlier omission was a template render bug that may be resolved.
+    banner_name = f"_{today.isoformat()}-cardinals-daily.png"
     blot_header = (
         f"Title: {title}\n"
         f"Date: {today.isoformat()}\n"
         f"Summary: {summary}\n"
         f"Link: cardinals-daily-{today.isoformat()}\n"
+        f"Tags: Cardinals, Game Recap\n"
+        f"Thumbnail: {banner_name}\n"
+        f"Comments: No\n"
         "\n"
     )
 
@@ -1106,7 +1115,6 @@ def _publish_to_blot(
     # resolve the relative path and pick it up as {{#thumbnail.large}}, which
     # lights up the iMessage / social rich-card preview via the og:image tags
     # in head.html. Wrapped: a banner failure never blocks the publish.
-    banner_name = f"_{today.isoformat()}-cardinals-daily.png"
     try:
         game_date = today
         if postgame and postgame.get("date"):
