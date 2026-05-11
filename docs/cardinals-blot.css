@@ -5,6 +5,21 @@
 
    Where to paste: Blot dashboard → Template → Edit code → style.css
    (replace the file's contents, or append at the bottom to override).
+
+   DESIGN SYSTEM
+   - Colors: red (#C41E3A) → H1 + inline links + table top accent; navy
+     (#0C2340) → body + H2 + H3 + H4-H6; yellow (#FEDB00) → H2 underline
+     only, kept rare so it reads as intentional instead of decoration.
+   - Heading hierarchy: H1 red post-title (2rem) → H2 navy ALL-CAPS kicker
+     (0.95rem, yellow underline) → H3 navy italic headline (1.35rem). H3 is
+     intentionally LARGER than H2 — kicker-over-headline newspaper pattern
+     where H2 is a department label ("Cardinals Notebook") and H3 is the
+     article headline beneath it.
+   - Tables: display: block + width: max-content + max-width: 100%, so
+     narrow tables (line scores, swing tables) shrink to fit their content
+     and wide tables (batter/pitcher box scores) fill the container with
+     horizontal scroll inside the table itself. First column is
+     position: sticky for a frozen rail during horizontal scroll.
    ========================================================================= */
 
 /* ---------- Color & Type Tokens ---------- */
@@ -177,25 +192,36 @@ html, body {
     border-bottom: 3px solid var(--cardinal-red);
 }
 
+/* H2 = section "kicker" — small navy all-caps with full-width yellow underline.
+   Reserves red for H1 + inline links so H2 doesn't clash with citation links. */
 .entry h2 {
     font-family: var(--font-head);
     font-weight: 700;
-    font-size: 1.35rem;
-    line-height: 1.25;
+    font-size: 0.95rem;
+    line-height: 1.3;
     color: var(--navy);
-    margin: 2rem 0 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 2.4rem 0 0.6rem;
     padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--yellow);
 }
 
+/* H3 = article headline within a section — larger italic navy. Bigger than H2
+   by design (kicker-over-headline pattern). */
 .entry h3 {
     font-family: var(--font-head);
     font-weight: 700;
     font-style: italic;
-    font-size: 1.15rem;
+    font-size: 1.35rem;
     line-height: 1.25;
     color: var(--navy);
-    margin: 1.4rem 0 0.3rem;
+    margin: 1.4rem 0 0.4rem;
+}
+
+/* When H3 immediately follows H2, tighten the gap so the kicker hugs the headline. */
+.entry h2 + h3 {
+    margin-top: 0.3rem;
 }
 
 .entry h4 {
@@ -292,16 +318,27 @@ hr.full {
 }
 
 /* ---------- Tables (box scores + line score) ---------- */
+/* Wide tables (line score: 14 cols, batter box: 12 cols) overflow the .entry
+   container (760px). Make each <table> its own horizontal scroll area and
+   pin the first column so player/team labels stay visible while stats scroll. */
 .entry table {
     border-collapse: collapse;
     border: 1px solid var(--border);
-    border-top: 3px solid var(--yellow);
-    width: 100%;
+    border-top: 2px solid var(--cardinal-red);
     border-radius: 6px;
-    overflow: hidden;
     margin: 0.8em 0 1.4em;
-    table-layout: auto;
     font-size: 0.95em;
+
+    /* Horizontal scroll inside the table itself.
+       width: max-content lets narrow tables (line scores, 4-col swing tables)
+       shrink to fit their content instead of stretching to 100% with an empty
+       rail on the right. max-width: 100% + overflow-x: auto still triggers
+       scroll on wide tables (batter/pitcher box scores). */
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
 }
 
 .entry th {
@@ -312,12 +349,14 @@ hr.full {
     text-align: left;
     border-bottom: 1px solid var(--border);
     font-family: var(--font-body);
+    white-space: nowrap;
 }
 
 .entry td {
     padding: 0.45em 0.7em;
     border-bottom: 1px solid var(--border);
     vertical-align: top;
+    white-space: nowrap;
 }
 
 .entry tr:nth-child(even) td { background: var(--surface); }
@@ -325,6 +364,30 @@ hr.full {
 /* Right-align numeric columns: every column after the first in stat tables. */
 .entry th:not(:first-child),
 .entry td:not(:first-child) { text-align: right; }
+
+/* Freeze the first column during horizontal scroll.
+   Opaque backgrounds are required — sticky cells with transparent
+   backgrounds let scrolling content bleed through. */
+.entry th:first-child,
+.entry td:first-child {
+    position: sticky;
+    left: 0;
+    border-right: 1px solid var(--border);
+}
+
+.entry th:first-child {
+    background: var(--navy);
+    z-index: 2;
+}
+
+.entry td:first-child {
+    background: #fff;
+    z-index: 1;
+}
+
+.entry tr:nth-child(even) td:first-child {
+    background: var(--surface);
+}
 
 /* ---------- Code ---------- */
 .entry code {
@@ -615,7 +678,6 @@ a.rounded-link .summary {
     html, body { font-size: 16px; }
     .sidebar, .entry { padding-left: 16px; padding-right: 16px; }
     .entry h1, body > h1 { font-size: 1.65rem; }
-    .entry h2 { font-size: 1.2rem; }
+    .entry h3 { font-size: 1.2rem; }
     .entry table { font-size: 0.85em; }
     .entry table th, .entry table td { padding: 0.35em 0.45em; }
-}
