@@ -128,6 +128,24 @@ Service: `app/services/og_banner.py`. Assets: `assets/StLCardinals7197.png` (500
 
 The banner filename has a leading underscore (`_{date}-cardinals-daily.png`). Per Blot's [image conventions](https://blot.im/how/files/images), files in `Posts/` without an underscore are published as standalone photo posts — which clashes with the .md of the same name and breaks the inline reference (image renders as a broken icon on the live page). The underscore tells Blot to treat the file as a referenced asset, not a post.
 
+The MLB Daily Roundup runs the same pattern in parallel via `app/services/mlb_og_banner.py`. See `docs/mlb-roundup-process-doc.md` for the MLB-specific details.
+
+### Site-wide assets (homepage + About page)
+
+Sharing the homepage URL (`lankfordlegends.co`) on iMessage / social uses a separate **static** OG card rather than a per-post banner. The card lives at `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/_Files/site-card.png` and is served at `/_Files/site-card.png` by Blot. `cardinals-blot-head.html` wires it into `og:image` + `twitter:image` for any non-entry page (homepage, archives, tag pages, About).
+
+Service: `app/services/site_card_banner.py`. Regenerate + redeploy with:
+
+```python
+from pathlib import Path
+from app.services.site_card_banner import generate_site_card
+generate_site_card(Path("/Users/brianrenshaw/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/_Files/site-card.png"))
+```
+
+The About page lives at `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Pages/about.md` — edited content, not template code, so it's not tracked in this repo. Public URL: `/about`. Keep it short (≤200 words); past iterations of this doc lived there and the user (correctly) flagged it as too detailed for public consumption.
+
+The homepage adds a static intro tagline above the post list (the `<p class="site-intro">` block in `cardinals-blot-entries.html`). The `header.html` partial (`docs/cardinals-blot-header.html`) renders "Lankford Legends" as a clickable home link at the top of every page plus a small Archives / About nav.
+
 ### Fact-check JSON (only on retry-then-fail)
 
 Path: `data/content/analysis/factcheck_failed/{YYYY-MM-DD}_cardinals-daily.factcheck.json`
@@ -300,6 +318,7 @@ The DB stores ASCII forms ("Ivan Herrera", "Jose Fermin"), but Savant gamefeed a
 | `bbref_boxscore.py` | `app/services/` | Scrapes baseball-reference.com box score pages for play-by-play, per-pitcher game_score, and game info. Polite scraping (24h cache, 1.5s inter-request delay, browser UA) |
 | `play_annotations.py` | `app/services/` | Shared helpers: derives `rbi` from "X scores" mentions in play descriptions, extracts `season_total` from parenthetical totals like "homers (11)". Used by both Cardinals digest and MLB roundup |
 | `og_banner.py` | `app/services/` | Generates the 1200×630 OG link-preview banner per post (logo + score + W/L chip + date). Invoked from `_publish_to_blot()` |
+| `site_card_banner.py` | `app/services/` | Generates the static homepage OG card served at `/_Files/site-card.png`. Run manually + redeploy when the design changes |
 | `republish_to_blot.sh` | `scripts/` | Recovery: re-publishes an existing local MD to Blot without regenerating it. Defaults to today. Takes optional `YYYY-MM-DD` arg |
 | `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner, Step 4.45 invokes the MLB roundup runner. Steps 4.5/4.6/5 exclude both MDs by design |
 | `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals + MLB roundup MDs exist (soft), Blot posts landed (hard), no quarantined reports (hard) |
@@ -315,7 +334,8 @@ The DB stores ASCII forms ("Ivan Herrera", "Jose Fermin"), but Savant gamefeed a
 |---|---|---|
 | `cardinals-blot.css` | `docs/` | Cardinals-themed CSS for the Blot blog (drop into Blot template editor) |
 | `cardinals-blot-head.html` | `docs/` | Blot `head.html` template (loads fonts plus CSS) |
-| `cardinals-blot-entries.html` | `docs/` | Blot homepage entries template |
+| `cardinals-blot-header.html` | `docs/` | Blot `header.html` partial — Lankford Legends home link + Archives / About nav |
+| `cardinals-blot-entries.html` | `docs/` | Blot homepage entries template (includes the `.site-intro` tagline block) |
 | `cardinals-blot-archives.html` | `docs/` | Blot archives template |
 
 ### LaunchAgents
@@ -381,6 +401,7 @@ fantasy_baseball_br/
     ├── CARDINALS_DAILY_REPORT.md        # Architectural reference
     ├── cardinals-blot.css               # Blot template CSS
     ├── cardinals-blot-head.html
+    ├── cardinals-blot-header.html         # Lankford Legends home link + nav
     ├── cardinals-blot-entries.html
     └── cardinals-blot-archives.html
 
@@ -508,7 +529,7 @@ Edit `~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist`, change t
 
 ### Update the Blot template styling
 
-Edit `docs/cardinals-blot.css`. Then paste the file content into the Blot template editor at [blot.im](https://blot.im) → your blog → Templates. Same for `cardinals-blot-head.html`, `cardinals-blot-entries.html`, `cardinals-blot-archives.html`. There is no automatic deploy. Blot's template files are managed in their web editor, not the Dropbox sync.
+Edit `docs/cardinals-blot.css`. Then paste the file content into the Blot template editor at [blot.im](https://blot.im) → your blog → Templates. Same for `cardinals-blot-head.html`, `cardinals-blot-header.html`, `cardinals-blot-entries.html`, `cardinals-blot-archives.html`. There is no automatic deploy. Blot's template files are managed in their web editor, not the Dropbox sync.
 
 ### Change the fact-checker strictness
 

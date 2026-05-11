@@ -116,6 +116,7 @@ Full regeneration wastes tokens rewriting summaries that already passed, and the
 | `bbref_boxscore.py` | `app/services/` | Shared bbref scraper (also used by Cardinals digest) |
 | `play_annotations.py` | `app/services/` | Shared play annotation helpers (also used by Cardinals digest) |
 | `mlb_service.py` | `app/services/` | `get_standings()` + `get_schedule()` (also used elsewhere in the app) |
+| `mlb_og_banner.py` | `app/services/` | Generates the per-post 1200×630 OG link-preview banner (MLB silhouette logo + date + game count). Invoked from `publish_to_blot()` |
 
 ## Outputs
 
@@ -125,6 +126,7 @@ Full regeneration wastes tokens rewriting summaries that already passed, and the
 | `factcheck_failed/{date}_mlb-roundup.md` | `data/content/analysis/factcheck_failed/` | Quarantined draft (only present when fact-check loop exhausted) |
 | `factcheck_failed/{date}_mlb-roundup.factcheck.json` | `data/content/analysis/factcheck_failed/` | Issue list for a quarantined draft |
 | `{date}-mlb-roundup.md` | `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts/MLB/` | The live Blot post (tagged `MLB` via the subfolder) |
+| `_{date}-mlb-roundup.png` | `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts/MLB/` | Per-post OG banner (sibling of the .md; underscore prefix keeps Blot from publishing it as a standalone photo post) |
 
 ## How to Run Operations
 
