@@ -43,6 +43,7 @@ from scripts.factcheck_cardinals import (
     factcheck_score_and_data,
 )
 from app.services.cardinals_postgame import get_cardinals_postgame
+from app.services.og_banner import generate_og_banner
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -1000,6 +1001,24 @@ def _publish_to_blot(
     # the metadata above. Old regex was too narrow; this matches any first H1.
     body = re.sub(r"^\s*#\s+.+?\n+", "", linked.lstrip(), count=1)
 
+    # Generate the per-post OG banner and embed it as the first inline image.
+    # Blot picks up the first image as {{#thumbnail.large}}, which lights up the
+    # iMessage / social rich-card preview via the og:image tags in head.html.
+    # Wrapped in try/except so a banner failure never blocks the publish itself.
+    banner_name = f"{today.isoformat()}-cardinals-daily.png"
+    try:
+        game_date = today
+        if postgame and postgame.get("date"):
+            try:
+                game_date = date.fromisoformat(postgame["date"])
+            except ValueError:
+                pass
+        generate_og_banner(postgame, BLOT_POSTS_DIR / banner_name, game_date)
+        body = f"![Cardinals Daily — {title}]({banner_name})\n\n{body}"
+        log.info("Generated OG banner: %s", banner_name)
+    except Exception as exc:  # noqa: BLE001 — banner is enhancement-only
+        log.warning("OG banner generation failed (%s); publishing without it", exc)
+
     # Defeat Blot's source-level title-casing of all-caps words inside headings
     # (`### JJ Wetherholt` → `<span class="small-caps">Jj</span> Wetherholt`).
     # ZWSP between adjacent capitals breaks the detection but is invisible.
@@ -1172,30 +1191,51 @@ def run(
         log.warning("Blot publish failed (non-fatal): %s", e)
 
 
-def _build_retry_message(original_user_message: str, factcheck) -> str:
-    """Append fact-check issues to the original prompt as a correction directive."""
+def _build_retry_message(previous_draft: str, postgame: dict | None, factcheck) -> str:
+    """Build a SURGICAL-EDIT retry message.
+
+    Sends Claude the previous draft verbatim plus a list of specific phrase-level
+    issues, and asks it to return the full draft with ONLY those phrases changed.
+    This avoids the full-regeneration retry's two failure modes: wasted tokens
+    rewriting paragraphs that already passed, and Claude introducing fresh
+    inferences in the rewrite that the prior draft didn't have.
+    """
+    import json as _json
+
     issue_lines = []
     for i in factcheck.issues:
-        line = f"  - [{i.category}] \"{i.claim}\" — {i.why_suspect}"
+        line = f'  - Claim: "{i.claim}"\n    Why suspect: {i.why_suspect}'
         if i.json_value_if_close:
-            line += f"  (actual value in POSTGAME DATA: {i.json_value_if_close})"
+            line += f"\n    Actual value in JSON: {i.json_value_if_close}"
         issue_lines.append(line)
+
+    postgame_json = (
+        _json.dumps(postgame, indent=2, default=str) if postgame is not None
+        else "null  // no game on the target date"
+    )
+
     return (
-        original_user_message
-        + "\n\n---\n\n"
-        "# FACT-CHECK ISSUES TO CORRECT IN REGENERATION\n\n"
-        "Your previous draft contained the following claims that could not be verified "
-        "against POSTGAME DATA. Regenerate the FULL report with these specific corrections:\n\n"
-        + "\n".join(issue_lines)
-        + "\n\nRules:\n"
-        "- For each flagged claim, either (a) replace the wrong value with the actual JSON "
-        "value, or (b) remove the claim entirely if the JSON has no support for it.\n"
-        "- Do NOT add any new fabrications while fixing these. Keep prose grounded strictly "
-        "in POSTGAME DATA throughout the Score and Data section.\n"
-        "- Forward-looking content (next opponent, travel day, probable pitcher) belongs in "
-        "Beat Writer's Verdict, not Score and Data. Remove any such content from Score and Data.\n"
-        "- Source citations (Locked On Cardinals, Viva El Birdos, etc.) do not belong in "
-        "Score and Data. Remove any such citations from that section.\n"
+        "You are applying SURGICAL EDITS to a previously generated Cardinals daily report.\n\n"
+        "POSTGAME DATA (for reference, to look up correct values):\n\n"
+        f"```json\n{postgame_json}\n```\n\n"
+        "PREVIOUS DRAFT (full markdown of the report):\n\n"
+        "```markdown\n"
+        f"{previous_draft}\n"
+        "```\n\n"
+        "FACT-CHECK ISSUES TO FIX:\n\n"
+        + "\n\n".join(issue_lines)
+        + "\n\n"
+        "INSTRUCTIONS:\n"
+        "- Output the FULL report markdown verbatim, with ONLY the flagged phrases edited.\n"
+        "- For each flagged claim:\n"
+        "    (a) If the actual JSON value is provided above, replace the wrong value with that value.\n"
+        "    (b) If no JSON value exists, REMOVE the claim entirely (delete the phrase or sentence).\n"
+        "    Choose the option that produces the cleanest sentence.\n"
+        "- Do NOT rewrite paragraphs that contain no flagged claims. Leave them character-for-character identical.\n"
+        "- Do NOT add new sentences, new prose, or new claims to compensate for removed content.\n"
+        "- Do NOT touch the frontmatter, section headers, tables, or bullet lists unless a flagged claim lives inside them.\n"
+        "- Preserve every existing markdown link, italic citation, table row, and bullet point unless a flagged claim is inside it.\n"
+        "- Output the entire corrected report, including the leading H1 and all sections, in one block of markdown. No commentary, no surrounding prose, just the corrected report.\n"
     )
 
 

@@ -424,6 +424,20 @@ hr.full {
     margin: 0.6em 0;
 }
 
+/* Hero image: the first inline image in the post (the auto-generated OG
+   banner) renders full-bleed with no rounded corners so it reads as a
+   newspaper-style banner rather than an inline figure. */
+.entry > p:first-of-type:has(> img:only-child) {
+    margin: 0 0 1.5em;
+}
+
+.entry > p:first-of-type:has(> img:only-child) > img {
+    border-radius: 0;
+    margin: 0;
+    display: block;
+    width: 100%;
+}
+
 /* ---------- Entry meta sections (Tags / Date / Up next / Previously) ---------- */
 
 /* Subtle horizontal divider between meta sections */

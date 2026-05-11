@@ -120,6 +120,12 @@ Blot watches this Dropbox folder. The post is live within seconds of being writt
 
 Player names in the body are linkified to FanGraphs profiles via `linkify_players`. Zero-width spaces are inserted between adjacent uppercase letters inside heading lines (`### JJ Wetherholt` → `### J​J Wetherholt`) to defeat Blot's source-level small-caps title-casing of all-caps words.
 
+### OG link preview banner
+
+Every published post starts with an auto-generated 1200×630 PNG banner — historical 1971-97 Cardinals logo on the left; "CARDINALS DAILY" yellow wordmark, big white score (`STL 2 — SD 3`), W/L chip, and game date on the right. The image is written to the same `Blot/Posts/` folder as the markdown (`{date}-cardinals-daily.png`) and embedded as the first inline element in the body. Blot resolves the relative path, exposes it via `{{#thumbnail.large}}`, and `cardinals-blot-head.html` wires that into `og:image` + `twitter:image` so iMessage / social previews show the rich card. Off days fall back to a generic "OFF DAY · {date}" layout. Banner generation is best-effort — a failure logs and the post still publishes without the image (existing OG meta falls back to the site avatar).
+
+Service: `app/services/og_banner.py`. Assets: `assets/StLCardinals7197.png` (500×500 RGB logo) plus `assets/fonts/RobotoSlab.ttf` (variable Roboto Slab from Google Fonts, used at 700 wght for the wordmark/score and 400 for the subtitle).
+
 ### Fact-check JSON (only on retry-then-fail)
 
 Path: `data/content/analysis/factcheck_failed/{YYYY-MM-DD}_cardinals-daily.factcheck.json`
@@ -260,6 +266,7 @@ When that passes, `mv` the file out of `factcheck_failed/` into `analysis/` and 
 | `cardinals_daily_report.py` | `scripts/` | Main runner. Loads content, fetches postgame, builds prompt, invokes Opus, runs fact-check, retries once, writes local MD, publishes to Blot |
 | `factcheck_cardinals.py` | `scripts/` | Sonnet-based fact-checker. Standalone CLI for ad-hoc verification. Importable by the runner. Reads report date from frontmatter or filename prefix |
 | `cardinals_postgame.py` | `app/services/` | Builds the postgame JSON payload from Savant gamefeed plus statsapi boxscore plus line score. Fallback to pybaseball |
+| `og_banner.py` | `app/services/` | Generates the 1200×630 OG link-preview banner per post (logo + score + W/L chip + date). Invoked from `_publish_to_blot()` |
 | `republish_to_blot.sh` | `scripts/` | Recovery: re-publishes an existing local MD to Blot without regenerating it. Defaults to today. Takes optional `YYYY-MM-DD` arg |
 | `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner. Steps 4.5/4.6/5 exclude the Cardinals MD by design |
 | `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals MD exists (soft), Blot post landed (hard), no quarantined report (hard) |
@@ -292,6 +299,7 @@ A copy of each plist also lives at `/Users/brianrenshaw/Projects/` for editing c
 | `factcheck_failed/{date}_cardinals-daily.md` | `data/content/analysis/factcheck_failed/` | Quarantined draft (only present when fact-check failed twice) |
 | `factcheck_failed/{date}_cardinals-daily.factcheck.json` | `data/content/analysis/factcheck_failed/` | Issue list for a quarantined draft |
 | `{date}-cardinals-daily.md` | `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts/` | The live Blot post |
+| `{date}-cardinals-daily.png` | `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts/` | Per-post OG banner (sibling of the .md; embedded as the first inline image) |
 
 ### Documentation
 
