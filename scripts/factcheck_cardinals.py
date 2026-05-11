@@ -263,18 +263,35 @@ def factcheck_score_and_data(
 def _load_postgame_for_md(md_path: Path) -> dict | None:
     """Re-fetch the postgame payload for the game referenced by an MD file.
 
-    The MD's frontmatter has the report's `date`; the game is yesterday relative
-    to that. Re-fetching is cheap (Savant gamefeed responds in ~1s).
+    Resolution order for the report date:
+      1. Frontmatter `date:` field (canonical reports under analysis/)
+      2. ISO date prefix of the filename (`2026-05-10_cardinals-daily.md` →
+         2026-05-10) — needed for quarantined drafts under factcheck_failed/
+         which the runner writes WITHOUT frontmatter.
+      3. Today (last resort; warn).
+
+    Game date is the report date minus one. Re-fetching the gamefeed is cheap
+    (Savant responds in ~1s).
     """
     from app.services.cardinals_postgame import get_cardinals_postgame
 
     text = md_path.read_text(encoding="utf-8")
+    report_date: date | None = None
+
     m = re.search(r"^date:\s*(\d{4}-\d{2}-\d{2})", text, re.MULTILINE)
-    if not m:
-        log.warning("Could not extract report date from frontmatter — using today")
-        report_date = date.today()
-    else:
+    if m:
         report_date = date.fromisoformat(m.group(1))
+    else:
+        # Filename prefix fallback (used for quarantined drafts)
+        fm = re.match(r"^(\d{4}-\d{2}-\d{2})_", md_path.name)
+        if fm:
+            report_date = date.fromisoformat(fm.group(1))
+            log.info("Extracted report date %s from filename", report_date)
+        else:
+            log.warning(
+                "Could not extract report date from frontmatter or filename — using today"
+            )
+            report_date = date.today()
     return get_cardinals_postgame(report_date - timedelta(days=1))
 
 

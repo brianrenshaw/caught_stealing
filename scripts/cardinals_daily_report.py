@@ -852,8 +852,13 @@ def write_report(
 # ---------------------------------------------------------------------------
 
 
-def run(force: bool = False, days: int = CONTENT_WINDOW_DAYS, dry_run: bool = False) -> None:
-    today = date.today()
+def run(
+    force: bool = False,
+    days: int = CONTENT_WINDOW_DAYS,
+    dry_run: bool = False,
+    report_date: date | None = None,
+) -> None:
+    today = report_date or date.today()
     out_path = ANALYSIS_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
 
     if out_path.exists() and not force and not dry_run:
@@ -1042,8 +1047,17 @@ def main() -> None:
         "--days", type=int, default=CONTENT_WINDOW_DAYS,
         help=f"Content lookback window in days (default: {CONTENT_WINDOW_DAYS})",
     )
+    parser.add_argument(
+        "--date", dest="report_date", type=date.fromisoformat, default=None,
+        help="Override report date (YYYY-MM-DD). The covered game is this date minus one.",
+    )
     args = parser.parse_args()
-    run(force=args.force, days=args.days, dry_run=args.dry_run)
+    run(
+        force=args.force,
+        days=args.days,
+        dry_run=args.dry_run,
+        report_date=args.report_date,
+    )
 
 
 if __name__ == "__main__":

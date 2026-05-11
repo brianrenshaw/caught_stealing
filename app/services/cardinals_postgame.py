@@ -259,25 +259,35 @@ def _is_barrel(launch_speed: float | None, launch_angle: float | None) -> bool:
 def _scoring_plays_from_gamefeed(gf: dict) -> list[dict]:
     """Pull the chronological scoring plays from the gamefeed pitch streams.
 
-    A "scoring play" is any pitch row whose `des` mentions a runner scoring
-    AND whose `events` field is populated (the result of the at-bat). We
-    dedupe by `ab_number` so each plate appearance produces one entry.
+    A "scoring play" is any plate appearance whose `des` mentions a runner
+    scoring. For each such AB we keep the LAST pitch of the AB (highest
+    `pitch_number`) — that is the pitch that actually produced the result,
+    and the one whose velocity/EV/xBA you want to cite. Picking the first
+    pitch with `des` populated (the original logic) produced velocity
+    values that disagreed with `wpa.key_swings` for the same plate
+    appearance, which the fact-checker correctly flagged.
     """
     if not gf:
         return []
     all_pitches = (gf.get("team_home") or []) + (gf.get("team_away") or [])
-    seen: set[int] = set()
-    out: list[dict] = []
+
+    # For each AB whose description mentions a score, track the last pitch.
+    last_by_ab: dict[int, dict] = {}
     for p in all_pitches:
         des = p.get("des") or ""
         if not des or "score" not in des.lower():
             continue
+        ab = p.get("ab_number")
+        if ab is None:
+            continue
+        prev = last_by_ab.get(ab)
+        if prev is None or (p.get("pitch_number") or 0) > (prev.get("pitch_number") or 0):
+            last_by_ab[ab] = p
+
+    out: list[dict] = []
+    for p in last_by_ab.values():
         if not p.get("events"):
             continue
-        ab = p.get("ab_number")
-        if ab in seen:
-            continue
-        seen.add(ab)
         out.append({
             "inning": p.get("inning"),
             "half": p.get("inning_topbot") or p.get("half_inning"),
@@ -285,7 +295,7 @@ def _scoring_plays_from_gamefeed(gf: dict) -> list[dict]:
             "pitcher": p.get("pitcher_name"),
             "team_batting": p.get("team_batting"),
             "event": p.get("events"),
-            "description": des.strip(),
+            "description": (p.get("des") or "").strip(),
             "ev_mph": _gf_float(p, "launch_speed", 1),
             "la_deg": _gf_float(p, "launch_angle", 1),
             "xba": _xba_to_float(p.get("xba")),
