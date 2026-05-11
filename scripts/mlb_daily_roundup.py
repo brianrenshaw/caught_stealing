@@ -104,22 +104,27 @@ def fetch_rich_standings() -> list[dict]:
             league_record = tr.get("leagueRecord") or {}
             streak = tr.get("streak") or {}
             last_ten = next(
-                (s for s in (tr.get("records") or {}).get("splitRecords", [])
-                 if s.get("type") == "lastTen"),
+                (
+                    s
+                    for s in (tr.get("records") or {}).get("splitRecords", [])
+                    if s.get("type") == "lastTen"
+                ),
                 {},
             )
             division = team.get("division") or {}
-            rows.append({
-                "team": team.get("name") or "?",
-                "team_id": team.get("id"),
-                "division": division.get("name") or "?",
-                "wins": league_record.get("wins") or 0,
-                "losses": league_record.get("losses") or 0,
-                "pct": league_record.get("pct") or ".000",
-                "gb": tr.get("gamesBack") or "-",
-                "streak": streak.get("streakCode") or "",
-                "l10": f"{last_ten.get('wins', 0)}-{last_ten.get('losses', 0)}",
-            })
+            rows.append(
+                {
+                    "team": team.get("name") or "?",
+                    "team_id": team.get("id"),
+                    "division": division.get("name") or "?",
+                    "wins": league_record.get("wins") or 0,
+                    "losses": league_record.get("losses") or 0,
+                    "pct": league_record.get("pct") or ".000",
+                    "gb": tr.get("gamesBack") or "-",
+                    "streak": streak.get("streakCode") or "",
+                    "l10": f"{last_ten.get('wins', 0)}-{last_ten.get('losses', 0)}",
+                }
+            )
     return rows
 
 
@@ -155,9 +160,7 @@ def render_standings(standings: list[dict]) -> str:
             gb = r.get("gb", "-") or "-"
             l10 = r.get("l10", "")
             streak = r.get("streak", "")
-            lines.append(
-                f"| {team} | {w}-{losses} | {pct} | {gb} | {l10} | {streak} |"
-            )
+            lines.append(f"| {team} | {w}-{losses} | {pct} | {gb} | {l10} | {streak} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -233,20 +236,24 @@ def render_line_score(game: dict) -> str:
 
     header_cells = [""] + [str(inn.get("num") or "") for inn in innings] + ["R", "H", "E"]
     sep_cells = ["---"] + ["---:"] * len(innings) + ["---:", "---:", "---:"]
-    away_cells = [away_abbr] + [
-        _fmt_inning_runs((inn.get("away") or {}).get("runs")) for inn in innings
-    ] + [
-        _fmt_total((totals.get("away") or {}).get("R")),
-        _fmt_total((totals.get("away") or {}).get("H")),
-        _fmt_total((totals.get("away") or {}).get("E")),
-    ]
-    home_cells = [home_abbr] + [
-        _fmt_inning_runs((inn.get("home") or {}).get("runs")) for inn in innings
-    ] + [
-        _fmt_total((totals.get("home") or {}).get("R")),
-        _fmt_total((totals.get("home") or {}).get("H")),
-        _fmt_total((totals.get("home") or {}).get("E")),
-    ]
+    away_cells = (
+        [away_abbr]
+        + [_fmt_inning_runs((inn.get("away") or {}).get("runs")) for inn in innings]
+        + [
+            _fmt_total((totals.get("away") or {}).get("R")),
+            _fmt_total((totals.get("away") or {}).get("H")),
+            _fmt_total((totals.get("away") or {}).get("E")),
+        ]
+    )
+    home_cells = (
+        [home_abbr]
+        + [_fmt_inning_runs((inn.get("home") or {}).get("runs")) for inn in innings]
+        + [
+            _fmt_total((totals.get("home") or {}).get("R")),
+            _fmt_total((totals.get("home") or {}).get("H")),
+            _fmt_total((totals.get("home") or {}).get("E")),
+        ]
+    )
     return (
         "| " + " | ".join(header_cells) + " |\n"
         "| " + " | ".join(sep_cells) + " |\n"
@@ -302,9 +309,7 @@ def render_key_swings(game: dict) -> str:
         if s.get("pitch_type") and s.get("pitch_velo_mph") is not None:
             ctx_bits.append(f"{s['pitch_type']} {s['pitch_velo_mph']}")
         ctx = f" ({', '.join(ctx_bits)})" if ctx_bits else ""
-        lines.append(
-            f"- {inning} {delta_str}, {batter} {event} off {pitcher}{ctx}"
-        )
+        lines.append(f"- {inning} {delta_str}, {batter} {event} off {pitcher}{ctx}")
     return "\n".join(lines)
 
 
@@ -463,7 +468,8 @@ def _trim_game_for_prompt(game: dict) -> dict:
         "team_records": game.get("team_records") or {},
         "bbref": bbref_trimmed,
         "game_context": {
-            k: v for k, v in (game.get("game_context") or {}).items()
+            k: v
+            for k, v in (game.get("game_context") or {}).items()
             if k in {"weather", "wind", "attendance", "linescore_note", "final_play"}
         },
     }
@@ -502,13 +508,9 @@ def build_prompt(game_date: date, games: list[dict], standings: list[dict]) -> s
         "'league-best record', 'leads the AL', 'second-worst team in baseball' — "
         "the per-game `team_records` block remains the source for the two "
         "teams playing each game):\n\n"
-        "```json\n"
-        + json.dumps(trimmed_standings, indent=2, default=str)
-        + "\n```\n\n"
+        "```json\n" + json.dumps(trimmed_standings, indent=2, default=str) + "\n```\n\n"
         "Per-game JSON payloads (write a summary for each, keyed by game_pk):\n\n"
-        "```json\n"
-        + json.dumps(trimmed, indent=2, default=str)
-        + "\n```\n"
+        "```json\n" + json.dumps(trimmed, indent=2, default=str) + "\n```\n"
     )
 
 
@@ -540,8 +542,13 @@ def build_post_body(
     games: list[dict],
     summaries: dict[str, str],
 ) -> str:
-    """Assemble the full post body — games first, standings at the bottom."""
-    parts: list[str] = [f"## Games, {game_date.strftime('%B %-d, %Y')}", ""]
+    """Assemble the full post body. Top-of-post jump link, then games, then standings."""
+    parts: list[str] = [
+        "[Go to Standings](#standings)",
+        "",
+        f"## Games, {game_date.strftime('%B %-d, %Y')}",
+        "",
+    ]
     if not games:
         parts.append("*No games played.*")
     else:
@@ -565,7 +572,7 @@ def write_local_report(
     out_path = ANALYSIS_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
     frontmatter = (
         "---\n"
-        f"title: \"MLB Roundup, {today.strftime('%B %d, %Y')}\"\n"
+        f'title: "MLB Roundup, {today.strftime("%B %d, %Y")}"\n'
         f"type: {REPORT_SLUG}\n"
         f"date: {today.isoformat()}\n"
         f"generated_at: {datetime.now(timezone.utc).isoformat()}\n"
@@ -627,7 +634,9 @@ def publish_to_blot(
     # never blocks the publish itself.
     try:
         generate_mlb_og_banner(game_date, n_games, BLOT_MLB_DIR / banner_name)
-        stripped = f"![MLB Roundup — {game_date.strftime('%B %-d, %Y')}]({banner_name})\n\n{stripped}"
+        stripped = (
+            f"![MLB Roundup — {game_date.strftime('%B %-d, %Y')}]({banner_name})\n\n{stripped}"
+        )
         log.info("Generated MLB OG banner: %s", banner_name)
     except Exception as exc:  # noqa: BLE001 — banner is enhancement-only
         log.warning("MLB OG banner generation failed (%s); publishing without it", exc)
@@ -703,15 +712,16 @@ def run(
     if games:
         log.info("Generating per-game summaries via Claude Code subscription (claude -p)...")
         try:
-            text, in_toks, out_toks, stop = _invoke_claude_cli(
-                MODEL, SYSTEM_PROMPT, user_message
-            )
+            text, in_toks, out_toks, stop = _invoke_claude_cli(MODEL, SYSTEM_PROMPT, user_message)
         except Exception as e:
             log.error("Roundup generation failed: %s", e)
             return
         log.info(
             "Generated: %d chars, %d input tokens, %d output tokens (stop: %s)",
-            len(text), in_toks, out_toks, stop,
+            len(text),
+            in_toks,
+            out_toks,
+            stop,
         )
         parsed = _parse_claude_response(text)
         summaries = parsed.get("summaries") or {}
@@ -738,7 +748,9 @@ def run(
         while True:
             attempt += 1
             check = factcheck_summaries(
-                summaries, trimmed_for_check, trimmed_standings_for_check,
+                summaries,
+                trimmed_for_check,
+                trimmed_standings_for_check,
             )
             if check.passed:
                 log.info("Fact-check PASSED on attempt %d.", attempt)
@@ -746,12 +758,16 @@ def run(
 
             log.warning(
                 "Fact-check FAILED on attempt %d. %d issues.",
-                attempt, len(check.issues),
+                attempt,
+                len(check.issues),
             )
             for i in check.issues:
                 log.warning(
                     "  - [pk=%s %s] %s — %s",
-                    i.game_pk, i.category, i.claim, i.why_suspect,
+                    i.game_pk,
+                    i.category,
+                    i.claim,
+                    i.why_suspect,
                 )
 
             if attempt >= MAX_FACTCHECK_ATTEMPTS:
@@ -760,36 +776,48 @@ def run(
                     MAX_FACTCHECK_ATTEMPTS,
                 )
                 _quarantine_failed_report(
-                    today, summaries,
+                    today,
+                    summaries,
                     build_post_body(game_date, standings, games, summaries),
-                    in_toks, out_toks, check,
+                    in_toks,
+                    out_toks,
+                    check,
                 )
                 return
 
             log.info(
                 "Applying surgical edits (attempt %d → %d)...",
-                attempt, attempt + 1,
+                attempt,
+                attempt + 1,
             )
             retry_message = _build_retry_message(summaries, post_summary, check)
             try:
                 text2, in2, out2, _stop2 = _invoke_claude_cli(
-                    MODEL, SYSTEM_PROMPT, retry_message,
+                    MODEL,
+                    SYSTEM_PROMPT,
+                    retry_message,
                 )
             except Exception as e:
                 log.error("Retry edit failed: %s. Quarantining.", e)
                 _quarantine_failed_report(
-                    today, summaries,
+                    today,
+                    summaries,
                     build_post_body(game_date, standings, games, summaries),
-                    in_toks, out_toks, check,
+                    in_toks,
+                    out_toks,
+                    check,
                 )
                 return
 
             if not text2:
                 log.error("Empty retry response. Quarantining.")
                 _quarantine_failed_report(
-                    today, summaries,
+                    today,
+                    summaries,
                     build_post_body(game_date, standings, games, summaries),
-                    in_toks, out_toks, check,
+                    in_toks,
+                    out_toks,
+                    check,
                 )
                 return
 
@@ -843,8 +871,7 @@ def _build_retry_message(
         blocks.append(
             f"### game_pk = {pk}\n\n"
             f"Previous summary:\n```\n{prev}\n```\n\n"
-            f"Issues to fix in this summary:\n"
-            + "\n\n".join(issue_lines)
+            f"Issues to fix in this summary:\n" + "\n\n".join(issue_lines)
         )
 
     return (
@@ -893,7 +920,7 @@ def _quarantine_failed_report(
     failed_md = FACTCHECK_FAILED_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
     frontmatter = (
         "---\n"
-        f"title: \"MLB Roundup (QUARANTINED), {today.strftime('%B %d, %Y')}\"\n"
+        f'title: "MLB Roundup (QUARANTINED), {today.strftime("%B %d, %Y")}"\n'
         f"type: {REPORT_SLUG}\n"
         f"date: {today.isoformat()}\n"
         f"generated_at: {datetime.now(timezone.utc).isoformat()}\n"
@@ -909,7 +936,8 @@ def _quarantine_failed_report(
 
     log.error(
         "Fact-check FAILED after retry — %d issues remain. Quarantined to %s",
-        len(check.issues), failed_md,
+        len(check.issues),
+        failed_md,
     )
     log.error("Issues:\n%s", check.issue_summary())
 
@@ -936,15 +964,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Daily MLB roundup post for Blot")
     parser.add_argument("--force", action="store_true", help="Regenerate even if today's exists")
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Preview prompt + layout, no Claude call",
     )
     parser.add_argument(
-        "--date", dest="report_date", type=date.fromisoformat, default=None,
+        "--date",
+        dest="report_date",
+        type=date.fromisoformat,
+        default=None,
         help="Override report date (YYYY-MM-DD). The covered slate is this date minus one.",
     )
     parser.add_argument(
-        "--skip-factcheck", action="store_true",
+        "--skip-factcheck",
+        action="store_true",
         help="Bypass the Opus 4.7 fact-check pass (emergency / debug only)",
     )
     args = parser.parse_args()
