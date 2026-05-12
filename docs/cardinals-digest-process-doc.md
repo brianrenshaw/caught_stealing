@@ -122,7 +122,7 @@ Player names in the body are linkified to FanGraphs profiles via `linkify_player
 
 ### OG link preview banner
 
-Every published post starts with an auto-generated 1200×630 PNG banner — historical 1971-97 Cardinals logo on the left; "CARDINALS DAILY" yellow wordmark, big white score (`STL 2 — SD 3`), W/L chip, and game date on the right. The image is written to the same `Blot/Posts/` folder as the markdown (`{date}-cardinals-daily.png`) and embedded as the first inline element in the body. Blot resolves the relative path, exposes it via `{{#thumbnail.large}}`, and `cardinals-blot-head.html` wires that into `og:image` + `twitter:image` so iMessage / social previews show the rich card. Off days fall back to a generic "OFF DAY · {date}" layout. Banner generation is best-effort — a failure logs and the post still publishes without the image (existing OG meta falls back to the site avatar).
+Every published post starts with an auto-generated 1200×630 PNG banner — historical 1971-97 Cardinals logo on the left; "CARDINALS DAILY" yellow wordmark, big white score (`STL 2 — SD 3`), W/L chip, and game date on the right. The image is written to the same `Blot/Posts/` folder as the markdown (`{date}-cardinals-daily.png`) and embedded as the first inline element in the body. Blot resolves the relative path, exposes it via `{{#thumbnail.large}}`, and `cardinals-blot-header.html` (the `<head>` metadata block) wires that into `og:image` + `twitter:image` so iMessage / social previews show the rich card. Off days fall back to a generic "OFF DAY · {date}" layout. Banner generation is best-effort — a failure logs and the post still publishes without the image (existing OG meta falls back to the site avatar).
 
 Service: `app/services/og_banner.py`. Assets: `assets/StLCardinals7197.png` (500×500 RGB logo) plus `assets/fonts/RobotoSlab.ttf` (variable Roboto Slab from Google Fonts, used at 700 wght for the wordmark/score and 400 for the subtitle).
 
@@ -132,7 +132,7 @@ The MLB Daily Roundup runs the same pattern in parallel via `app/services/mlb_og
 
 ### Site-wide assets (homepage + About page)
 
-Sharing the homepage URL (`lankfordlegends.co`) on iMessage / social uses a separate **static** OG card rather than a per-post banner. The card lives at `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/_Files/site-card.png` and is served at `/_Files/site-card.png` by Blot. `cardinals-blot-head.html` wires it into `og:image` + `twitter:image` for any non-entry page (homepage, archives, tag pages, About).
+Sharing the homepage URL (`lankfordlegends.co`) on iMessage / social uses a separate **static** OG card rather than a per-post banner. The card lives at `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/_Files/site-card.png` and is served at `/_Files/site-card.png` by Blot. `cardinals-blot-header.html` (the `<head>` metadata block) wires it into `og:image` + `twitter:image` for any non-entry page (homepage, archives, tag pages, About).
 
 Service: `app/services/site_card_banner.py`. Regenerate + redeploy with:
 
@@ -144,7 +144,7 @@ generate_site_card(Path("/Users/brianrenshaw/Library/CloudStorage/Dropbox-Brianr
 
 The About page lives at `~/Library/CloudStorage/Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Pages/about.md` — edited content, not template code, so it's not tracked in this repo. Public URL: `/about`. Keep it short (≤200 words); past iterations of this doc lived there and the user (correctly) flagged it as too detailed for public consumption.
 
-The homepage adds a static intro tagline above the post list (the `<p class="site-intro">` block in `cardinals-blot-entries.html`). The `header.html` partial (`docs/cardinals-blot-header.html`) renders "Lankford Legends" as a clickable home link at the top of every page plus a small Archives / About nav.
+The homepage adds a static intro tagline above the post list (the `<p class="site-intro">` block in `cardinals-blot-entries.html`). Blot's `head.html` partial (`docs/cardinals-blot-head.html` in this repo) renders "Lankford Legends" as a clickable home link at the top of every page plus a small Archives / About / RSS nav.
 
 ### Fact-check JSON (only on retry-then-fail)
 
@@ -333,8 +333,8 @@ The DB stores ASCII forms ("Ivan Herrera", "Jose Fermin"), but Savant gamefeed a
 | File | Location | Purpose |
 |---|---|---|
 | `cardinals-blot.css` | `docs/` | Cardinals-themed CSS for the Blot blog (drop into Blot template editor) |
-| `cardinals-blot-head.html` | `docs/` | Blot `head.html` template (loads fonts plus CSS) |
-| `cardinals-blot-header.html` | `docs/` | Blot `header.html` partial — Lankford Legends home link + Archives / About nav |
+| `cardinals-blot-head.html` | `docs/` | Maps to Blot's `head.html` template. The visible site header (Lankford Legends home link + Archives / About / RSS nav). Note: this Blot blog's file naming is inverted from standard HTML convention; `head.html` holds the `<header>` element |
+| `cardinals-blot-header.html` | `docs/` | Maps to Blot's `header.html` template. The `<head>` metadata block (OG tags, Twitter cards, RSS auto-discovery `<link>`, font loads) |
 | `cardinals-blot-entries.html` | `docs/` | Blot homepage entries template (includes the `.site-intro` tagline block) |
 | `cardinals-blot-archives.html` | `docs/` | Blot archives template |
 
@@ -400,8 +400,8 @@ fantasy_baseball_br/
     ├── cardinals-digest-process-doc.md  # This file
     ├── CARDINALS_DAILY_REPORT.md        # Architectural reference
     ├── cardinals-blot.css               # Blot template CSS
-    ├── cardinals-blot-head.html
-    ├── cardinals-blot-header.html         # Lankford Legends home link + nav
+    ├── cardinals-blot-head.html          # Maps to Blot's head.html (visible site header + nav)
+    ├── cardinals-blot-header.html        # Maps to Blot's header.html (<head> metadata block)
     ├── cardinals-blot-entries.html
     └── cardinals-blot-archives.html
 
@@ -610,7 +610,7 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 
 3. **Configure the Blot Dropbox folder path.** Confirm `BLOT_POSTS_DIR` in `scripts/cardinals_daily_report.py` matches your Dropbox path. If your Dropbox account name differs, edit the constant.
 
-4. **Apply the Blot templates.** Open Blot's web editor → your blog → Templates. Replace each template's content with the matching file from `docs/`: `cardinals-blot.css` → `style.css`, `cardinals-blot-head.html` → `head.html`, `cardinals-blot-entries.html` → `entries.html`, `cardinals-blot-archives.html` → `archives.html`.
+4. **Apply the Blot templates.** Open Blot's web editor → your blog → Templates. Replace each template's content with the matching file from `docs/`: `cardinals-blot.css` → `style.css`, `cardinals-blot-head.html` → `head.html` (visible site header), `cardinals-blot-header.html` → `header.html` (`<head>` metadata), `cardinals-blot-entries.html` → `entries.html`, `cardinals-blot-archives.html` → `archives.html`. Note: this Blot blog's `head.html` / `header.html` naming is inverted from standard HTML convention. The repo file names follow what Blot calls them.
 
 5. **Bootstrap content.** Run the blog and podcast ingestion at least once so the Cardinals digest has source material:
 

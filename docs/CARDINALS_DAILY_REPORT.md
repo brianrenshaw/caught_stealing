@@ -51,7 +51,8 @@ The Blot publish happens inside step 6 (the Cardinals script writes to the Dropb
 | `scripts/blog_ingest.py` | RSS blog fetcher. `RSS_FEEDS` dict lists all configured feeds. |
 | `scripts/podcast_transcriber.py` | Podcast downloader. `PODCAST_FEEDS` dict lists all podcast sources. |
 | `docs/cardinals-blot.css` | Cardinals theme stylesheet — paste into Blot dashboard → Template → `style.css`. |
-| `docs/cardinals-blot-head.html` | Drop-in `head.html` for the Blot template (Cardinals fonts preloaded). |
+| `docs/cardinals-blot-head.html` | Drop-in for Blot's `head.html` template. This blog's naming is inverted: `head.html` holds the visible site header (Lankford Legends home link + Archives / About / RSS nav). |
+| `docs/cardinals-blot-header.html` | Drop-in for Blot's `header.html` template. The `<head>` metadata block: OG tags, Twitter card meta, RSS auto-discovery, Cardinals fonts preload. |
 | `docs/cardinals-blot-entries.html` | Drop-in `entries.html` (homepage post index). |
 | `docs/cardinals-blot-archives.html` | Drop-in `archives.html` (full archive page). |
 
@@ -191,15 +192,17 @@ A separate Blot-formatted MD is written to `~/Library/CloudStorage/Dropbox-Brian
 
 ## Blot template files
 
-The user maintains a "Copy of Blog" template on Blot. Four files need the Cardinals-theme content:
+The user maintains a "Copy of Blog" template on Blot. Five files need the Cardinals-theme content. Note: this blog's `head.html` / `header.html` naming is inverted from standard HTML convention. The repo file names follow what Blot calls them, so `cardinals-blot-head.html` contains the visible site header and `cardinals-blot-header.html` contains the `<head>` metadata.
 
 1. **`style.css`** ← contents of [docs/cardinals-blot.css](cardinals-blot.css)
    Cardinals red/navy/yellow palette, Roboto Slab + Inter fonts, table styling, `.small-caps` override.
 2. **`head.html`** ← contents of [docs/cardinals-blot-head.html](cardinals-blot-head.html)
-   Adds Google Fonts preconnect + link tags so the typography paints fast on first load.
-3. **`entries.html`** ← contents of [docs/cardinals-blot-entries.html](cardinals-blot-entries.html)
+   The visible `<header>` block. Lankford Legends home link, Archives / About / RSS nav.
+3. **`header.html`** ← contents of [docs/cardinals-blot-header.html](cardinals-blot-header.html)
+   The `<head>` metadata block. OG tags, Twitter card meta, RSS auto-discovery, Google Fonts preconnect.
+4. **`entries.html`** ← contents of [docs/cardinals-blot-entries.html](cardinals-blot-entries.html)
    Clean magazine-style homepage: title link + one-line summary. No tag iteration (broken on this template). No body excerpt.
-4. **`archives.html`** ← contents of [docs/cardinals-blot-archives.html](cardinals-blot-archives.html)
+5. **`archives.html`** ← contents of [docs/cardinals-blot-archives.html](cardinals-blot-archives.html)
    Search input, popular-tags cloud, full list of posts with dates. This is the original Blot Blog archives template, kept verbatim aside from minor formatting.
 
 To apply: Blot dashboard → Template → Edit code → click each file → paste contents → Save. Dropbox sync triggers a rebuild within minutes.
