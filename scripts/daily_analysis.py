@@ -35,6 +35,8 @@ from pathlib import Path
 import anthropic
 from dotenv import load_dotenv
 
+from app.services.player_linking import linkify_players, load_player_links
+
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -108,14 +110,10 @@ def _invoke_claude_cli(
         cwd="/tmp",
     )
     if proc.returncode != 0:
-        raise RuntimeError(
-            f"claude -p exited {proc.returncode}: {proc.stderr[:500]}"
-        )
+        raise RuntimeError(f"claude -p exited {proc.returncode}: {proc.stderr[:500]}")
     payload = _json.loads(proc.stdout)
     if payload.get("is_error"):
-        raise RuntimeError(
-            f"claude -p reported error: {str(payload.get('result', ''))[:500]}"
-        )
+        raise RuntimeError(f"claude -p reported error: {str(payload.get('result', ''))[:500]}")
 
     text = payload["result"]
     usage = payload.get("modelUsage", {}).get(cli_model, {})
@@ -127,6 +125,7 @@ def _invoke_claude_cli(
     output_tokens = usage.get("outputTokens", 0)
     stop_reason = payload.get("stop_reason", "end_turn")
     return text, input_tokens, output_tokens, stop_reason
+
 
 # Sections to split from the combined report.
 # Keys are slugified header names, values are the expected ## header text.
@@ -147,7 +146,13 @@ SECTIONS = {
 
 # Same format within each section across all report types.
 # Only difference is which sections are included.
-DAILY_SECTIONS = ["bottom-line", "roster-intel", "injury-watch", "around-the-league", "action-items"]
+DAILY_SECTIONS = [
+    "bottom-line",
+    "roster-intel",
+    "injury-watch",
+    "around-the-league",
+    "action-items",
+]
 MONDAY_SECTIONS = ["bottom-line", "last-week-recap"] + DAILY_SECTIONS[1:]
 WEEKLY_SECTIONS = [
     "bottom-line",
@@ -535,29 +540,9 @@ def load_league_context(db_path: Path) -> dict | None:
         )
         free_agents = [dict(row) for row in cursor.fetchall()]
 
-        # Player name → FanGraphs URL lookup (for linking in reports).
-        # When two players share a name (e.g. Max Muncy LAD vs ATH, Will Smith LAD vs KC),
-        # the one rostered in this league wins the dict-overwrite — order rostered LAST.
-        cursor.execute("""
-            SELECT p.name, p.fangraphs_id, p.position,
-                   EXISTS (SELECT 1 FROM rosters r WHERE r.player_id = p.id) AS on_roster
-            FROM players p
-            WHERE p.fangraphs_id IS NOT NULL AND p.fangraphs_id != ''
-            ORDER BY on_roster ASC
-        """)
-        player_links = {}
-        pitching_positions = {"SP", "RP", "P"}
-        for row in cursor.fetchall():
-            name = row["name"]
-            fg_id = row["fangraphs_id"]
-            positions = set(row["position"].split(",")) if row["position"] else set()
-            stats_type = "pitching" if positions & pitching_positions else "batting"
-            slug = name.lower().replace(" ", "-").replace(".", "").replace("'", "")
-            player_links[name] = (
-                f"https://www.fangraphs.com/players/{slug}/{fg_id}/stats/{stats_type}"
-            )
-
         conn.close()
+
+        player_links = load_player_links(db_path)
 
         opp_name = opponent_info["opponent_team_name"] if opponent_info else "Unknown"
         log.info(
@@ -1116,9 +1101,7 @@ def generate_intel(
         return None, 0, 0
 
     if USE_CLAUDE_CLI:
-        log.info(
-            "Generating intel report via Claude Code subscription (claude -p)..."
-        )
+        log.info("Generating intel report via Claude Code subscription (claude -p)...")
         client = None
     else:
         api_key = os.getenv("ANTHROPIC_API_KEY")
@@ -1223,97 +1206,6 @@ def generate_intel(
             return None, 0, 0
 
     return None, 0, 0
-
-
-# Vowel/consonant accent variant groups for accent-insensitive name matching.
-# The player database stores ASCII forms ("Ivan Herrera", "Jose Fermin", "Pages"),
-# but Savant gamefeed + bbref prose carry accented forms ("Iván Herrera",
-# "José Fermín", "Pagés"). The matcher must bridge both directions, and the
-# substitution must preserve whatever accent form actually appeared in prose.
-_ACCENT_GROUPS_LOWER = {
-    "a": "aàáâãäåāăą",
-    "e": "eèéêëēĕėęě",
-    "i": "iìíîïīĭįı",
-    "o": "oòóôõöøōŏő",
-    "u": "uùúûüūŭůűų",
-    "n": "nñń",
-    "c": "cç",
-    "y": "yýÿ",
-}
-_ACCENT_GROUPS_UPPER = {
-    "A": "AÀÁÂÃÄÅĀĂĄ",
-    "E": "EÈÉÊËĒĔĖĘĚ",
-    "I": "IÌÍÎÏĪĬĮ",
-    "O": "OÒÓÔÕÖØŌŎŐ",
-    "U": "UÙÚÛÜŪŬŮŰŲ",
-    "N": "NÑŃ",
-    "C": "CÇ",
-    "Y": "YÝŸ",
-}
-
-
-def _accent_insensitive_pattern(name: str) -> str:
-    """Build a regex matching `name` and any common accent variant of it.
-
-    Each base letter expands to a character class containing the same letter
-    plus its accented forms (preserving case). 'Ivan Herrera' becomes a pattern
-    that matches 'Ivan Herrera' or 'Iván Herrera', etc. Non-letter characters
-    are escaped normally.
-    """
-    import unicodedata
-    parts: list[str] = []
-    for ch in name:
-        nfd = unicodedata.normalize("NFD", ch)
-        base = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
-        if base in _ACCENT_GROUPS_LOWER:
-            parts.append(f"[{_ACCENT_GROUPS_LOWER[base]}]")
-        elif base in _ACCENT_GROUPS_UPPER:
-            parts.append(f"[{_ACCENT_GROUPS_UPPER[base]}]")
-        else:
-            parts.append(re.escape(ch))
-    return "".join(parts)
-
-
-def linkify_players(text: str, player_links: dict[str, str]) -> str:
-    """Replace player names with FanGraphs markdown links.
-
-    Two passes:
-    1. Always link names in ### headers (these are player entry points)
-    2. Link first occurrence in body text for any remaining unlinked names
-
-    Sorts longest names first to avoid partial matches. The pattern is
-    accent-insensitive so the ASCII DB form ("Ivan Herrera") matches accented
-    prose ("Iván Herrera"); the link label preserves the accented form as it
-    appeared in prose.
-    """
-    sorted_names = sorted(player_links.keys(), key=len, reverse=True)
-
-    # Pass 1: Link all ### headers
-    for name in sorted_names:
-        url = player_links[name]
-        variant = _accent_insensitive_pattern(name)
-        header_pattern = rf"(###\s+)(?<!\[)({variant})(?!\]\()"
-
-        def _replace_header(m: re.Match, u: str = url) -> str:
-            return f"{m.group(1)}[{m.group(2)}]({u})"
-
-        text = re.sub(header_pattern, _replace_header, text)
-
-    # Pass 2: Link first body occurrence of each name (skip already-linked)
-    linked = set()
-    for name in sorted_names:
-        if name in linked:
-            continue
-        url = player_links[name]
-        variant = _accent_insensitive_pattern(name)
-        pattern = rf"(?<!\[)({variant})(?!\]\()"
-        match = re.search(pattern, text)
-        if match:
-            matched_text = match.group(1)
-            text = text[: match.start()] + f"[{matched_text}]({url})" + text[match.end() :]
-            linked.add(name)
-
-    return text
 
 
 def linkify_sources(text: str, content_items: list[dict]) -> str:
@@ -1578,9 +1470,7 @@ def run(
         # Dollar-equivalent (Opus API rates: $5/M input, $25/M output).
         # Under subscription mode this is informational quota usage, not billed.
         cost = (input_tokens * 5 + output_tokens * 25) / 1_000_000
-        billing_note = (
-            "subscription quota, not billed" if USE_CLAUDE_CLI else "API spend"
-        )
+        billing_note = "subscription quota, not billed" if USE_CLAUDE_CLI else "API spend"
         log.info(
             "Done. Wrote %d files. Tokens: %d in / %d out (~$%.2f %s)",
             len(paths),

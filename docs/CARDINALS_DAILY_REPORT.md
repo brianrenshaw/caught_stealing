@@ -139,7 +139,7 @@ Headlines from the last 72 hours, deduplicated, capped at 40 candidates. The pro
 }
 ```
 
-Returns `None` on off-days (no Cardinals game on the target date) — the report falls back to "no game" framing.
+Returns `None` on off-days (no Cardinals game on the target date). The report then drops into **off-day mode**: `get_cardinals_next_game(today)` (also in `app/services/cardinals_postgame.py`) walks forward up to 7 days for the next scheduled regular-season game and returns `{date, stl_is_home, opp_team, opp_short, venue, game_time, stl_probable_pitcher, opp_probable_pitcher}`. The Score and Data heading reads `## Score and Data for {off-day date} (off day)` (using yesterday's date, not the publish date) and the body is a fixed two-sentence lede plus a probable-starters line — no box score, no WPA, no game analysis. The fact-check loop is skipped on off days because the lede is forward-looking by design. The OG banner and Blot post title stamp the off-day date for the same reason.
 
 **Primary source: Savant gamefeed JSON.** `_fetch_savant_gamefeed(game_pk)` pulls `https://baseballsavant.mlb.com/gf?game_pk={pk}`, which Savant populates within minutes of game end. `_highlights_from_gamefeed()` builds the same payload shape from the JSON's `team_home` / `team_away` / `exit_velocity` lists. Each event ships `pitcher_name` and `batter_name` directly — no MLBAM-id lookup needed. Statcast metric: **xBA** (gamefeed doesn't expose xwOBA on every event). Barrels are computed via an EV+launch-angle approximation (`launch_speed ≥ 98` with the standard barrel-zone angle band).
 

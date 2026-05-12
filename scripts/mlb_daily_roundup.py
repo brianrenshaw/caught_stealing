@@ -33,6 +33,7 @@ from dotenv import load_dotenv
 from app.services.cardinals_postgame import _retry
 from app.services.mlb_og_banner import generate_mlb_og_banner
 from app.services.mlb_roundup import get_mlb_roundup
+from app.services.player_linking import linkify_players, load_player_links
 from scripts.cardinals_daily_report import _defeat_blot_heading_titlecase
 from scripts.daily_analysis import _invoke_claude_cli
 from scripts.factcheck_mlb_roundup import FactCheckResult, factcheck_summaries
@@ -48,6 +49,7 @@ BLOT_POSTS_DIR = Path(
     "Dropbox-Brianrenshawmedia/Brian Renshaw/Apps/Blot/Posts"
 )
 BLOT_MLB_DIR = BLOT_POSTS_DIR / "MLB"
+DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
@@ -154,13 +156,19 @@ def render_standings(standings: list[dict]) -> str:
         lines.append("|------|----:|----:|---:|-----|--------|")
         for r in rows:
             team = r.get("team", "?")
+            team_id = r.get("team_id")
+            # Wrap the team name in a Baseball Savant team-page link when we
+            # have the MLBAM id; otherwise leave it as plain text.
+            team_cell = (
+                f"[{team}](https://baseballsavant.mlb.com/team/{team_id})" if team_id else team
+            )
             w = r.get("wins", 0)
             losses = r.get("losses", 0)
             pct = r.get("pct") or ".000"
             gb = r.get("gb", "-") or "-"
             l10 = r.get("l10", "")
             streak = r.get("streak", "")
-            lines.append(f"| {team} | {w}-{losses} | {pct} | {gb} | {l10} | {streak} |")
+            lines.append(f"| {team_cell} | {w}-{losses} | {pct} | {gb} | {l10} | {streak} |")
         lines.append("")
     return "\n".join(lines)
 
@@ -836,6 +844,7 @@ def run(
             post_summary = new_post_summary
 
     body = build_post_body(game_date, standings, games, summaries)
+    body = linkify_players(body, load_player_links(DB_PATH))
     local_path = write_local_report(today, body, len(games), in_toks, out_toks)
     log.info("Wrote local report: %s", local_path)
 

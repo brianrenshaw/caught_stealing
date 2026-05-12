@@ -72,7 +72,8 @@ fantasy-baseball/
 │   │   ├── projection_accuracy_service.py # Weekly + season accuracy reports (markdown)
 │   │   ├── assistant.py          # Claude AI chat assistant
 │   │   ├── assistant_tools.py    # Tool functions for the assistant
-│   │   ├── cardinals_postgame.py # MLB Cardinals postgame: boxscore + Statcast highlights
+│   │   ├── cardinals_postgame.py # MLB Cardinals postgame: boxscore + Statcast highlights; off-day next-game lookup
+│   │   ├── player_linking.py     # Shared player-name → Baseball Savant linker (FanGraphs fallback), used by all daily publishers
 │   │   └── id_mapper.py          # Cross-platform player ID mapping
 │   ├── routes/                   # FastAPI route handlers
 │   │   ├── __init__.py

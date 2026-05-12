@@ -14,12 +14,16 @@ The roundup ships to a single Blot post per day, tagged `MLB` via the Dropbox fo
 The MLB roundup shares almost everything with the Cardinals digest:
 
 * Same 3 AM LaunchAgent runs both back-to-back from `scripts/daily_content_ingest.sh`.
-* Same shared helpers: `_invoke_claude_cli` and `linkify_players` from `scripts/daily_analysis.py`; `_defeat_blot_heading_titlecase` from `scripts/cardinals_daily_report.py`.
+* Same shared helpers: `_invoke_claude_cli` from `scripts/daily_analysis.py`; `linkify_players` + `load_player_links` from `app/services/player_linking.py`; `_defeat_blot_heading_titlecase` from `scripts/cardinals_daily_report.py`.
 * Same Baseball Savant gamefeed primary source; same Baseball Reference cross-reference layer via `app/services/bbref_boxscore.py`.
 * Same play annotation helpers from `app/services/play_annotations.py` (`rbi`, `season_total`).
 * Same Opus 4.7 fact-checker pattern with surgical-edit retry loop and `MAX_FACTCHECK_ATTEMPTS = 6` cap.
 * Same `--skip-factcheck` emergency bypass.
-* Same accent-insensitive FanGraphs linking (`Iván Herrera` matches DB form `Ivan Herrera`).
+* Same accent-insensitive player linking, now Baseball Savant–first with a FanGraphs fallback when `mlbam_id` is missing (`Iván Herrera` matches DB form `Ivan Herrera`). Every occurrence is linked, not just the first.
+
+### Standings team links
+
+The team cell in each division standings row is rendered as a Baseball Savant team-page link (`https://baseballsavant.mlb.com/team/{team_id}`) using the MLBAM `team_id` already on each row from `fetch_rich_standings()`. Rows with no team ID fall back to plain text. Wrapping happens inline in `render_standings()` so no post-hoc linker is needed.
 
 What differs:
 

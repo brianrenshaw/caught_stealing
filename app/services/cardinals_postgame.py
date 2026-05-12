@@ -40,7 +40,10 @@ def _retry(func, *args, **kwargs):
         except Exception as e:
             log.warning(
                 "%s attempt %d/%d failed: %s",
-                func.__name__, attempt, MAX_RETRIES, e,
+                func.__name__,
+                attempt,
+                MAX_RETRIES,
+                e,
             )
             if attempt == MAX_RETRIES:
                 return None
@@ -49,17 +52,83 @@ def _retry(func, *args, **kwargs):
 
 
 def _find_stl_game(target_date: date) -> dict | None:
-    games = _retry(
-        statsapi.schedule,
-        date=target_date.strftime("%m/%d/%Y"),
-        sportId=1,
-    ) or []
+    games = (
+        _retry(
+            statsapi.schedule,
+            date=target_date.strftime("%m/%d/%Y"),
+            sportId=1,
+        )
+        or []
+    )
     for g in games:
         if g.get("game_type") != "R":
             continue
         if g.get("home_id") == STL_TEAM_ID or g.get("away_id") == STL_TEAM_ID:
             return g
     return None
+
+
+def get_cardinals_next_game(
+    after_date: date,
+    window_days: int = 7,
+) -> dict | None:
+    """Return the next scheduled Cardinals regular-season game on or after
+    `after_date`. Searches a `window_days` rolling window forward.
+
+    Used to populate the off-day lede in the daily report ("They play
+    tomorrow vs. Reds"). Includes probable starters when MLB has posted
+    them — typically locked in 24-48 hours before first pitch.
+
+    Output shape:
+      {
+        "date": "YYYY-MM-DD",
+        "stl_is_home": bool,
+        "opp_team": "Cincinnati Reds",
+        "opp_short": "Reds",
+        "venue": "Busch Stadium",
+        "game_time": "7:45 PM",
+        "stl_probable_pitcher": "Sonny Gray" | None,
+        "opp_probable_pitcher": "Hunter Greene" | None,
+      }
+    """
+    start_str = after_date.strftime("%m/%d/%Y")
+    end_str = (after_date + timedelta(days=window_days)).strftime("%m/%d/%Y")
+    games = (
+        _retry(
+            statsapi.schedule,
+            start_date=start_str,
+            end_date=end_str,
+            sportId=1,
+        )
+        or []
+    )
+    stl_games = sorted(
+        (
+            g
+            for g in games
+            if g.get("game_type") == "R"
+            and (g.get("home_id") == STL_TEAM_ID or g.get("away_id") == STL_TEAM_ID)
+        ),
+        key=lambda g: g.get("game_date") or "",
+    )
+    if not stl_games:
+        return None
+    g = stl_games[0]
+    stl_is_home = g.get("home_id") == STL_TEAM_ID
+    opp_full = g.get("away_name") if stl_is_home else g.get("home_name")
+    opp_short = (opp_full or "Opponent").split()[-1]
+    stl_pitcher = g.get("home_probable_pitcher") if stl_is_home else g.get("away_probable_pitcher")
+    opp_pitcher = g.get("away_probable_pitcher") if stl_is_home else g.get("home_probable_pitcher")
+    return {
+        "date": (g.get("game_date") or "")[:10] or None,
+        "stl_is_home": stl_is_home,
+        "opp_team": opp_full,
+        "opp_short": opp_short,
+        "venue": g.get("venue_name"),
+        "game_time": g.get("game_datetime") or None,
+        "stl_probable_pitcher": stl_pitcher or None,
+        "opp_probable_pitcher": opp_pitcher or None,
+    }
 
 
 def _format_score_line(game: dict) -> str:
@@ -70,9 +139,8 @@ def _format_score_line(game: dict) -> str:
     status = game.get("status", "")
     if home_score is None or away_score is None:
         return f"{away} @ {home} ({status})"
-    stl_won = (
-        (game.get("home_id") == STL_TEAM_ID and home_score > away_score)
-        or (game.get("away_id") == STL_TEAM_ID and away_score > home_score)
+    stl_won = (game.get("home_id") == STL_TEAM_ID and home_score > away_score) or (
+        game.get("away_id") == STL_TEAM_ID and away_score > home_score
     )
     result_letter = "W" if stl_won else "L"
     return f"{away} {away_score}, {home} {home_score} (STL {result_letter})"
@@ -91,19 +159,21 @@ def _stl_batters_from_box(box: dict) -> list[dict]:
         stats = p.get("stats", {}).get("batting", {}) or {}
         if not stats or not stats.get("atBats"):
             continue
-        out.append({
-            "name": p.get("person", {}).get("fullName"),
-            "position": p.get("position", {}).get("abbreviation"),
-            "ab": stats.get("atBats"),
-            "h": stats.get("hits"),
-            "r": stats.get("runs"),
-            "rbi": stats.get("rbi"),
-            "bb": stats.get("baseOnBalls"),
-            "k": stats.get("strikeOuts"),
-            "hr": stats.get("homeRuns"),
-            "avg": stats.get("avg"),
-            "order": order_map.get(int(pid.replace("ID", "")), 99),
-        })
+        out.append(
+            {
+                "name": p.get("person", {}).get("fullName"),
+                "position": p.get("position", {}).get("abbreviation"),
+                "ab": stats.get("atBats"),
+                "h": stats.get("hits"),
+                "r": stats.get("runs"),
+                "rbi": stats.get("rbi"),
+                "bb": stats.get("baseOnBalls"),
+                "k": stats.get("strikeOuts"),
+                "hr": stats.get("homeRuns"),
+                "avg": stats.get("avg"),
+                "order": order_map.get(int(pid.replace("ID", "")), 99),
+            }
+        )
     out.sort(key=lambda x: x["order"])
     return out
 
@@ -127,18 +197,20 @@ def _stl_pitchers_from_box(box: dict) -> list[dict]:
         if raw in seen:
             continue
         seen.add(raw)
-        out.append({
-            "name": p.get("person", {}).get("fullName"),
-            "ip": stats.get("inningsPitched"),
-            "h": stats.get("hits"),
-            "r": stats.get("runs"),
-            "er": stats.get("earnedRuns"),
-            "bb": stats.get("baseOnBalls"),
-            "k": stats.get("strikeOuts"),
-            "hr": stats.get("homeRuns"),
-            "pitches": stats.get("numberOfPitches"),
-            "decision": stats.get("note", "").strip("()") or None,
-        })
+        out.append(
+            {
+                "name": p.get("person", {}).get("fullName"),
+                "ip": stats.get("inningsPitched"),
+                "h": stats.get("hits"),
+                "r": stats.get("runs"),
+                "er": stats.get("earnedRuns"),
+                "bb": stats.get("baseOnBalls"),
+                "k": stats.get("strikeOuts"),
+                "hr": stats.get("homeRuns"),
+                "pitches": stats.get("numberOfPitches"),
+                "decision": stats.get("note", "").strip("()") or None,
+            }
+        )
     return out
 
 
@@ -202,7 +274,9 @@ def _fetch_savant_gamefeed(game_pk: int) -> dict | None:
         except Exception as e:
             log.warning(
                 "Savant gamefeed attempt %d/%d failed: %s",
-                attempt, MAX_RETRIES, e,
+                attempt,
+                MAX_RETRIES,
+                e,
             )
             if attempt == MAX_RETRIES:
                 return None
@@ -288,20 +362,22 @@ def _scoring_plays_from_gamefeed(gf: dict) -> list[dict]:
     for p in last_by_ab.values():
         if not p.get("events"):
             continue
-        out.append({
-            "inning": p.get("inning"),
-            "half": p.get("inning_topbot") or p.get("half_inning"),
-            "batter": p.get("batter_name"),
-            "pitcher": p.get("pitcher_name"),
-            "team_batting": p.get("team_batting"),
-            "event": p.get("events"),
-            "description": (p.get("des") or "").strip(),
-            "ev_mph": _gf_float(p, "launch_speed", 1),
-            "la_deg": _gf_float(p, "launch_angle", 1),
-            "xba": _xba_to_float(p.get("xba")),
-            "pitch_velo_mph": _gf_float(p, "start_speed", 1),
-            "pitch_type": p.get("pitch_name"),
-        })
+        out.append(
+            {
+                "inning": p.get("inning"),
+                "half": p.get("inning_topbot") or p.get("half_inning"),
+                "batter": p.get("batter_name"),
+                "pitcher": p.get("pitcher_name"),
+                "team_batting": p.get("team_batting"),
+                "event": p.get("events"),
+                "description": (p.get("des") or "").strip(),
+                "ev_mph": _gf_float(p, "launch_speed", 1),
+                "la_deg": _gf_float(p, "launch_angle", 1),
+                "xba": _xba_to_float(p.get("xba")),
+                "pitch_velo_mph": _gf_float(p, "start_speed", 1),
+                "pitch_type": p.get("pitch_name"),
+            }
+        )
     out.sort(key=lambda x: (x.get("inning") or 0, 0 if x.get("half") == "Top" else 1))
     return out
 
@@ -371,27 +447,27 @@ def _wpa_leaders_from_gamefeed(gf: dict, stl_is_home: bool = False) -> dict[str,
             home_delta = float(w.get("homeTeamWinProbabilityAdded") or 0)
             home_after = float(w.get("homeTeamWinProbability") or 0)
             stl_after = home_after if stl_is_home else (100.0 - home_after)
-            key_swings.append({
-                "inning_half": w.get("i"),
-                "wpa_delta_pct_stl": round(sign * home_delta, 1),
-                "stl_wp_after_pct": round(stl_after, 1),
-                "batter": play.get("batter_name"),
-                "pitcher": play.get("pitcher_name"),
-                "team_batting": play.get("team_batting"),
-                "event": play.get("events"),
-                "description": (play.get("des") or "").strip(),
-                "ev_mph": _gf_float(play, "launch_speed", 1),
-                "pitch_velo_mph": _gf_float(play, "start_speed", 1),
-                "pitch_type": play.get("pitch_name"),
-            })
+            key_swings.append(
+                {
+                    "inning_half": w.get("i"),
+                    "wpa_delta_pct_stl": round(sign * home_delta, 1),
+                    "stl_wp_after_pct": round(stl_after, 1),
+                    "batter": play.get("batter_name"),
+                    "pitcher": play.get("pitcher_name"),
+                    "team_batting": play.get("team_batting"),
+                    "event": play.get("events"),
+                    "description": (play.get("des") or "").strip(),
+                    "ev_mph": _gf_float(play, "launch_speed", 1),
+                    "pitch_velo_mph": _gf_float(play, "start_speed", 1),
+                    "pitch_type": play.get("pitch_name"),
+                }
+            )
         if key_swings:
             out["key_swings"] = key_swings
     return out
 
 
-def _batter_statcast_aggregate(
-    gf: dict, batter_team: str
-) -> dict[str, dict]:
+def _batter_statcast_aggregate(gf: dict, batter_team: str) -> dict[str, dict]:
     """Aggregate per-batter Statcast metrics from the exit_velocity in-play list.
 
     Returns name → { max_ev, max_hit_distance, best_xba, best_outcome } so the
@@ -413,17 +489,22 @@ def _batter_statcast_aggregate(
         hd = _gf_float(r, "hit_distance", 0)
         xba = _xba_to_float(r.get("xba"))
         outcome = r.get("events") or r.get("result")
-        agg = out.setdefault(name, {
-            "max_ev_mph": None,
-            "max_hit_distance_ft": None,
-            "best_xba": None,
-            "best_outcome": None,
-            "batted_balls": 0,
-        })
+        agg = out.setdefault(
+            name,
+            {
+                "max_ev_mph": None,
+                "max_hit_distance_ft": None,
+                "best_xba": None,
+                "best_outcome": None,
+                "batted_balls": 0,
+            },
+        )
         agg["batted_balls"] += 1
         if ev is not None and (agg["max_ev_mph"] is None or ev > agg["max_ev_mph"]):
             agg["max_ev_mph"] = ev
-        if hd is not None and (agg["max_hit_distance_ft"] is None or hd > agg["max_hit_distance_ft"]):
+        if hd is not None and (
+            agg["max_hit_distance_ft"] is None or hd > agg["max_hit_distance_ft"]
+        ):
             agg["max_hit_distance_ft"] = hd
         if xba is not None and (agg["best_xba"] is None or xba > agg["best_xba"]):
             agg["best_xba"] = xba
@@ -449,14 +530,16 @@ def _top_performers_from_gamefeed(gf: dict) -> list[dict]:
         stats = player.get("stats") or {}
         batting = (stats.get("batting") or {}).get("summary")
         pitching = (stats.get("pitching") or {}).get("summary")
-        out.append({
-            "name": person.get("fullName"),
-            "team_id": player.get("parentTeamId"),
-            "role": tp.get("type"),
-            "batting_line": batting,
-            "pitching_line": pitching,
-            "is_stl": player.get("parentTeamId") == STL_TEAM_ID,
-        })
+        out.append(
+            {
+                "name": person.get("fullName"),
+                "team_id": player.get("parentTeamId"),
+                "role": tp.get("type"),
+                "batting_line": batting,
+                "pitching_line": pitching,
+                "is_stl": player.get("parentTeamId") == STL_TEAM_ID,
+            }
+        )
     return out
 
 
@@ -570,7 +653,8 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
 
         # Barrels (approximated via EV + LA since gamefeed lacks the explicit classifier)
         barrels = [
-            x for x in stl_in_play
+            x
+            for x in stl_in_play
             if _is_barrel(_gf_float(x, "launch_speed"), _gf_float(x, "launch_angle"))
         ]
         if barrels:
@@ -606,7 +690,8 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
 
         # Top whiffs (swinging strikes), top 3 by velocity
         whiffs = [
-            p for p in stl_pitching
+            p
+            for p in stl_pitching
             if p.get("pitch_call") == "swinging_strike" or p.get("is_strike_swinging")
         ]
         if whiffs:
@@ -627,9 +712,7 @@ def _highlights_from_gamefeed(gf: dict) -> dict[str, list]:
         # Best putaway pitches (K-ending)
         ks = [p for p in stl_pitching if p.get("events") == "Strikeout"]
         if ks:
-            top_ks = sorted(
-                ks, key=lambda p: _gf_float(p, "start_speed") or 0, reverse=True
-            )[:3]
+            top_ks = sorted(ks, key=lambda p: _gf_float(p, "start_speed") or 0, reverse=True)[:3]
             h["best_putaways"] = [
                 {
                     "pitcher": _gf_safe(p, "pitcher_name"),
@@ -690,12 +773,10 @@ def _statcast_highlights(
     if inning_topbot is None:
         return {}
     stl_hitting = df[
-        ((stl_away_mask) & (inning_topbot == "Top"))
-        | ((stl_home_mask) & (inning_topbot == "Bot"))
+        ((stl_away_mask) & (inning_topbot == "Top")) | ((stl_home_mask) & (inning_topbot == "Bot"))
     ].copy()
     stl_pitching = df[
-        ((stl_away_mask) & (inning_topbot == "Bot"))
-        | ((stl_home_mask) & (inning_topbot == "Top"))
+        ((stl_away_mask) & (inning_topbot == "Bot")) | ((stl_home_mask) & (inning_topbot == "Top"))
     ].copy()
 
     highlights: dict[str, list] = {}
@@ -703,10 +784,7 @@ def _statcast_highlights(
     # ---- Hitter highlights ----
     hit_events = stl_hitting[stl_hitting["type"] == "X"].copy()
     if not hit_events.empty and "launch_speed" in hit_events.columns:
-        hardest = (
-            hit_events.dropna(subset=["launch_speed"])
-            .nlargest(3, "launch_speed")
-        )
+        hardest = hit_events.dropna(subset=["launch_speed"]).nlargest(3, "launch_speed")
         highlights["hardest_hit"] = [
             {
                 "batter": _safe(row, "player_name"),
@@ -720,9 +798,8 @@ def _statcast_highlights(
         ]
 
     if "estimated_woba_using_speedangle" in hit_events.columns:
-        best_xwoba = (
-            hit_events.dropna(subset=["estimated_woba_using_speedangle"])
-            .nlargest(3, "estimated_woba_using_speedangle")
+        best_xwoba = hit_events.dropna(subset=["estimated_woba_using_speedangle"]).nlargest(
+            3, "estimated_woba_using_speedangle"
         )
         highlights["best_xwoba"] = [
             {
@@ -750,10 +827,7 @@ def _statcast_highlights(
     # Note: player_name is the BATTER for these rows. Use `_pitcher_name(row, pid_to_name)`
     # which looks up the `pitcher` MLBAM id against the boxscore name map.
     if not stl_pitching.empty and "release_speed" in stl_pitching.columns:
-        top_pitches = (
-            stl_pitching.dropna(subset=["release_speed"])
-            .nlargest(3, "release_speed")
-        )
+        top_pitches = stl_pitching.dropna(subset=["release_speed"]).nlargest(3, "release_speed")
         highlights["top_pitches"] = [
             {
                 "pitcher": _pitcher_name(row, pid_to_name),
@@ -795,10 +869,7 @@ def _statcast_highlights(
             ]
 
     # Lowest xwOBA allowed on contact (best contact-suppression pitches), top 3
-    if (
-        not stl_pitching.empty
-        and "estimated_woba_using_speedangle" in stl_pitching.columns
-    ):
+    if not stl_pitching.empty and "estimated_woba_using_speedangle" in stl_pitching.columns:
         contact = stl_pitching[stl_pitching["type"] == "X"].dropna(
             subset=["estimated_woba_using_speedangle"]
         )
@@ -830,19 +901,21 @@ def _line_score_from_game(game_id: int) -> dict | None:
         return None
     innings = []
     for inn in data["innings"]:
-        innings.append({
-            "num": inn.get("num"),
-            "away": {
-                "runs": (inn.get("away") or {}).get("runs"),
-                "hits": (inn.get("away") or {}).get("hits"),
-                "errors": (inn.get("away") or {}).get("errors"),
-            },
-            "home": {
-                "runs": (inn.get("home") or {}).get("runs"),
-                "hits": (inn.get("home") or {}).get("hits"),
-                "errors": (inn.get("home") or {}).get("errors"),
-            },
-        })
+        innings.append(
+            {
+                "num": inn.get("num"),
+                "away": {
+                    "runs": (inn.get("away") or {}).get("runs"),
+                    "hits": (inn.get("away") or {}).get("hits"),
+                    "errors": (inn.get("away") or {}).get("errors"),
+                },
+                "home": {
+                    "runs": (inn.get("home") or {}).get("runs"),
+                    "hits": (inn.get("home") or {}).get("hits"),
+                    "errors": (inn.get("home") or {}).get("errors"),
+                },
+            }
+        )
     teams = data.get("teams") or {}
     totals = {
         "away": {
@@ -946,12 +1019,15 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
         highlights = _highlights_from_gamefeed(gf)
         if highlights:
             payload["statcast_highlights"] = highlights
-            log.info("Statcast highlights from Savant gamefeed: %s",
-                     ", ".join(f"{k}={len(v)}" for k, v in highlights.items()))
+            log.info(
+                "Statcast highlights from Savant gamefeed: %s",
+                ", ".join(f"{k}={len(v)}" for k, v in highlights.items()),
+            )
         from app.services.play_annotations import (
             annotate_with_rbi,
             annotate_with_season_totals,
         )
+
         scoring = _scoring_plays_from_gamefeed(gf)
         if scoring:
             annotate_with_season_totals(scoring)
@@ -995,7 +1071,10 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
             log.warning("pybaseball fallback failed: %s", e)
 
     if not payload["statcast_highlights"]:
-        log.info("Statcast data not yet available for %s; returning boxscore only", target_date.isoformat())
+        log.info(
+            "Statcast data not yet available for %s; returning boxscore only",
+            target_date.isoformat(),
+        )
 
     # Baseball Reference cross-reference. Pulls bbref play-by-play (text per-PA
     # descriptions with inning, outs-after-play, runners, signed wWPA, runs_outs
@@ -1009,6 +1088,7 @@ def get_cardinals_postgame(target_date: date) -> dict | None:
     dh_index = 0 if dh_flag == "N" else game_num
     try:
         from app.services.bbref_boxscore import get_bbref_boxscore
+
         bbref = get_bbref_boxscore(target_date, away_full, home_full, dh_index)
         if bbref:
             payload["bbref"] = bbref

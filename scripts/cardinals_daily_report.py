@@ -23,7 +23,6 @@ import json
 import logging
 import os
 import re
-import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -31,19 +30,23 @@ import feedparser
 import httpx
 from dotenv import load_dotenv
 
+from app.services.cardinals_postgame import (
+    get_cardinals_next_game,
+    get_cardinals_postgame,
+)
+from app.services.og_banner import generate_og_banner
+from app.services.player_linking import linkify_players, load_player_links
+
 # Reuse battle-tested helpers from the fantasy report
 from scripts.daily_analysis import (
     MAX_CONTENT_CHARS,
     _invoke_claude_cli,
-    linkify_players,
     parse_frontmatter,
 )
 from scripts.factcheck_cardinals import (
     extract_score_and_data,
     factcheck_score_and_data,
 )
-from app.services.cardinals_postgame import get_cardinals_postgame
-from app.services.og_banner import generate_og_banner
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -101,9 +104,11 @@ ANALYSIS_FEEDS: list[tuple[str, str]] = [
     ("RotoWire", "https://www.rotowire.com/rss/news.php?sport=MLB"),
     # Mostly fantasy podcast episodes, occasional non-fantasy deep dives
     ("CBS Fantasy Baseball", "https://feeds.megaphone.fm/CBS6735868419"),
-    ("FantasyPros Baseball",
-     "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/"
-     "03db435f-86aa-4395-95a3-b2d70144b868/a32aaa57-276f-4ebd-af98-b2d70144b87c/podcast.rss"),
+    (
+        "FantasyPros Baseball",
+        "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/"
+        "03db435f-86aa-4395-95a3-b2d70144b868/a32aaa57-276f-4ebd-af98-b2d70144b87c/podcast.rss",
+    ),
     ("Locked On Fantasy Baseball", "https://pdrl.fm/72f472/feeds.simplecast.com/4vzt_3en"),
     ("In This League", "https://www.spreaker.com/show/3691391/episodes/feed"),
     # Pure baseball analysis — typically the best source for this section
@@ -169,17 +174,19 @@ def load_cardinals_content(days: int) -> list[dict]:
                     continue
                 if pub < cutoff:
                     continue
-                items.append({
-                    "title": meta.get("title", fp.stem),
-                    "source_name": meta.get("source_name", meta.get("source", "Unknown")),
-                    "url": meta.get("url", ""),
-                    "date": date_str,
-                    "date_parsed": pub,
-                    "content": body,
-                    "type": content_type,
-                    "filename": fp.name,
-                    "word_count": len(body.split()),
-                })
+                items.append(
+                    {
+                        "title": meta.get("title", fp.stem),
+                        "source_name": meta.get("source_name", meta.get("source", "Unknown")),
+                        "url": meta.get("url", ""),
+                        "date": date_str,
+                        "date_parsed": pub,
+                        "content": body,
+                        "type": content_type,
+                        "filename": fp.name,
+                        "word_count": len(body.split()),
+                    }
+                )
             except Exception as e:
                 log.warning("Failed to read %s: %s", fp.name, e)
 
@@ -204,9 +211,7 @@ def fetch_analysis_headlines(hours: int = 72, max_items: int = 40) -> list[dict]
     return _fetch_rss_headlines(ANALYSIS_FEEDS, hours, max_items)
 
 
-def _fetch_rss_headlines(
-    feeds: list[tuple[str, str]], hours: int, max_items: int
-) -> list[dict]:
+def _fetch_rss_headlines(feeds: list[tuple[str, str]], hours: int, max_items: int) -> list[dict]:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     items: list[dict] = []
     seen_titles: set[str] = set()
@@ -234,13 +239,15 @@ def _fetch_rss_headlines(
                 continue
             summary = (entry.get("summary") or "").strip()
             summary = re.sub(r"<[^>]+>", "", summary)
-            items.append({
-                "title": title,
-                "summary": summary[:400],
-                "source": source_name,
-                "url": entry.get("link", ""),
-                "published": pub_dt.isoformat() if pub_dt else None,
-            })
+            items.append(
+                {
+                    "title": title,
+                    "summary": summary[:400],
+                    "source": source_name,
+                    "url": entry.get("link", ""),
+                    "published": pub_dt.isoformat() if pub_dt else None,
+                }
+            )
             seen_titles.add(title.lower())
 
     items.sort(key=lambda x: x.get("published") or "", reverse=True)
@@ -268,7 +275,7 @@ def build_content_block(items: list[dict]) -> str:
     # Newest first; format consistent with daily_analysis
     for item in items:
         header = (
-            f"### [{item['type'].title()}] \"{item['title']}\" — {item['source_name']}"
+            f'### [{item["type"].title()}] "{item["title"]}" — {item["source_name"]}'
             f" ({item['date'][:10]})\n"
         )
         if item.get("url"):
@@ -305,46 +312,6 @@ def build_sources_section(items: list[dict]) -> str:
         else:
             lines.append(f"- {title} — *{item['source_name']}* ({date_short})")
     return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Player linking (Cardinals roster + recent appearances)
-# ---------------------------------------------------------------------------
-
-
-def load_player_links() -> dict[str, str]:
-    """Build player name → FanGraphs URL map.
-
-    Same approach as daily_analysis.load_league_context but standalone since
-    we don't need full league context for the Cardinals report.
-    """
-    links: dict[str, str] = {}
-    if not DB_PATH.exists():
-        return links
-    pitching = {"SP", "RP", "P"}
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cur = conn.execute(
-            """
-            SELECT p.name, p.fangraphs_id, p.position,
-                   EXISTS (SELECT 1 FROM rosters r WHERE r.player_id = p.id) AS on_roster
-            FROM players p
-            WHERE p.fangraphs_id IS NOT NULL AND p.fangraphs_id != ''
-            ORDER BY on_roster ASC
-            """
-        )
-        for row in cur:
-            name = row["name"]
-            fg_id = row["fangraphs_id"]
-            positions = set((row["position"] or "").split(","))
-            stat_type = "pitching" if positions & pitching else "batting"
-            slug = name.lower().replace(" ", "-").replace(".", "").replace("'", "")
-            links[name] = f"https://www.fangraphs.com/players/{slug}/{fg_id}/stats/{stat_type}"
-        conn.close()
-    except Exception as e:
-        log.warning("Could not load player_links: %s", e)
-    return links
 
 
 # ---------------------------------------------------------------------------
@@ -386,10 +353,30 @@ SOURCE_NAME_TO_KEY: dict[str, str] = {
 MANIFEST_PATH = CONTENT_DIR / "manifest.json"
 
 _MONTH_NUMS = {
-    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
-    "july": 7, "august": 8, "september": 9, "october": 10, "november": 11, "december": 12,
-    "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6, "jul": 7, "aug": 8,
-    "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "jan": 1,
+    "feb": 2,
+    "mar": 3,
+    "apr": 4,
+    "jun": 6,
+    "jul": 7,
+    "aug": 8,
+    "sep": 9,
+    "sept": 9,
+    "oct": 10,
+    "nov": 11,
+    "dec": 12,
 }
 
 
@@ -675,12 +662,25 @@ SYSTEM_PROMPT = (
 )
 
 
-SECTION_INSTRUCTIONS = (
-    """## Score and Data for {Month D, YYYY}
+SECTION_INSTRUCTIONS = """## Score and Data for {Month D, YYYY}
 
-REPLACE `{Month D, YYYY}` with the actual game date from POSTGAME DATA's `date` field, formatted as e.g. `May 9, 2026`. Your literal `##` heading should read: `## Score and Data for May 9, 2026`. If POSTGAME DATA is null, use today's date and append "(no game)": `## Score and Data for May 10, 2026 (no game)`.
+REPLACE `{Month D, YYYY}` with the actual game date from POSTGAME DATA's `date` field, formatted as e.g. `May 9, 2026`. Your literal `##` heading should read: `## Score and Data for May 9, 2026`. If POSTGAME DATA is null, use yesterday's date (the date of the off day, NOT the report date) and append "(off day)": `## Score and Data for May 11, 2026 (off day)`.
 
-Lead the report with this. Build the section in **this exact order**:
+**OFF-DAY MODE — when POSTGAME DATA is null:**
+Skip all box-score / line-score / WPA / Game Analysis / Win Probability Swings subsections. The section is exactly TWO short paragraphs and nothing else:
+
+1. One sentence stating the off day, then one sentence pointing to the next game. Use NEXT GAME DATA values verbatim — never invent. Format:
+   > The Cardinals were off yesterday, {weekday, Month D, YYYY of off day}. They play {tomorrow|today|on {weekday, Month D}} {vs.|at} the {opp_short} at {venue}.
+   - Use the EXACT `when_phrase` provided below the NEXT GAME DATA block ("tomorrow", "today", or "on {Weekday, Month D}"). Do not improvise — the system computes this from the report date.
+   - Use "vs." when `stl_is_home` is true, "at" when false.
+2. One sentence naming the probable starters. Format:
+   > Probable starters: {stl_probable_pitcher} for St. Louis, {opp_probable_pitcher} for {opp_short}.
+   - If either probable is null in NEXT GAME DATA, write "TBD" in that slot.
+   - If both are null AND NEXT GAME DATA itself is null, replace this paragraph with: "Next game and probable starters had not posted at publish time."
+
+That is the entire Score and Data section on an off day. Do NOT add Game Analysis, Win Probability Swings, or any other subsection. The rest of the report (Cardinals Notebook, Beat Writer's Verdict, Statcast Highlights, Around the League, Interesting Analysis) follows normally.
+
+**GAME-DAY MODE — when POSTGAME DATA is present**, lead the report with this. Build the section in **this exact order**:
 
 **(a) Header line.** One bold line stating the matchup, result, venue, and pitcher decisions. End the line with a small markdown link to the Baseball Savant game feed (pulled verbatim from POSTGAME DATA's `savant_url` field).
 Format: `**{Away} {away_score}, {Home} {home_score}** — {STL W or L} at {venue}. WP: {name}. LP: {name}. SV: {name if present}. · [Baseball Savant ↗]({savant_url})`
@@ -755,7 +755,7 @@ Scout-flavored sentences are encouraged throughout — pitch sequences, location
 
 If the only honest kicker is a one-clause restatement of the final score with a pitch detail (e.g., "A 2-3 final at Petco, decided by O'Brien's third 98.5 mph Sinker"), that's fine. Better short and true than long and invented.
 
-If POSTGAME DATA is null (off day), say so directly and pivot to the most recent game discussed in the expert content with whatever detail is available — no fabricated boxscores or line scores.
+If POSTGAME DATA is null (off day), follow the **OFF-DAY MODE** instructions at the top of this section — do NOT write Game Analysis on an off day.
 
 **(e) Win Probability Swings.** Header it `### Win Probability Swings`. Render the top 4-5 plays from POSTGAME DATA's `wpa.key_swings` as a markdown table, in WPA-impact order (largest |Δ| first, which is how the data already arrives). These are the at-bats that *actually moved the game*, with per-pitch context. Skip this whole subsection if `wpa.key_swings` is absent or empty.
 
@@ -881,7 +881,6 @@ Order the bullets by how interesting they are (most compelling first), not by re
 If fewer than 4 qualifying items exist after the filter, list however many qualify. If none qualify, write a single line: "Quiet day for baseball longform."
 
 Do NOT fabricate. Every link traces back to a URL in the BASEBALL ANALYSIS HEADLINES block."""
-)
 
 
 def build_prompt(
@@ -890,6 +889,8 @@ def build_prompt(
     postgame: dict | None,
     mlb_headlines: list[dict] | None = None,
     analysis_headlines: list[dict] | None = None,
+    next_game: dict | None = None,
+    off_day_date: date | None = None,
 ) -> str:
     parts: list[str] = []
 
@@ -912,6 +913,29 @@ def build_prompt(
         parts.append("\n```\n")
     else:
         parts.append("`null` — no Cardinals game on the target date (off day or postponed).\n")
+        if off_day_date is not None:
+            parts.append(
+                f"\nOFF-DAY DATE (use this in the Score and Data lede): "
+                f"**{off_day_date.strftime('%A, %B %-d, %Y')}** ({off_day_date.isoformat()}).\n"
+            )
+        parts.append("\n## NEXT GAME DATA (next scheduled Cardinals game)\n\n")
+        if next_game:
+            parts.append("```json\n")
+            parts.append(json.dumps(next_game, indent=2, default=str))
+            parts.append("\n```\n")
+            try:
+                ng_date = date.fromisoformat((next_game.get("date") or "")[:10])
+                if ng_date == today + timedelta(days=1):
+                    when_phrase = "tomorrow"
+                elif ng_date == today:
+                    when_phrase = "today"
+                else:
+                    when_phrase = f"on {ng_date.strftime('%A, %B %-d')}"
+                parts.append(f'\nUse the phrase **"{when_phrase}"** for when they play next.\n')
+            except (TypeError, ValueError):
+                pass
+        else:
+            parts.append("`null` — no scheduled game found in the next 7 days.\n")
 
     parts.append("\n---\n\n# EXPERT CONTENT (Cardinals-specific blogs and podcasts)\n\n")
     parts.append(content_block)
@@ -957,7 +981,9 @@ def build_prompt(
                 line += f"\n  {h['url']}"
             parts.append(line + "\n")
     else:
-        parts.append("_(No analysis headlines available — write 'Quiet day for baseball longform.')_\n")
+        parts.append(
+            "_(No analysis headlines available — write 'Quiet day for baseball longform.')_\n"
+        )
 
     return "".join(parts)
 
@@ -1001,14 +1027,17 @@ def _format_blot_title(today: date, postgame: dict | None) -> str:
     """Build the Blot post Title from postgame data.
 
     Uses the GAME date (yesterday) for the date stamp, not today's report date.
+    Off-day titles also stamp the off-day date (yesterday), not the publish
+    date — the post is *about* yesterday, not today.
 
     Examples:
       "@ Padres 2-4 (L). May 9"
       "vs. Reds 7-3 (W). May 11"
-      "Cardinals. May 10 (off day)"   ← falls back to today when no game
+      "Cardinals. May 11 (off day)"   ← stamps yesterday, not today
     """
     if not postgame:
-        return f"Cardinals. {today.strftime('%B %-d')} (off day)"
+        off_day = today - timedelta(days=1)
+        return f"Cardinals. {off_day.strftime('%B %-d')} (off day)"
 
     # Pull the actual game date from postgame.date (ISO YYYY-MM-DD); fall back to today.
     try:
@@ -1050,7 +1079,9 @@ def _extract_summary(postgame: dict | None) -> str:
     result = postgame.get("result") or ""
     # Result is like "St. Louis Cardinals 2, San Diego Padres 4 (STL L)"
     # Strip the (STL X) suffix and shorten "St. Louis Cardinals" → "Cardinals"
-    cleaned = re.sub(r"\s*\(STL [WLT]\)\s*$", "", result).replace("St. Louis Cardinals", "Cardinals")
+    cleaned = re.sub(r"\s*\(STL [WLT]\)\s*$", "", result).replace(
+        "St. Louis Cardinals", "Cardinals"
+    )
     venue = postgame.get("venue") or ""
     if cleaned and venue:
         return f"{cleaned} at {venue}."
@@ -1116,7 +1147,10 @@ def _publish_to_blot(
     # lights up the iMessage / social rich-card preview via the og:image tags
     # in head.html. Wrapped: a banner failure never blocks the publish.
     try:
-        game_date = today
+        # On a game day the banner stamps the game date; on an off day it
+        # stamps the off-day date (yesterday) — the post is *about* yesterday,
+        # not the publish date.
+        game_date = today - timedelta(days=1)
         if postgame and postgame.get("date"):
             try:
                 game_date = date.fromisoformat(postgame["date"])
@@ -1157,7 +1191,7 @@ def write_report(
 
     frontmatter = (
         "---\n"
-        f"title: \"Cardinals Daily — {today.strftime('%B %d, %Y')}\"\n"
+        f'title: "Cardinals Daily — {today.strftime("%B %d, %Y")}"\n'
         f"type: {REPORT_SLUG}\n"
         f"date: {today.isoformat()}\n"
         f"generated_at: {datetime.now(timezone.utc).isoformat()}\n"
@@ -1188,7 +1222,9 @@ def run(
     out_path = ANALYSIS_DIR / f"{today.isoformat()}_{REPORT_SLUG}.md"
 
     if out_path.exists() and not force and not dry_run:
-        log.info("Today's Cardinals report already exists at %s (use --force to regenerate)", out_path)
+        log.info(
+            "Today's Cardinals report already exists at %s (use --force to regenerate)", out_path
+        )
         return
 
     target_postgame_date = today - timedelta(days=1)
@@ -1198,6 +1234,19 @@ def run(
         postgame = get_cardinals_postgame(target_postgame_date)
     except Exception as e:
         log.warning("Postgame fetch failed: %s — proceeding without postgame data", e)
+
+    # When yesterday was an off day, the report's Score and Data section
+    # leans on the next scheduled game (date, opponent, probable starters)
+    # instead of a boxscore. Look forward from today so we skip yesterday's
+    # blank slate but include any same-day game posted later in the morning.
+    next_game = None
+    off_day_date = target_postgame_date if postgame is None else None
+    if postgame is None:
+        log.info("Off day detected — fetching next scheduled Cardinals game")
+        try:
+            next_game = get_cardinals_next_game(today)
+        except Exception as e:
+            log.warning("Next-game fetch failed: %s — off-day lede will be generic", e)
 
     items = load_cardinals_content(days=days)
     if not items and postgame is None:
@@ -1223,7 +1272,15 @@ def run(
         log.warning("Analysis headlines fetch failed entirely: %s", e)
         analysis_headlines = []
 
-    user_message = build_prompt(today, content_block, postgame, mlb_headlines, analysis_headlines)
+    user_message = build_prompt(
+        today,
+        content_block,
+        postgame,
+        mlb_headlines,
+        analysis_headlines,
+        next_game=next_game,
+        off_day_date=off_day_date,
+    )
 
     if dry_run:
         log.info("=== DRY RUN ===")
@@ -1252,7 +1309,10 @@ def run(
 
     log.info(
         "Generated: %d words, %d input tokens, %d output tokens (stop: %s)",
-        len(text.split()), in_toks, out_toks, stop,
+        len(text.split()),
+        in_toks,
+        out_toks,
+        stop,
     )
 
     # ----- Fact-check the Score and Data section -----
@@ -1265,12 +1325,19 @@ def run(
     # manual intervention. `--skip-factcheck` bypasses the whole loop.
     if skip_factcheck:
         log.warning("--skip-factcheck flag set, bypassing verification.")
+    elif postgame is None:
+        # Off-day Score and Data has no game claims to verify — it is a fixed
+        # two-paragraph lede built from NEXT GAME DATA. Running the fact-checker
+        # against `null` postgame would (correctly) flag the forward-looking
+        # next-game / probable-starter lines as fabrication. Skip the loop.
+        log.info("Off-day report (no postgame); skipping Score and Data fact-check.")
     else:
         attempt = 0
         while True:
             attempt += 1
             factcheck = factcheck_score_and_data(
-                extract_score_and_data(text) or "", postgame,
+                extract_score_and_data(text) or "",
+                postgame,
             )
             if factcheck.passed:
                 log.info("Fact-check PASSED on attempt %d.", attempt)
@@ -1278,7 +1345,8 @@ def run(
 
             log.warning(
                 "Fact-check FAILED on attempt %d. %d issues.",
-                attempt, len(factcheck.issues),
+                attempt,
+                len(factcheck.issues),
             )
             for i in factcheck.issues:
                 log.warning("  - [%s] %s — %s", i.category, i.claim, i.why_suspect)
@@ -1293,12 +1361,15 @@ def run(
 
             log.info(
                 "Applying surgical edits (attempt %d → %d)...",
-                attempt, attempt + 1,
+                attempt,
+                attempt + 1,
             )
             retry_message = _build_retry_message(text, postgame, factcheck)
             try:
                 text2, in2, out2, _stop2 = _invoke_claude_cli(
-                    MODEL, SYSTEM_PROMPT, retry_message,
+                    MODEL,
+                    SYSTEM_PROMPT,
+                    retry_message,
                 )
             except Exception as e:
                 log.error("Retry edit failed: %s. Quarantining.", e)
@@ -1314,7 +1385,7 @@ def run(
             in_toks += in2
             out_toks += out2
 
-    player_links = load_player_links()
+    player_links = load_player_links(DB_PATH)
     out = write_report(today, text, items, in_toks, out_toks, player_links)
     cost = (in_toks * 5 + out_toks * 25) / 1_000_000
     log.info("Done. Wrote %s (~$%.2f subscription quota, not billed)", out, cost)
@@ -1343,7 +1414,8 @@ def _build_retry_message(previous_draft: str, postgame: dict | None, factcheck) 
         issue_lines.append(line)
 
     postgame_json = (
-        json.dumps(postgame, indent=2, default=str) if postgame is not None
+        json.dumps(postgame, indent=2, default=str)
+        if postgame is not None
         else "null  // no game on the target date"
     )
 
@@ -1355,9 +1427,7 @@ def _build_retry_message(previous_draft: str, postgame: dict | None, factcheck) 
         "```markdown\n"
         f"{previous_draft}\n"
         "```\n\n"
-        "FACT-CHECK ISSUES TO FIX:\n\n"
-        + "\n\n".join(issue_lines)
-        + "\n\n"
+        "FACT-CHECK ISSUES TO FIX:\n\n" + "\n\n".join(issue_lines) + "\n\n"
         "INSTRUCTIONS:\n"
         "- Output the FULL report markdown verbatim, with ONLY the flagged phrases edited.\n"
         "- For each flagged claim:\n"
@@ -1399,12 +1469,18 @@ def _quarantine_failed_report(
     # Best-effort macOS notification so the user notices before the 4 AM verifier.
     try:
         import subprocess
+
         msg = f"{len(factcheck.issues)} fact-check issues — quarantined to factcheck_failed/"
-        subprocess.run([
-            "osascript", "-e",
-            f'display notification "{msg}" with title "Cardinals report BLOCKED" '
-            f'subtitle "{today.isoformat()} — see {failed_log.name}"',
-        ], check=False, timeout=5)
+        subprocess.run(
+            [
+                "osascript",
+                "-e",
+                f'display notification "{msg}" with title "Cardinals report BLOCKED" '
+                f'subtitle "{today.isoformat()} — see {failed_log.name}"',
+            ],
+            check=False,
+            timeout=5,
+        )
     except Exception:
         pass
 
@@ -1414,15 +1490,21 @@ def main() -> None:
     parser.add_argument("--force", action="store_true", help="Regenerate even if today's exists")
     parser.add_argument("--dry-run", action="store_true", help="Preview prompt without API call")
     parser.add_argument(
-        "--days", type=int, default=CONTENT_WINDOW_DAYS,
+        "--days",
+        type=int,
+        default=CONTENT_WINDOW_DAYS,
         help=f"Content lookback window in days (default: {CONTENT_WINDOW_DAYS})",
     )
     parser.add_argument(
-        "--date", dest="report_date", type=date.fromisoformat, default=None,
+        "--date",
+        dest="report_date",
+        type=date.fromisoformat,
+        default=None,
         help="Override report date (YYYY-MM-DD). The covered game is this date minus one.",
     )
     parser.add_argument(
-        "--skip-factcheck", action="store_true",
+        "--skip-factcheck",
+        action="store_true",
         help="Bypass the Opus 4.7 fact-check pass (emergency / debug only).",
     )
     args = parser.parse_args()
