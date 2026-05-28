@@ -64,22 +64,18 @@ The "pipeline machine" is the Mac that runs the daily content ingest, podcast tr
 ## 5. MacWhisper
 
 1. Install MacWhisper from the Mac App Store or https://goodsnooze.gumroad.com/l/macwhisper
-2. Open MacWhisper → Preferences → Watch Folders. Configure:
-   - **Watch folder:** `~/Projects/fantasy_baseball_br/data/content/audio/pending/`
-   - **Output folder:** `~/Projects/fantasy_baseball_br/data/content/audio/transcribed/`
-   - **Output format:** `.txt`
-3. Pick a transcription model (Large v3 is what the old machine uses; reduce if RAM-limited).
-4. Make sure MacWhisper launches at login (System Settings → General → Login Items).
-
-The downloader script ([scripts/podcast_transcriber.py](scripts/podcast_transcriber.py)) drops `.mp3` files plus a `.json` sidecar into `pending/`. MacWhisper picks them up and writes `.txt` to `transcribed/`. The collector script ([scripts/transcript_collector.py](scripts/transcript_collector.py)) then formats them into markdown with frontmatter.
+2. Open MacWhisper → Settings → Advanced → click **Install** next to "Command-Line Tool". This puts `mw` at `/usr/local/bin/mw`. Verify with `mw version`.
+3. Download a transcription model (Large v3 Turbo is the current default; Parakeet v3 is a faster alternative). Activate it via `mw models select <id>` or in the GUI; check with `mw models list`.
+4. Make sure MacWhisper launches at login (System Settings → General → Login Items) — the `mw` CLI talks to the running app.
+5. **No Watch Folder configuration needed.** [scripts/podcast_transcriber.py](scripts/podcast_transcriber.py) now invokes `mw transcribe` directly per file, captures stdout, wraps it in markdown with frontmatter, and writes to `data/content/transcripts/`. If you previously had a Watch Folder configured pointing at `pending/`, disable it to avoid redundant work.
 
 ## 6. launchd agents
 
-Two agents run on the pipeline machine. Both expect paths under your home directory — replace `<USERNAME>` below with the new Mac's short username (`whoami`).
+One agent runs on the pipeline machine. Paths assume your home directory — replace `<USERNAME>` below with the new Mac's short username (`whoami`).
 
 ### `~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist`
 
-Runs the full daily pipeline at 3 AM (blog fetch → podcast download → transcript collect → Yahoo sync → analysis → upload to Fly).
+Runs the full daily pipeline at 3 AM (blog fetch → podcast download + transcribe → Yahoo sync → analysis → upload to Fly).
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -111,52 +107,12 @@ Runs the full daily pipeline at 3 AM (blog fetch → podcast download → transc
 </plist>
 ```
 
-### `~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist`
-
-A long-running process that watches `transcribed/` and formats new `.txt` files as MacWhisper finishes them. Restarts if it crashes.
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.fantasybaseball.transcript-watcher</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/Users/<USERNAME>/.local/bin/uv</string>
-        <string>run</string>
-        <string>--project</string>
-        <string>/Users/<USERNAME>/Projects/fantasy_baseball_br</string>
-        <string>python</string>
-        <string>-m</string>
-        <string>scripts.transcript_collector</string>
-        <string>--watch</string>
-    </array>
-    <key>WorkingDirectory</key>
-    <string>/Users/<USERNAME>/Projects/fantasy_baseball_br</string>
-    <key>RunAtLoad</key><true/>
-    <key>KeepAlive</key><true/>
-    <key>EnvironmentVariables</key>
-    <dict>
-        <key>PATH</key>
-        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/Users/<USERNAME>/.local/bin</string>
-    </dict>
-    <key>StandardOutPath</key>
-    <string>/Users/<USERNAME>/Projects/fantasy_baseball_br/data/content/logs/watcher_stdout.log</string>
-    <key>StandardErrorPath</key>
-    <string>/Users/<USERNAME>/Projects/fantasy_baseball_br/data/content/logs/watcher_stderr.log</string>
-</dict>
-</plist>
-```
-
-### Load the agents
+### Load the agent
 
 ```bash
 mkdir -p ~/Projects/fantasy_baseball_br/data/content/logs
 
 launchctl load ~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist
-launchctl load ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist
 
 # Verify
 launchctl list | grep fantasybaseball
@@ -169,8 +125,9 @@ tail -f ~/Projects/fantasy_baseball_br/data/content/logs/ingest_$(date +%Y-%m-%d
 To unload:
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist
-launchctl unload ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist
 ```
+
+> Older setups also had a `com.fantasybaseball.transcript-watcher.plist` agent that ran `transcript_collector.py --watch` as a long-running watcher. That script and agent are obsolete — transcription now happens synchronously inside the 3 AM ingest. If the plist is still loaded, run `launchctl unload ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist` and delete the file.
 
 ## 7. macOS settings
 

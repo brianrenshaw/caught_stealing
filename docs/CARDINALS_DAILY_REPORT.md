@@ -49,7 +49,7 @@ The Blot publish happens inside step 6 (the Cardinals script writes to the Dropb
 | `scripts/daily_content_ingest.sh` | The 3 AM launchd wrapper. Orchestrates all daily steps. |
 | `scripts/verify_daily_ingest.sh` | The 4 AM launchd verifier. Checks artifacts exist, pings a macOS notification on failure, writes status to `data/content/logs/`. |
 | `scripts/blog_ingest.py` | RSS blog fetcher. `RSS_FEEDS` dict lists all configured feeds. |
-| `scripts/podcast_transcriber.py` | Podcast downloader. `PODCAST_FEEDS` dict lists all podcast sources. |
+| `scripts/podcast_transcriber.py` | Podcast downloader + transcriber. Downloads episodes, calls `mw transcribe` per file, writes markdown to `transcripts/`. `PODCAST_FEEDS` dict lists all sources. |
 | `docs/cardinals-blot.css` | Cardinals theme stylesheet — paste into Blot dashboard → Template → `style.css`. |
 | `docs/cardinals-blot-head.html` | Drop-in for Blot's `head.html` template. This blog's naming is inverted: `head.html` holds the visible site header (Lankford Legends home link + Archives / About / RSS nav). |
 | `docs/cardinals-blot-header.html` | Drop-in for Blot's `header.html` template. The `<head>` metadata block: OG tags, Twitter card meta, RSS auto-discovery, Cardinals fonts preload. |

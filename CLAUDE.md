@@ -125,8 +125,7 @@ fantasy-baseball/
 │   ├── backtest_harness.py       # Walk-forward projection testing
 │   ├── optimize_parameters.py    # scipy parameter tuning (April 30 hold)
 │   ├── blog_ingest.py            # RSS blog fetcher (FanGraphs, Pitcher List, RotoWire, Viva El Birdos, Redbird Rants, The Cardinal Nation)
-│   ├── podcast_transcriber.py    # Podcast downloader → MacWhisper watch folder (CBS, FantasyPros, Locked On Fantasy, In This League, Locked On Cardinals)
-│   ├── transcript_collector.py   # Collects MacWhisper output → formatted markdown
+│   ├── podcast_transcriber.py    # Download + transcribe podcasts via MacWhisper CLI (`mw transcribe`); writes markdown straight to transcripts/ (CBS, FantasyPros, Locked On Fantasy, In This League, Locked On Cardinals)
 │   ├── daily_analysis.py         # Claude-powered fantasy analysis of content + league data → MD + PDF
 │   ├── cardinals_daily_report.py # Cardinals-only daily report (postgame + MLB + minors + fan takeaway)
 │   ├── daily_content_ingest.sh   # Daily wrapper (launchd runs at 3 AM); generates fantasy + Cardinals reports, renders Cardinals-CSS PDFs, syncs to Readdle iCloud folder for mobile
@@ -295,8 +294,8 @@ uv run python -m scripts.data_pipeline                # Download historical data
 uv run python -m scripts.backtest_harness             # Run backtesting
 uv run python -m scripts.optimize_parameters --mode validation  # Parameter tuning
 uv run python -m scripts.blog_ingest --days 7               # Fetch recent blog articles
-uv run python -m scripts.podcast_transcriber --days 7        # Download podcasts to MacWhisper watch folder
-uv run python -m scripts.transcript_collector                # Collect finished MacWhisper transcripts
+uv run python -m scripts.podcast_transcriber --days 7        # Download + transcribe new podcasts via mw transcribe
+uv run python -m scripts.podcast_transcriber --transcribe-only  # Drain pending/ without fetching feeds
 uv run python -m scripts.daily_analysis                      # Generate daily analysis reports
 uv run python -m scripts.daily_analysis --dry-run            # Preview prompts without API calls
 ./scripts/daily_content_ingest.sh                            # Run full daily pipeline manually

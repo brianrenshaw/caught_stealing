@@ -19,7 +19,7 @@ There are three subsystems that work together. Understanding how they connect is
 
 **Subsystem 1: The Web App + Data Pipelines** runs on Fly.io as a FastAPI server. Two scheduled jobs keep data fresh: a Yahoo sync every 6 hours pulls rosters, standings, and transactions; a stats sync at 5 AM ET daily pulls FanGraphs batting/pitching stats, Statcast expected values, and consensus projections. All data lands in a SQLite database on a persistent volume. The web UI serves roster optimization, trade analysis, waiver recommendations, matchup projections, and an interactive stats dashboard.
 
-**Subsystem 2: The Content Ingestion Pipeline** runs locally on macOS via a LaunchAgent at 3 AM daily. It fetches blog articles from RSS feeds (FanGraphs, Pitcher List, RotoWire), downloads podcast episodes (CBS, FantasyPros, Locked On, In This League) into a MacWhisper watch folder for transcription, and collects finished transcripts. All content is saved as markdown files with YAML frontmatter.
+**Subsystem 2: The Content Ingestion Pipeline** runs locally on macOS via a LaunchAgent at 3 AM daily. It fetches blog articles from RSS feeds (FanGraphs, Pitcher List, RotoWire) and downloads podcast episodes (CBS, FantasyPros, Locked On, In This League), then transcribes each episode in-process via the MacWhisper CLI (`mw transcribe`). All content is saved as markdown files with YAML frontmatter.
 
 **Subsystem 3: The AI Intelligence Reports** run as the final step of the daily pipeline. A Python script (`daily_analysis.py`) loads all recent content plus league data from SQLite, sends a single comprehensive prompt to Claude Opus, and splits the response into individual report sections. Reports are saved locally (where Obsidian watches the folder) and uploaded to the Fly.io volume (where the web app's Intel tab serves them).
 
@@ -40,17 +40,13 @@ There are three subsystems that work together. Understanding how they connect is
 │                   Local Mac (Automation)                       │
 │                                                               │
 │  LaunchAgent: 3 AM Daily                                      │
-│  ├── 1. transcript_collector  (collect MacWhisper output)     │
-│  ├── 2. blog_ingest           (RSS: FanGraphs, etc.)          │
-│  ├── 3. podcast_transcriber   (download episodes)             │
-│  ├── 4. daily_analysis        (Claude API → reports)          │
-│  └── 5. flyctl sftp           (upload to Fly.io)              │
+│  ├── 1. blog_ingest           (RSS: FanGraphs, etc.)          │
+│  ├── 2. podcast_transcriber   (download + mw transcribe)      │
+│  ├── 3. daily_analysis        (Claude API → reports)          │
+│  └── 4. flyctl sftp           (upload to Fly.io)              │
 │                                                               │
-│  LaunchAgent: Always Running                                  │
-│  └── transcript_collector --watch (monitor MacWhisper output) │
-│                                                               │
-│  MacWhisper (standalone app)                                  │
-│  └── Watches audio/pending/ → outputs to audio/transcribed/   │
+│  MacWhisper (standalone app, must be running)                 │
+│  └── `mw transcribe` CLI invoked per episode by step 2        │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -161,36 +157,26 @@ Two LaunchAgent plists live in `~/Library/LaunchAgents/`.
 * If the Mac is asleep at 3 AM, launchd runs it when the machine wakes up
 * Script: `scripts/daily_content_ingest.sh`
 * Steps:
-    1. Collect MacWhisper transcripts from previous runs
-    2. Fetch blog articles via RSS (last 2 days, max 10 articles)
-    3. Download new podcast episodes (last 2 days, max 5 episodes)
-    4. Generate daily analysis report via Claude API
-    5. Upload today's reports to Fly.io volume via `flyctl ssh sftp`
+    1. Fetch blog articles via RSS (last 2 days, max 10 articles)
+    2. Download + transcribe new podcast episodes via `mw transcribe` (last 2 days, max 5 episodes; also drains any leftover audio in `pending/`)
+    3. Generate daily analysis report via Claude API
+    4. Upload today's reports to Fly.io volume via `flyctl ssh sftp`
 * Each step uses `|| { echo "WARNING: ... failed" }` so one failure does not block the rest
 * Log: `data/content/logs/ingest_YYYY-MM-DD.log` (script's own log via `tee`)
 * LaunchAgent logs: `data/content/logs/launchd_stdout.log` and `launchd_stderr.log`
 
-**Transcript Watcher** (`com.fantasybaseball.transcript-watcher`)
-
-* Plist: `~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist`
-* Mode: `RunAtLoad=true`, `KeepAlive=true` (starts on login, restarts on exit)
-* Command: `uv run python -m scripts.transcript_collector --watch`
-* Monitors `data/content/audio/transcribed/` for new MacWhisper output
-* When a `.txt` file appears, matches it to the JSON metadata sidecar, wraps it in markdown with frontmatter, and saves to `data/content/transcripts/`
-* Log: `data/content/logs/watcher_stdout.log` and `watcher_stderr.log`
+> An older `com.fantasybaseball.transcript-watcher` LaunchAgent used to run a long-lived watchdog process to collect MacWhisper output. It is no longer needed — transcription happens synchronously inside the 3 AM ingest. If you still have the plist loaded, `launchctl unload` it and remove the file.
 
 ### Managing LaunchAgents
 
-Load or unload the agents:
+Load or unload the agent:
 
 ```bash
 # Load (start)
 launchctl load ~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist
-launchctl load ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist
 
 # Unload (stop)
 launchctl unload ~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist
-launchctl unload ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist
 
 # Check status
 launchctl list | grep fantasybaseball
@@ -285,8 +271,7 @@ Estimated cost per call: ~$0.15-0.25 for daily, ~$0.50-1.00 for weekly (at Opus 
 | `daily_content_ingest.sh` | `scripts/` | Master daily automation wrapper (3 AM via launchd) |
 | `daily_analysis.py` | `scripts/` | Claude-powered intelligence report generator |
 | `blog_ingest.py` | `scripts/` | RSS feed fetcher (FanGraphs, Pitcher List, RotoWire) |
-| `podcast_transcriber.py` | `scripts/` | Podcast episode downloader to MacWhisper watch folder |
-| `transcript_collector.py` | `scripts/` | Collects MacWhisper output, wraps in markdown frontmatter |
+| `podcast_transcriber.py` | `scripts/` | Podcast episode downloader + transcriber. Calls `mw transcribe` per file, wraps output in markdown with frontmatter, writes to `transcripts/` |
 | `capture_yahoo_token.py` | `scripts/` | Yahoo OAuth token capture for headless deployment |
 | `data_pipeline.py` | `scripts/` | Historical data download (2015-2025) for backtesting |
 | `backtest_harness.py` | `scripts/` | Walk-forward projection testing framework |
@@ -369,8 +354,7 @@ fantasy_baseball_br/
 │   ├── daily_content_ingest.sh        # 3 AM master automation script
 │   ├── daily_analysis.py              # Claude-powered report generator
 │   ├── blog_ingest.py                 # RSS feed fetcher
-│   ├── podcast_transcriber.py         # Podcast episode downloader
-│   ├── transcript_collector.py        # MacWhisper transcript processor
+│   ├── podcast_transcriber.py         # Podcast downloader + transcriber (calls mw transcribe)
 │   ├── capture_yahoo_token.py         # Yahoo OAuth token bootstrap
 │   ├── backtest_harness.py            # Projection backtesting
 │   ├── optimize_parameters.py         # Parameter tuning
@@ -382,9 +366,8 @@ fantasy_baseball_br/
 │       ├── transcripts/               # Formatted podcast transcripts (.md)
 │       ├── analysis/                  # Claude-generated intel reports (.md)
 │       ├── audio/
-│       │   ├── pending/               # MacWhisper input (.mp3 + .json sidecar)
-│       │   └── transcribed/           # MacWhisper output (.txt)
-│       ├── logs/                      # Pipeline and watcher logs
+│       │   └── pending/               # Downloaded .mp3 + .json sidecar (deleted after mw transcribe)
+│       ├── logs/                      # Pipeline logs
 │       └── manifest.json              # Content dedup index
 ├── docs/                              # Documentation
 ├── tests/                             # pytest test suite
@@ -432,14 +415,15 @@ Run the full daily pipeline:
 Or run individual steps:
 
 ```bash
-# Collect any waiting MacWhisper transcripts
-uv run python -m scripts.transcript_collector
-
 # Fetch blog articles (last 7 days)
 uv run python -m scripts.blog_ingest --days 7
 
-# Download podcast episodes (last 3 days, max 5 per feed)
+# Download + transcribe podcast episodes (last 3 days, max 5 per feed).
+# MacWhisper.app must be running — the `mw` CLI talks to the running app.
 uv run python -m scripts.podcast_transcriber --days 3 --max-episodes 5
+
+# Drain leftover audio in pending/ (no RSS fetch)
+uv run python -m scripts.podcast_transcriber --transcribe-only
 
 # Generate analysis report
 uv run python -m scripts.daily_analysis
@@ -572,7 +556,7 @@ Edit `app/league_config.py`. The `BATTING_SCORING` and `PITCHING_SCORING` dicts 
 
 **Yahoo OAuth tokens expire hourly.** The `yahoo_service.py` auto-refreshes tokens on each API call and persists the refreshed token to `/data/yahoo_token.json` on the Fly.io volume. If the token goes stale (e.g., Fly.io volume is recreated), you need to re-run `scripts/capture_yahoo_token.py` locally and update the Fly secret.
 
-**MacWhisper is a separate desktop app.** The podcast pipeline downloads `.mp3` files to `data/content/audio/pending/`, but transcription happens in MacWhisper (not part of this codebase). MacWhisper must be configured to watch the `pending/` folder and output `.txt` files to `transcribed/`. If MacWhisper is not running, transcripts do not appear. The next daily pipeline run picks up any transcripts that accumulated.
+**MacWhisper is a separate desktop app.** The podcast pipeline downloads `.mp3` files to `data/content/audio/pending/`, then invokes MacWhisper's command-line tool (`mw transcribe`) per episode. The CLI talks to the running MacWhisper.app — if MacWhisper is not running, `podcast_transcriber.py` auto-opens it and waits a few seconds. On transcription failure, the audio + sidecar are left in `pending/`; the next run sweeps them.
 
 **SQLite timestamps must be UTC.** All `datetime` values stored in the database use `datetime.now(timezone.utc)`. Never use naive `datetime.now()`. This has caused bugs before.
 
@@ -657,29 +641,28 @@ Create the content directory structure:
 
 ```bash
 mkdir -p data/content/{blogs,transcripts,analysis,logs}
-mkdir -p data/content/audio/{pending,transcribed}
+mkdir -p data/content/audio/pending
 ```
 
-Configure MacWhisper:
+Set up MacWhisper:
 
-* Watch folder: `<project>/data/content/audio/pending/`
-* Output folder: `<project>/data/content/audio/transcribed/`
-* Output format: `.txt`
+* Install MacWhisper and configure it to launch at login.
+* Install the CLI tool via MacWhisper → Settings → Advanced → Install Command-Line Tool. Verify with `mw version`.
+* Pick a transcription model (Large v3 Turbo is the current default; activate with `mw models select <id>` or in the GUI).
+* No Watch Folder is needed — `podcast_transcriber.py` calls `mw transcribe` directly per file.
 
-### Step 6: Install LaunchAgents
+### Step 6: Install the LaunchAgent
 
-Copy the plists and update paths:
+Copy the plist and update the path:
 
 ```bash
 cp <wherever>/com.fantasybaseball.content-ingest.plist ~/Library/LaunchAgents/
-cp <wherever>/com.fantasybaseball.transcript-watcher.plist ~/Library/LaunchAgents/
 ```
 
-Edit both plists to update the project directory path if different from `/Users/brianrenshaw/Projects/fantasy_baseball_br`. Then load:
+Edit it to update the project directory path if different from `/Users/brianrenshaw/Projects/fantasy_baseball_br`. Then load:
 
 ```bash
 launchctl load ~/Library/LaunchAgents/com.fantasybaseball.content-ingest.plist
-launchctl load ~/Library/LaunchAgents/com.fantasybaseball.transcript-watcher.plist
 ```
 
 ### Step 7: Deploy to Fly.io

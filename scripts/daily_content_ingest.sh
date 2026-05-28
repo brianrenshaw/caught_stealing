@@ -1,8 +1,7 @@
 #!/bin/bash
 # Daily content ingestion for fantasy baseball analysis.
 # 1. Fetches blog articles from RSS feeds
-# 2. Downloads podcast episodes into MacWhisper's watch folder
-# 3. Collects any completed MacWhisper transcripts from previous runs
+# 2. Downloads + transcribes podcast episodes via the MacWhisper CLI
 # Designed to be run by launchd at 3 AM.
 
 set -euo pipefail
@@ -21,25 +20,19 @@ echo "=========================================="
 
 cd "$PROJECT_DIR"
 
-# Step 1: Collect any transcripts MacWhisper finished since last run
-echo ""
-echo "--- Collecting MacWhisper Transcripts ---"
-uv run python -m scripts.transcript_collector || {
-    echo "WARNING: Transcript collector failed"
-}
-
-# Step 2: Fetch blog articles (last 2 days to catch anything missed)
+# Step 1: Fetch blog articles (last 2 days to catch anything missed)
 echo ""
 echo "--- Blog Ingest ---"
 uv run python -m scripts.blog_ingest --days 2 --max-articles 10 || {
     echo "WARNING: Blog ingest failed"
 }
 
-# Step 3: Download new podcast episodes (opens MacWhisper if needed)
+# Step 2: Download + transcribe podcast episodes via MacWhisper CLI.
+# Sweeps pending/ so any leftover audio from a prior failed run also gets processed.
 echo ""
-echo "--- Podcast Download ---"
+echo "--- Podcast Download + Transcribe ---"
 uv run python -m scripts.podcast_transcriber --days 2 --max-episodes 5 || {
-    echo "WARNING: Podcast downloader failed"
+    echo "WARNING: Podcast downloader/transcriber failed"
 }
 
 # Step 3.5: Refresh Yahoo league data (standings, rosters) before analysis

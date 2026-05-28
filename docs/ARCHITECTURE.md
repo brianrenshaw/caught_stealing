@@ -552,10 +552,9 @@ Combines the optimizer, schedule data, and AI to produce a comprehensive weekly 
 Automated pipeline that ingests expert fantasy baseball content and generates AI analysis reports:
 
 - **`blog_ingest.py`** — RSS feed fetcher (FanGraphs, Pitcher List, RotoWire). Saves markdown with YAML frontmatter to `data/content/blogs/`.
-- **`podcast_transcriber.py`** — Downloads podcast audio (CBS, FantasyPros, Locked On, In This League) to MacWhisper watch folder with JSON metadata sidecars.
-- **`transcript_collector.py`** — Filesystem watcher (via `watchdog`) that auto-collects MacWhisper `.txt` output, wraps in markdown, saves to `data/content/transcripts/`. Runs as launchd daemon.
+- **`podcast_transcriber.py`** — Downloads podcast audio (CBS, FantasyPros, Locked On, In This League) into `data/content/audio/pending/` with JSON metadata sidecars, then invokes the MacWhisper CLI (`mw transcribe`) per file, wraps stdout in markdown with frontmatter, and writes to `data/content/transcripts/`. Sweeps `pending/` each run so any backlog from a prior failure gets picked up. Cleans up audio + sidecars on success.
 - **`daily_analysis.py`** — Reads content + league data from SQLite, sends to Claude Opus API in a single call, splits response into section files with per-section player/source linking. Supports daily (3 sections), Monday (+ recap), and weekly (10 sections) modes.
-- **`daily_content_ingest.sh`** — Wrapper script run by launchd at 3 AM: collects transcripts → fetches blogs → downloads podcasts → generates analysis.
+- **`daily_content_ingest.sh`** — Wrapper script run by launchd at 3 AM: fetches blogs → downloads + transcribes podcasts → generates analysis.
 
 **Intel tab** (`app/routes/intel.py`) — Renders analysis reports in the web app with date-grouped sidebar, HTMX partial loading, and refresh button. See `docs/INTEL_PIPELINE.md` for full architecture documentation.
 

@@ -14,21 +14,20 @@ The script `scripts/blog_ingest.py` fetches RSS feeds from:
 
 Each article is downloaded, converted from HTML to markdown, and saved to `data/content/blogs/` with YAML frontmatter (title, source, date, author, URL).
 
-### Podcasts (RSS → audio download → MacWhisper → transcript)
+### Podcasts (RSS → audio download → MacWhisper CLI → transcript)
 The script `scripts/podcast_transcriber.py` downloads episodes from:
 - **Fantasy Baseball Today (CBS)** — daily expert roundtable
 - **FantasyPros Baseball Podcast** — draft strategy, player analysis
 - **Locked On Fantasy Baseball** — daily fantasy baseball coverage
 - **In This League Fantasy Baseball** — community-driven analysis
 
-Audio files land in `data/content/audio/pending/` alongside a JSON metadata sidecar (episode title, date, source, description). MacWhisper — running locally on the Mac — watches this folder and auto-transcribes each episode to `.txt`. A filesystem watcher (`scripts/transcript_collector.py`, running as a launchd daemon) detects new transcripts, wraps them in markdown with the metadata, and moves them to `data/content/transcripts/`.
+Audio files land in `data/content/audio/pending/` alongside a JSON metadata sidecar (episode title, date, source, description). The same script then invokes `mw transcribe <file>` (MacWhisper's command-line tool, installed via MacWhisper → Settings → Advanced) per episode, captures the stdout transcript, wraps it in markdown with the metadata as YAML frontmatter, and writes it to `data/content/transcripts/`. The audio and sidecar are deleted on success; on failure they're left in place for retry on the next run.
 
 ### Scheduling
 A launchd job runs `scripts/daily_content_ingest.sh` at 3 AM daily:
-1. Collects any finished MacWhisper transcripts from the previous cycle
-2. Fetches new blog articles
-3. Downloads new podcast episodes (opens MacWhisper if needed)
-4. Generates the analysis report
+1. Fetches new blog articles
+2. Downloads + transcribes new podcast episodes (also drains any backlog left in `pending/`)
+3. Generates the analysis report
 
 ## What We Do With the Sources
 
