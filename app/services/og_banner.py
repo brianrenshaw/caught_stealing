@@ -18,6 +18,7 @@ Layout (1200x630, navy bg, red 8px bottom rule):
     |                                               |
     +-----------------------------------------------+   ← cardinal-red rule
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -43,14 +44,36 @@ WGHT_BOLD = 700
 
 # MLB team-name → short code for the score line ("Padres" → "SD").
 TEAM_SHORT = {
-    "Diamondbacks": "ARI", "Braves": "ATL", "Orioles": "BAL", "Red Sox": "BOS",
-    "Cubs": "CHC", "White Sox": "CHW", "Reds": "CIN", "Guardians": "CLE",
-    "Rockies": "COL", "Tigers": "DET", "Astros": "HOU", "Royals": "KC",
-    "Angels": "LAA", "Dodgers": "LAD", "Marlins": "MIA", "Brewers": "MIL",
-    "Twins": "MIN", "Mets": "NYM", "Yankees": "NYY", "Athletics": "OAK",
-    "Phillies": "PHI", "Pirates": "PIT", "Padres": "SD", "Mariners": "SEA",
-    "Giants": "SF", "Cardinals": "STL", "Rays": "TB", "Rangers": "TEX",
-    "Blue Jays": "TOR", "Nationals": "WSH",
+    "Diamondbacks": "ARI",
+    "Braves": "ATL",
+    "Orioles": "BAL",
+    "Red Sox": "BOS",
+    "Cubs": "CHC",
+    "White Sox": "CHW",
+    "Reds": "CIN",
+    "Guardians": "CLE",
+    "Rockies": "COL",
+    "Tigers": "DET",
+    "Astros": "HOU",
+    "Royals": "KC",
+    "Angels": "LAA",
+    "Dodgers": "LAD",
+    "Marlins": "MIA",
+    "Brewers": "MIL",
+    "Twins": "MIN",
+    "Mets": "NYM",
+    "Yankees": "NYY",
+    "Athletics": "OAK",
+    "Phillies": "PHI",
+    "Pirates": "PIT",
+    "Padres": "SD",
+    "Mariners": "SEA",
+    "Giants": "SF",
+    "Cardinals": "STL",
+    "Rays": "TB",
+    "Rangers": "TEX",
+    "Blue Jays": "TOR",
+    "Nationals": "WSH",
 }
 
 
@@ -64,7 +87,9 @@ def _font(size: int, weight: int = WGHT_BOLD) -> ImageFont.FreeTypeFont:
     return f
 
 
-def _fit_font(text: str, max_width: int, weight: int, max_size: int, min_size: int = 60) -> ImageFont.FreeTypeFont:
+def _fit_font(
+    text: str, max_width: int, weight: int, max_size: int, min_size: int = 60
+) -> ImageFont.FreeTypeFont:
     """Return the largest font size whose rendered text width is ≤ max_width.
     Steps down by 2pt from max_size to min_size; falls back to min_size."""
     for size in range(max_size, min_size - 1, -2):
@@ -111,6 +136,14 @@ def _draw_letterspaced(
         bbox = font.getbbox(ch)
         x += (bbox[2] - bbox[0]) + spacing
     return x - start_x - spacing
+
+
+def _is_postponed(postgame: dict | None) -> bool:
+    """True when the scheduled game did not happen (rain, etc.)."""
+    if not postgame:
+        return False
+    status = (postgame.get("status") or "").lower()
+    return any(token in status for token in ("postpone", "cancelled", "suspended"))
 
 
 def _score_parts(postgame: dict) -> tuple[str, int, str, int, str, str]:
@@ -180,7 +213,18 @@ def generate_og_banner(
         fill=YELLOW,
     )
 
-    if postgame:
+    if _is_postponed(postgame):
+        # Game was scheduled but did not happen. Center "POSTPONED" the same way
+        # "OFF DAY" is centered, with the intended matchup as subtitle.
+        connector, _, _, _, opp_pretty, _ = _score_parts(postgame)
+        ppd_max_width = WIDTH - RIGHT_X - 40
+        ppd_font = _fit_font("POSTPONED", ppd_max_width, WGHT_BOLD, max_size=96, min_size=60)
+        draw.text((RIGHT_X, 260), "POSTPONED", font=ppd_font, fill=WHITE)
+        sub_font = _font(34, WGHT_REGULAR)
+        date_long = game_date.strftime("%A, %B %-d, %Y")
+        subtitle = f"{connector} {opp_pretty}  ·  {date_long}"
+        draw.text((RIGHT_X, 410), subtitle, font=sub_font, fill=YELLOW)
+    elif postgame:
         connector, stl_r, opp_short, opp_r, opp_pretty, result = _score_parts(postgame)
 
         # Big score line, white. Auto-fit so double-digit runs ("STL 12 — SD 11")

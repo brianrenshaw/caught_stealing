@@ -511,8 +511,9 @@ SYSTEM_PROMPT = (
     "Stat-driven, knowledgeable about the 26-man roster, the bullpen, the rotation, and the farm system. "
     "Write in **THIRD PERSON** about the Cardinals: 'the Cardinals', 'St. Louis', 'their rotation', "
     "'the Cardinals' prospect pipeline'. NEVER use 'I', 'me', 'we', 'us', 'our'. The reader is a fan. "
-    "The writer is a reporter. Stat-driven authority. Every claim ties to a specific number, expert "
-    "quote, or game outcome. No glib hot takes. No fan-rant first person.\n\n"
+    "The writer is a reporter. Stat-driven authority, but the prose breathes. Numbers serve the "
+    "story; the story is not a list of numbers. Pick the moments where a metric earns its mention "
+    "and let the rest read as English. No glib hot takes. No fan-rant first person.\n\n"
     "PROSE RULES (apply to all prose in Game Analysis, Cardinals Notebook, Beat Writer's Verdict, "
     "and the trailing description sentence of every Around the League / Interesting Analysis bullet):\n"
     "- NEVER use em dashes (—). Replace with periods, commas, colons, or restructure the sentence.\n"
@@ -527,6 +528,24 @@ SYSTEM_PROMPT = (
     "- Do NOT open a paragraph with a pronoun whose referent is only in the previous paragraph.\n"
     "- Do NOT restate a point you just made in different words. Do not telegraph a conclusion before\n"
     "  delivering it. Do not narrate your own rhetorical moves.\n"
+    "- METRIC RESTRAINT (Game Analysis especially). At most one stat (EV, pitch velo, xBA, WPA, spin\n"
+    "  rpm) per sentence, and most sentences should carry none. Real beat writers use three or four\n"
+    "  numbers in a 500-word game story, not thirty. Specifically:\n"
+    "    * Do NOT cite EV on bunts, soft groundouts, or any contact below ~95 mph unless the soft\n"
+    "      contact IS the story (a 70 mph squib that scored a run, a popup that fell for a hit).\n"
+    "      A 92 mph flyout is a flyout; do not append the EV.\n"
+    "    * Do NOT cite xBA on routine outs. xBA earns a mention on barrels that found a glove or on\n"
+    "      a putaway pitch that suppressed contact.\n"
+    "    * Do NOT cite spin rate unless it is a genuine outlier or the pitch design IS the angle.\n"
+    "    * Pick ONE or TWO pivot moments to anchor with WPA; do not narrate the post-play win\n"
+    "      probability after every swing. A name + outcome + leverage description is plenty for\n"
+    "      the rest.\n"
+    "    * Do NOT stack weather, attendance, time of game, AND a stat into a single sentence.\n"
+    "      Scene-setting is one detail at a time, and only when it adds something.\n"
+    "  The right cadence is: plain English describing what happened, with a number reached for when\n"
+    "  the number is genuinely the moment (a barrel, a 99 mph heater that froze a hitter, a swing\n"
+    "  that moved win probability by twenty-plus points). Restraint reads as authority. Stat-stuffing\n"
+    "  reads as a feed dump.\n"
     "- Tables, the score-header line, Statcast Highlights bullets, and bullet-list separators "
     "  ('Player Name — 99.7 mph Sinker') are exempt from the em-dash rule. The rule applies to genuine\n"
     "  prose sentences.\n\n"
@@ -724,11 +743,11 @@ The "xBA on Contact" cell shows the best xBA across the player's batted balls, w
 
 **(d) Game Analysis.** Header it `### Game Analysis`. Four to five paragraphs of beat-writer prose, **driven entirely by the POSTGAME DATA block** — no citations to blogs, podcasts, or other expert content in this subsection. The blog/podcast material is for Cardinals Notebook, not the game story.
 
-This is the narrative center of the report. It must do BOTH jobs: walk the reader through how the game actually unfolded, AND deliver the scout-flavored color commentary that ties pitch metrics to outcomes. Do not write a separate "Scout Notes" bullet list — that color belongs *inside* these paragraphs (e.g., "O'Brien's third 98.5 mph Sinker of the at-bat — the previous two were fouled off — ran back over the plate to Castellanos for a 105.2 mph homer and a +48.5% win-probability swing").
+This is the narrative center of the report. It walks the reader through how the game actually unfolded, with scout-flavored color woven into the prose rather than appended as stat tags. Most sentences should read as plain English. Reach for a metric only when the metric IS the moment. A good worked example: "O'Brien hung the third sinker of the at-bat over the plate, and Castellanos didn't miss. The homer flipped the game." That's a cleaner version of the same beat than: "O'Brien's third 98.5 mph Sinker of the at-bat, the previous two fouled off, ran back over the plate to Castellanos for a 105.2 mph homer and a +48.5% win-probability swing." Same information, but the first reads like a writer and the second reads like a JSON dump. Do not write a separate "Scout Notes" bullet list; that color belongs inside the paragraphs.
 
 Use the gamefeed data sources in this priority order. Every claim must tie to a specific datum:
 
-- **`wpa.key_swings`** — THE narrative spine. Top 6 at-bats by |WPA Δ|, each with batter, pitcher, pitch type, pitch velocity, EV, event, and full play description. Every `wpa_delta_pct_stl` is in **Cardinals perspective**: positive = Cardinals' win probability went UP, negative = Cardinals' win probability went DOWN. A Castellanos walk-off HR for San Diego shows as a negative number for the Cardinals. A Walker HR for St. Louis shows as a positive number. The `stl_wp_after_pct` field is the Cardinals' win probability immediately after that at-bat. Build the game arc around these — the −48.5% swing was the *moment* the game pivoted. Reference at least 4 of these by name and metric.
+- **`wpa.key_swings`** — THE narrative spine. Top 6 at-bats by |WPA Δ|, each with batter, pitcher, pitch type, pitch velocity, EV, event, and full play description. Every `wpa_delta_pct_stl` is in **Cardinals perspective**: positive = Cardinals' win probability went UP, negative = Cardinals' win probability went DOWN. A Castellanos walk-off HR for San Diego shows as a negative number for the Cardinals. A Walker HR for St. Louis shows as a positive number. The `stl_wp_after_pct` field is the Cardinals' win probability immediately after that at-bat. Build the game arc around these. A name and outcome is usually enough to carry a sentence; cite the specific pitch type, EV, or WPA delta only when that detail IS the story (a true barrel, an outlier velocity, a single swing that moved win probability by twenty-plus points). The pivot moment of the game earns the full treatment; the others can usually be described in plain English. The Win Probability Swings table below this section will carry the full per-pitch metrics, so the prose does not need to.
 - **`scoring_plays`** — chronological scoring sequence with the batter/pitcher/EV/xBA/pitch-velo. Connective tissue between key swings.
 - **`game_context.final_play`** — if the game ended on a scoring play (walk-off), open or close with it explicitly.
 - **`game_context.linescore_note`** — phrases like "One out when winning run scored" are pure beat-writer color; work them in naturally.
@@ -737,10 +756,10 @@ Use the gamefeed data sources in this priority order. Every claim must tie to a 
 - **`top_performers`** — MLB's own curated standouts. Use the `pitching_line` / `batting_line` strings verbatim (e.g., "5.0 IP, 0 ER, 5 K, 4 BB"). Distinguish Cardinals (`is_stl: true`) from opponents.
 - **`game_context.weather` / `wind` / `attendance` / `game_time`** — sprinkle for scene-setting (one mention max — don't make this a weather report).
 - **`game_context.abs_challenges`** — note when ABS challenges flipped a call in a leverage spot; reference the player.
-- **`statcast_highlights`** — pull specific EV/xBA/velo/spin numbers to back up claims (e.g., "Walker's 11th of the year, 108.3 mph EV, .980 xBA").
+- **`statcast_highlights`** — reach for specific EV/xBA/velo/spin numbers when they earn the mention (a barrel, an outlier velocity, a putaway pitch that suppressed contact). Default to description ("Walker's 11th, a no-doubter to dead center") and add a metric only when it adds something the reader couldn't infer from the outcome. Walker's homer doesn't need both EV and xBA in prose; the Statcast Highlights bullets section below carries that.
 - **`boxscore.batters` / `boxscore.pitchers`** — context lines (who else was in the lineup, bullpen usage, decisions).
 
-Scout-flavored sentences are encouraged throughout — pitch sequences, location reads, count leverage, pitch design observations — but they must be EMBEDDED in flowing prose, not split into a bulleted appendix. NEVER invent a number; every velocity/EV/xBA/WPA value must come straight from POSTGAME DATA.
+Scout-flavored color is welcome inside the prose: pitch sequences, location reads, count leverage, pitch design observations. Embed it in flowing sentences, not a bulleted appendix. NEVER invent a number. Every velocity, EV, xBA, or WPA value must come straight from POSTGAME DATA. Equally important, and easy to forget: you are not required to use every number that's available. Most batted balls described in the narrative do NOT need their EV stated. Most pitches do NOT need their velo stated. Save the metrics for the moments where the metric is the angle.
 
 **Strict pairing rule.** When a pitcher highlight (top_pitches, top_whiffs, best_putaways, lowest_xba_allowed) names a batter, you may say "Pitcher X retired/whiffed/punched out Batter Y". When the data block has no `batter` field for that pitch, you must NOT pair it with a specific batter name — describe it as "an 86 mph Sweeper drew a .020 xBA flyout" instead of "his 86 mph Sweeper retired Manny Machado".
 
@@ -753,7 +772,7 @@ Scout-flavored sentences are encouraged throughout — pitch sequences, location
 - Records, season-long stats, multi-game streaks, or any cumulative figure not present in POSTGAME DATA.
 - ANY information sourced from blogs, podcasts, or expert content (still no source attribution in this section).
 
-If the only honest kicker is a one-clause restatement of the final score with a pitch detail (e.g., "A 2-3 final at Petco, decided by O'Brien's third 98.5 mph Sinker"), that's fine. Better short and true than long and invented.
+The kicker can be a clean sentence of beat-writer judgment with no numbers at all, as long as it's grounded in what happened (e.g., "A 2-3 loss at Petco, the bullpen one pitch short of holding it."). A score-plus-detail line is also fine when the detail is genuinely the story (e.g., "A 2-3 final, settled when O'Brien's third sinker of the at-bat caught too much plate."). What to avoid: stacking weather, ballpark, attendance, and a stat into one robotic closer. "A 2-1 final on a 74-degree afternoon at American Family Field, decided by a fielding error in the eighth and a 30.0-point Yelich swing on a 93.3 mph Sinker" is the cadence to escape. Better short and true than long and stat-jammed.
 
 If POSTGAME DATA is null (off day), follow the **OFF-DAY MODE** instructions at the top of this section — do NOT write Game Analysis on an off day.
 
@@ -1023,6 +1042,14 @@ def _defeat_blot_heading_titlecase(markdown: str) -> str:
     return "\n".join(out_lines)
 
 
+def _is_postponed(postgame: dict | None) -> bool:
+    """True when the scheduled game did not happen (rain, suspension, etc.)."""
+    if not postgame:
+        return False
+    status = (postgame.get("status") or "").lower()
+    return any(token in status for token in ("postpone", "cancelled", "suspended"))
+
+
 def _format_blot_title(today: date, postgame: dict | None) -> str:
     """Build the Blot post Title from postgame data.
 
@@ -1031,9 +1058,10 @@ def _format_blot_title(today: date, postgame: dict | None) -> str:
     date — the post is *about* yesterday, not today.
 
     Examples:
-      "@ Padres 2-4 (L). May 9"
-      "vs. Reds 7-3 (W). May 11"
-      "Cardinals. May 11 (off day)"   ← stamps yesterday, not today
+      "@ Padres 2-4 (L) — May 9"
+      "vs. Reds 7-3 (W) — May 11"
+      "@ Reds (PPD) — May 24"          ← postponed
+      "Cardinals — May 11 (off day)"   ← stamps yesterday, not today
     """
     if not postgame:
         off_day = today - timedelta(days=1)
@@ -1046,22 +1074,27 @@ def _format_blot_title(today: date, postgame: dict | None) -> str:
     except (TypeError, ValueError):
         date_short = today.strftime("%B %-d")
 
-    ls = postgame.get("line_score") or {}
-    totals = ls.get("totals") or {}
     stl_is_home = bool(postgame.get("stl_is_home"))
-
     if stl_is_home:
-        stl_r = ((totals.get("home") or {}).get("R")) or 0
-        opp_r = ((totals.get("away") or {}).get("R")) or 0
         opp_full = postgame.get("away_team") or "Opponent"
         connector = "vs."
     else:
-        stl_r = ((totals.get("away") or {}).get("R")) or 0
-        opp_r = ((totals.get("home") or {}).get("R")) or 0
         opp_full = postgame.get("home_team") or "Opponent"
         connector = "@"
-
     opp_short = opp_full.split()[-1] if opp_full else "Opponent"
+
+    if _is_postponed(postgame):
+        return f"{connector} {opp_short} (PPD) — {date_short}"
+
+    ls = postgame.get("line_score") or {}
+    totals = ls.get("totals") or {}
+    if stl_is_home:
+        stl_r = ((totals.get("home") or {}).get("R")) or 0
+        opp_r = ((totals.get("away") or {}).get("R")) or 0
+    else:
+        stl_r = ((totals.get("away") or {}).get("R")) or 0
+        opp_r = ((totals.get("home") or {}).get("R")) or 0
+
     if stl_r > opp_r:
         wl = "W"
     elif stl_r < opp_r:
@@ -1075,6 +1108,14 @@ def _extract_summary(postgame: dict | None) -> str:
     """One-line summary for Blot's Summary: metadata + homepage preview."""
     if not postgame:
         return "Cardinals off day."
+    venue = postgame.get("venue") or ""
+    if _is_postponed(postgame):
+        stl_is_home = bool(postgame.get("stl_is_home"))
+        opp_full = (
+            postgame.get("away_team") if stl_is_home else postgame.get("home_team")
+        ) or "Opponent"
+        base = f"Cardinals vs {opp_full} postponed"
+        return f"{base} at {venue}." if venue else f"{base}."
     matchup = postgame.get("matchup") or ""
     result = postgame.get("result") or ""
     # Result is like "St. Louis Cardinals 2, San Diego Padres 4 (STL L)"
@@ -1082,7 +1123,6 @@ def _extract_summary(postgame: dict | None) -> str:
     cleaned = re.sub(r"\s*\(STL [WLT]\)\s*$", "", result).replace(
         "St. Louis Cardinals", "Cardinals"
     )
-    venue = postgame.get("venue") or ""
     if cleaned and venue:
         return f"{cleaned} at {venue}."
     return cleaned or matchup or "Cardinals daily intel report."

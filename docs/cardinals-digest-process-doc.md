@@ -18,7 +18,7 @@ The Cardinals digest is one of two morning report pipelines that share a foundat
 **Shared with the fantasy report:**
 
 * The 3 AM LaunchAgent (`com.fantasybaseball.content-ingest`) runs both pipelines back-to-back from `scripts/daily_content_ingest.sh`.
-* Blog and podcast ingestion (`scripts/blog_ingest.py`, `scripts/podcast_transcriber.py`, `scripts/transcript_collector.py`). The same RSS plumbing that pulls FanGraphs and Pitcher List for fantasy also pulls Viva El Birdos, Redbird Rants and the Locked On Cardinals podcast for this digest.
+* Blog and podcast ingestion (`scripts/blog_ingest.py`, `scripts/podcast_transcriber.py`). The same RSS plumbing that pulls FanGraphs and Pitcher List for fantasy also pulls Viva El Birdos, Redbird Rants and the Locked On Cardinals podcast for this digest. The podcast script downloads episodes and transcribes them in-process via the MacWhisper CLI (`mw transcribe`).
 * `_invoke_claude_cli` in `scripts/daily_analysis.py`. Both pipelines call this helper to invoke the bundled Claude Code binary under the user's Max subscription (no metered API spend).
 * The 4 AM verifier (`scripts/verify_daily_ingest.sh`) checks artifacts from both pipelines.
 
@@ -122,7 +122,7 @@ Player names in the body are linkified to Baseball Savant player pages via `link
 
 ### OG link preview banner
 
-Every published post starts with an auto-generated 1200×630 PNG banner — historical 1971-97 Cardinals logo on the left; "CARDINALS DAILY" yellow wordmark, big white score (`STL 2 — SD 3`), W/L chip, and game date on the right. The image is written to the same `Blot/Posts/` folder as the markdown (`{date}-cardinals-daily.png`) and embedded as the first inline element in the body. Blot resolves the relative path, exposes it via `{{#thumbnail.large}}`, and `cardinals-blot-header.html` (the `<head>` metadata block) wires that into `og:image` + `twitter:image` so iMessage / social previews show the rich card. Off days fall back to a generic "OFF DAY · {date}" layout. Banner generation is best-effort — a failure logs and the post still publishes without the image (existing OG meta falls back to the site avatar).
+Every published post starts with an auto-generated 1200×630 PNG banner — historical 1971-97 Cardinals logo on the left; "CARDINALS DAILY" yellow wordmark, big white score (`STL 2 — SD 3`), W/L chip, and game date on the right. The image is written to the same `Blot/Posts/` folder as the markdown (`{date}-cardinals-daily.png`) and embedded as the first inline element in the body. Blot resolves the relative path, exposes it via `{{#thumbnail.large}}`, and `cardinals-blot-header.html` (the `<head>` metadata block) wires that into `og:image` + `twitter:image` so iMessage / social previews show the rich card. Off days fall back to a generic "OFF DAY · {date}" layout. Postponed/cancelled/suspended games (detected by substring match on `postgame.status`) render a parallel "POSTPONED · {connector} {opp} · {date}" layout instead of a misleading 0-0 score plus TIE chip, and the Blot post title reads `{connector} {opp_short} (PPD) — {date}`. Banner generation is best-effort — a failure logs and the post still publishes without the image (existing OG meta falls back to the site avatar).
 
 Service: `app/services/og_banner.py`. Assets: `assets/StLCardinals7197.png` (500×500 RGB logo) plus `assets/fonts/RobotoSlab.ttf` (variable Roboto Slab from Google Fonts, used at 700 wght for the wordmark/score and 400 for the subtitle).
 
@@ -249,7 +249,7 @@ The postgame payload exposes the gamefeed data in eight buckets:
 
 Both `scoring_plays` and `wpa.key_swings` pick the **AB-ending pitch** (highest `pitch_number` within the at-bat). This wasn't always true. An earlier version of `_scoring_plays_from_gamefeed` picked the first pitch in the AB with a `des` populated, producing velocity values that disagreed with `wpa.key_swings` for the same plate appearance. The fact-checker correctly flagged it. Commit `29ca6fb` aligned both extractors.
 
-The prompt's Game Analysis instructions explicitly tell the model that `wpa.key_swings` is "THE narrative spine". The −48.5% game-flipping swing is the moment the game pivoted. The model is told to reference at least four key swings by name and metric. The prompt also forbids blog/podcast citations in the Score and Data section: source attribution belongs in Cardinals Notebook, not the game story.
+The prompt's Game Analysis instructions explicitly tell the model that `wpa.key_swings` is "THE narrative spine". The −48.5% game-flipping swing is the moment the game pivoted. The model is told to build the arc around the swings but only cite a metric (EV, pitch velo, xBA, WPA) when the metric IS the story — a barrel, an outlier velocity, a swing of twenty-plus WPA points. A name + outcome is the default cadence; the per-pitch metrics live in the Win Probability Swings table directly below the prose. The prompt also forbids blog/podcast citations in the Score and Data section: source attribution belongs in Cardinals Notebook, not the game story.
 
 **WPA sign convention.** All `wpa_delta_pct_stl` values are in Cardinals perspective: positive = STL win probability went UP, negative = STL win probability went DOWN. The `stl_wp_after_pct` field is the Cardinals' WP immediately after the at-bat. When STL is the road team `_wpa_leaders_from_gamefeed` flips Savant's home-team `homeTeamWinProbabilityAdded` to STL perspective. When STL is home it passes through unchanged. The Win Probability Swings table column header reads `Δ WP (STL)` and the prose describes swings as "X-point swing against the Cardinals" / "in favor of the Cardinals" rather than naming the home team's WP movement.
 
@@ -323,7 +323,7 @@ The DB stores ASCII forms ("Ivan Herrera", "Jose Fermin"), but Savant gamefeed a
 | `daily_content_ingest.sh` | `scripts/` | Shared 3 AM wrapper. Step 4.4 invokes the Cardinals runner, Step 4.45 invokes the MLB roundup runner. Steps 4.5/4.6/5 exclude both MDs by design |
 | `verify_daily_ingest.sh` | `scripts/` | 4 AM verifier. Checks local Cardinals + MLB roundup MDs exist (soft), Blot posts landed (hard), no quarantined reports (hard) |
 | `blog_ingest.py` | `scripts/` | Shared RSS fetcher. Cardinals-specific feed keys: `viva_el_birdos`, `redbird_rants`, `cardinal_nation` |
-| `podcast_transcriber.py` | `scripts/` | Shared podcast downloader. Cardinals-specific feed keys: `locked_on_cardinals`, `walton_and_reis`, `bschaeff_daily` |
+| `podcast_transcriber.py` | `scripts/` | Shared podcast downloader + transcriber (calls `mw transcribe`, writes markdown to `transcripts/`). Cardinals-specific feed keys: `locked_on_cardinals`, `walton_and_reis`, `bschaeff_daily` |
 | `mlb_daily_roundup.py` | `scripts/` | Sibling runner for the MLB-wide roundup. Same fact-check + surgical-edit loop pattern. See `docs/mlb-roundup-process-doc.md` |
 | `mlb_roundup.py` | `app/services/` | Per-game payload builder for the MLB roundup. Iterates the day's slate, fetches Savant gamefeed + bbref for each game |
 | `factcheck_mlb_roundup.py` | `scripts/` | Opus 4.7 fact-checker for the MLB roundup. Verifies all per-game summaries against per-game JSON + bbref + full standings |
@@ -383,7 +383,7 @@ fantasy_baseball_br/
 │   ├── daily_content_ingest.sh          # Shared 3 AM wrapper (Step 4.4 = Cardinals)
 │   ├── verify_daily_ingest.sh           # Shared 4 AM verifier
 │   ├── blog_ingest.py                   # Shared RSS fetcher (3 Cardinals feeds)
-│   └── podcast_transcriber.py           # Shared podcast downloader (2 Cardinals feeds)
+│   └── podcast_transcriber.py           # Shared podcast downloader + transcriber (3 Cardinals feeds)
 ├── app/services/
 │   └── cardinals_postgame.py            # Savant gamefeed → JSON payload
 ├── data/content/
@@ -510,9 +510,9 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fantasybaseball.cont
 
    Then add the feed key to `CARDINALS_SOURCES` in `scripts/cardinals_daily_report.py` (around line 70) so the Cardinals runner picks up its files from `data/content/blogs/`.
 
-2. **If it's a podcast:** add to `PODCAST_FEEDS` in `scripts/podcast_transcriber.py` (around line 46). Then add the key to `CARDINALS_SOURCES`. The transcript watcher will pick up MacWhisper output automatically.
+2. **If it's a podcast:** add to `PODCAST_FEEDS` in `scripts/podcast_transcriber.py` (around line 46). Then add the key to `CARDINALS_SOURCES`. The same script handles download + `mw transcribe` in one pass — no separate collector step.
 
-3. **Test the fetch:** `uv run python -m scripts.blog_ingest --feed my_new_blog --days 7 --max-articles 5` (or `--feed` on `podcast_transcriber`). Confirm files land in `data/content/blogs/` (or `transcripts/`) with the expected `{date}_my_new_blog_{slug}.md` filename.
+3. **Test the fetch:** `uv run python -m scripts.blog_ingest --feed my_new_blog --days 7 --max-articles 5` (or `--feeds my_new_podcast` on `podcast_transcriber`). Confirm files land in `data/content/blogs/` (or `transcripts/`) with the expected `{date}_my_new_blog_{slug}.md` filename.
 
 ### Change the section order
 
@@ -590,7 +590,7 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 * **Anthropic Max 20x subscription** signed in via the VSCode extension. The `claude -p` invocations draw from this quota, not the metered API. (The `ANTHROPIC_API_KEY` env var is explicitly scrubbed by `_invoke_claude_cli` to force the subscription path.)
 * **Dropbox** installed and signed into the account that owns the Blot blog. The `Apps/Blot/Posts/` folder must exist under your Dropbox root.
 * **Blot.im account** with a Dropbox-linked blog and a custom domain configured.
-* **MacWhisper** (for podcast transcripts. Shared with the fantasy pipeline.) Configure the watch folder at `data/content/audio/pending/` and output to `data/content/audio/transcribed/`.
+* **MacWhisper** (for podcast transcripts. Shared with the fantasy pipeline.) Install the command-line tool via MacWhisper → Settings → Advanced → Install Command-Line Tool. The `podcast_transcriber.py` script invokes `mw transcribe` directly; no GUI watch folder is required.
 
 ### Step-by-step
 
@@ -605,24 +605,18 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 2. **Create the directory tree** if it doesn't exist:
 
    ```
-   mkdir -p data/content/{blogs,transcripts,analysis,analysis/factcheck_failed,audio/pending,audio/transcribed,logs}
+   mkdir -p data/content/{blogs,transcripts,analysis,analysis/factcheck_failed,audio/pending,logs}
    ```
 
 3. **Configure the Blot Dropbox folder path.** Confirm `BLOT_POSTS_DIR` in `scripts/cardinals_daily_report.py` matches your Dropbox path. If your Dropbox account name differs, edit the constant.
 
 4. **Apply the Blot templates.** Open Blot's web editor → your blog → Templates. Replace each template's content with the matching file from `docs/`: `cardinals-blot.css` → `style.css`, `cardinals-blot-head.html` → `head.html` (visible site header), `cardinals-blot-header.html` → `header.html` (`<head>` metadata), `cardinals-blot-entries.html` → `entries.html`, `cardinals-blot-archives.html` → `archives.html`. Note: this Blot blog's `head.html` / `header.html` naming is inverted from standard HTML convention. The repo file names follow what Blot calls them.
 
-5. **Bootstrap content.** Run the blog and podcast ingestion at least once so the Cardinals digest has source material:
+5. **Bootstrap content.** Run the blog and podcast ingestion at least once so the Cardinals digest has source material. The podcast script downloads and transcribes in one pass (via `mw transcribe`); confirm MacWhisper.app is open before running it.
 
    ```
    uv run python -m scripts.blog_ingest --days 7 --max-articles 10
    uv run python -m scripts.podcast_transcriber --days 7 --max-episodes 5
-   ```
-
-   Wait for MacWhisper to finish transcribing, then:
-
-   ```
-   uv run python -m scripts.transcript_collector
    ```
 
 6. **Test the postgame fetcher.** Pick a recent date with a Cardinals game:
@@ -683,3 +677,5 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 | 2026-05-12 | Off-day Score and Data section rewritten. The model now writes a fixed two-sentence lede ("The Cardinals were off yesterday, {Monday, Month D, YYYY}. They play {today\|tomorrow\|on Weekday} {vs\|at} the {opp_short} at {venue}.") plus probable starters, sourced from `get_cardinals_next_game()` in `app/services/cardinals_postgame.py`. Heading reads `## Score and Data for {off-day date} (off day)` — uses yesterday's date, not the publish date. The OG banner and Blot post title stamp the off-day date for the same reason. Fact-check loop is skipped on off days because the lede is forward-looking by design. |
 | 2026-05-12 | Player linker migrated from FanGraphs to Baseball Savant. `load_player_links()` in `app/services/player_linking.py` now builds Savant URLs from `mlbam_id` first and falls back to FanGraphs when only `fangraphs_id` is on file. `linkify_players()` was simplified to wrap **every** occurrence of each name (previously: first body occurrence + all `### Name` headers). Lookbehind/lookahead lookarounds keep it idempotent and avoid nested-bracket double-wraps. All three publishers (Cardinals digest, MLB roundup, fantasy Daily Intel) pick up the change automatically via the shared module. |
 | 2026-05-12 | MLB Roundup standings tables now link each team name in the team column to its Baseball Savant team page (`https://baseballsavant.mlb.com/team/{team_id}`). Rendered inline in `render_standings()` from the MLBAM `team_id` already on each row. |
+| 2026-05-28 | Postponed-game handling added. `_is_postponed(postgame)` matches "postpone", "cancelled", or "suspended" in `postgame.status`. Title routes to `"{connector} {opp_short} (PPD) — {date}"`, summary reads "Cardinals vs {opp} postponed at {venue}.", and the OG banner renders a "POSTPONED" card with the matchup as subtitle instead of a misleading 0-0 score + TIE chip. Detection lives in both `app/services/og_banner.py` and `scripts/cardinals_daily_report.py`. |
+| 2026-05-28 | Game Analysis prompt rewritten to dial back metric stuffing. Removed the "every claim ties to a specific number" mandate and the "reference at least 4 by name and metric" floor; added an explicit METRIC RESTRAINT rule (at most one stat per sentence, none on bunts / sub-95 mph contact / routine xBA outs / per-swing WP narration / scene-setting stacks). Worked examples in `SECTION_INSTRUCTIONS` rewritten to model the leaner cadence; the Win Probability Swings table below the prose carries the per-pitch metrics. |
