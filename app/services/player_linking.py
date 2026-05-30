@@ -107,15 +107,25 @@ def load_player_links(db_path: Path) -> dict[str, str]:
     return links
 
 
+_MD_LINK_RE = re.compile(r"\[([^\[\]]*)\]\(([^)]+)\)")
+
+
 def linkify_players(text: str, player_links: dict[str, str]) -> str:
     """Replace every occurrence of each player name with a profile-page link.
 
     Sorts longest names first so "Jordan Walker" wins over a bare "Walker".
-    The negative lookbehind/lookahead skip text that is already inside a
-    markdown link, so re-running the linker is idempotent and links nested
-    inside an outer `[Jordan Walker](...)` label aren't double-wrapped. The
-    pattern is accent-insensitive so the ASCII DB form matches accented prose;
-    the link label preserves the accented form as it appeared in prose.
+    Two safeguards prevent broken nested links:
+
+    1. The (?<!\\[) / (?!\\]\\() lookarounds skip a name that is itself already
+       wrapped as `[Name](url)`, so re-running the linker is idempotent.
+    2. Each iteration recomputes the spans of existing `[label](url)` link
+       labels and skips matches that fall *inside* one. Without this, a model-
+       generated headline link like `[Maybe James Wood Just Thinks...](blog)`
+       would have its inner "James Wood" wrapped into a malformed nested link
+       (`[Maybe [James Wood](savant) Just Thinks...](blog)`).
+
+    Accent-insensitive pattern so the ASCII DB form matches accented prose; the
+    link label preserves the accented form as it appeared in prose.
     """
     if not player_links:
         return text
@@ -124,14 +134,32 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
     for name in sorted_names:
         url = player_links[name]
         variant = _accent_insensitive_pattern(name)
-        # `(?<!\[)` skips the label of an existing [Name](url); `(?!\]\()` skips
-        # the trailing edge of one. Together they make the substitution safe to
-        # apply to text that already has some names linked.
         pattern = rf"(?<!\[)({variant})(?!\]\()"
 
+        label_spans = [(m.start(1), m.end(1)) for m in _MD_LINK_RE.finditer(text)]
+
+        def _in_label(pos: int, spans: list[tuple[int, int]] = label_spans) -> bool:
+            return any(start <= pos < end for start, end in spans)
+
         def _replace(m: re.Match, u: str = url) -> str:
+            if _in_label(m.start()):
+                return m.group(0)
             return f"[{m.group(1)}]({u})"
 
         text = re.sub(pattern, _replace, text)
 
+    return text
+
+
+def unnest_broken_player_links(text: str) -> str:
+    """Repair `[outer [inner](inner_url) outer](outer_url)` constructs created
+    by the pre-fix linkify_players. Returns text with each nested wrap collapsed
+    back to `[outer inner outer](outer_url)`. Applied iteratively so labels
+    containing two or more nested links are fully un-nested.
+    """
+    pattern = re.compile(r"\[([^\[\]]*?)\[([^\]]+)\]\([^)]+\)([^\[\]]*?)\]\(([^)]+)\)")
+    prev = None
+    while prev != text:
+        prev = text
+        text = pattern.sub(r"[\1\2\3](\4)", text)
     return text
