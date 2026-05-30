@@ -7,7 +7,7 @@ Nation) plus postgame Statcast data via app.services.cardinals_postgame.
 
 Generates a single markdown at data/content/analysis/{today}_cardinals-daily.md
 with four sections: Previous Game, MLB Cardinals, Minor League Cardinals,
-Fan Takeaway. Uses Opus 4.7 via the Max-subscription claude -p path.
+Fan Takeaway. Uses Opus 4.8 via the Max-subscription claude -p path.
 
 Usage:
     uv run python -m scripts.cardinals_daily_report                # generate today's
@@ -65,7 +65,7 @@ DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-MODEL = "claude-opus-4-7"
+MODEL = "claude-opus-4-8"
 USE_CLAUDE_CLI = os.getenv("DAILY_ANALYSIS_USE_CLI", "1") == "1"
 CONTENT_WINDOW_DAYS = 5
 REPORT_SLUG = "cardinals-daily"
@@ -1545,7 +1545,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-factcheck",
         action="store_true",
-        help="Bypass the Opus 4.7 fact-check pass (emergency / debug only).",
+        help="Bypass the Opus 4.8 fact-check pass (emergency / debug only).",
     )
     args = parser.parse_args()
     run(

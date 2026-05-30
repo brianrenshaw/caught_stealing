@@ -50,7 +50,7 @@ DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-MODEL = "claude-opus-4-7"
+MODEL = "claude-opus-4-8"
 USE_CLAUDE_CLI = os.getenv("DAILY_ANALYSIS_USE_CLI", "1") == "1"
 SEASON = date.today().year if date.today().month >= 3 else date.today().year - 1
 
@@ -83,7 +83,7 @@ def _invoke_claude_cli(
         )
         claude_bin = ext[-1] if ext else "claude"
 
-    cli_model = "claude-opus-4-7" if "opus" in model.lower() else "claude-sonnet-4-6"
+    cli_model = "claude-opus-4-8" if "opus" in model.lower() else "claude-sonnet-4-6"
 
     env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
 

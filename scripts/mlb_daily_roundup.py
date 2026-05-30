@@ -53,7 +53,7 @@ DB_PATH = PROJECT_ROOT / "fantasy_baseball.db"
 
 load_dotenv(PROJECT_ROOT / ".env")
 
-MODEL = "claude-opus-4-7"
+MODEL = "claude-opus-4-8"
 USE_CLAUDE_CLI = os.getenv("DAILY_ANALYSIS_USE_CLI", "1") == "1"
 REPORT_SLUG = "mlb-roundup"
 # Cap on fact-check + surgical-edit iterations before quarantine. The 3 AM cron
@@ -987,7 +987,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-factcheck",
         action="store_true",
-        help="Bypass the Opus 4.7 fact-check pass (emergency / debug only)",
+        help="Bypass the Opus 4.8 fact-check pass (emergency / debug only)",
     )
     args = parser.parse_args()
     run(

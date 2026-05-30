@@ -9,7 +9,7 @@ Used by `scripts/mlb_daily_roundup.py` between Claude's generation step and
 publish — on failure, the runner regenerates once with the issues fed back,
 then quarantines the report if the retry still fails.
 
-Runs Opus 4.7 via the bundled Claude Code CLI (no metered API spend).
+Runs Opus 4.8 via the bundled Claude Code CLI (no metered API spend).
 Standalone CLI:
     uv run python -m scripts.factcheck_mlb_roundup \\
         data/content/analysis/2026-05-11_mlb-roundup.md
@@ -29,8 +29,8 @@ from scripts.daily_analysis import _invoke_claude_cli
 
 log = logging.getLogger(__name__)
 
-# Opus 4.7 by user preference — this runs at 3 AM, accuracy beats speed/cost.
-FACTCHECK_MODEL = "claude-opus-4-7"
+# Opus 4.8 by user preference — this runs at 3 AM, accuracy beats speed/cost.
+FACTCHECK_MODEL = "claude-opus-4-8"
 
 FACTCHECK_SYSTEM_PROMPT = """You are a strict fact-checker for MLB daily roundup prose. For every game in the supplied array you receive:
 - a `summary` (the 3-4 sentence prose another model wrote)

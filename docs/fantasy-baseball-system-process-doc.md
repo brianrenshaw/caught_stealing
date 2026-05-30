@@ -93,7 +93,7 @@ Two additional morning artifacts ship from the same 3 AM cron but bypass the fan
 * **Cardinals digest** (`scripts/cardinals_daily_report.py`, output `YYYY-MM-DD_cardinals-daily.md`). Publishes to `Posts/{date}-cardinals-daily.md` on Dropbox. See `docs/cardinals-digest-process-doc.md`.
 * **MLB daily roundup** (`scripts/mlb_daily_roundup.py`, output `YYYY-MM-DD_mlb-roundup.md`). Publishes to `Posts/MLB/{date}-mlb-roundup.md` on Dropbox (the subfolder tags the post `MLB`). See `docs/mlb-roundup-process-doc.md`.
 
-Both run Opus 4.7 generation followed by an Opus 4.7 fact-check loop (cross-references Baseball Savant + Baseball Reference PBP, applies surgical edits up to `MAX_FACTCHECK_ATTEMPTS = 6` before quarantining). Both are skipped from the Fly.io upload step via the bash glob in `daily_content_ingest.sh`.
+Both run Opus 4.8 generation followed by an Opus 4.8 fact-check loop (cross-references Baseball Savant + Baseball Reference PBP, applies surgical edits up to `MAX_FACTCHECK_ATTEMPTS = 6` before quarantining). Both are skipped from the Fly.io upload step via the bash glob in `daily_content_ingest.sh`.
 
 ### Web App Outputs
 
@@ -240,7 +240,7 @@ A single API call structure:
 
 ### Step 6: Call Claude API
 
-Model: `claude-opus-4-7`. Single call with retry logic for rate limits (up to 5 retries with increasing wait: 60s, 120s, 180s, 240s, 300s). Invoked via `claude -p` (Max subscription quota) by default; falls back to the Anthropic API when `DAILY_ANALYSIS_USE_CLI=0`.
+Model: `claude-opus-4-8`. Single call with retry logic for rate limits (up to 5 retries with increasing wait: 60s, 120s, 180s, 240s, 300s). Invoked via `claude -p` (Max subscription quota) by default; falls back to the Anthropic API when `DAILY_ANALYSIS_USE_CLI=0`.
 
 Estimated cost per call: ~$0.15-0.25 for daily, ~$0.50-1.00 for weekly (at Opus pricing of $5/M input, $25/M output).
 

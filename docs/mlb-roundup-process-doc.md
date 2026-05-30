@@ -17,7 +17,7 @@ The MLB roundup shares almost everything with the Cardinals digest:
 * Same shared helpers: `_invoke_claude_cli` from `scripts/daily_analysis.py`; `linkify_players` + `load_player_links` from `app/services/player_linking.py`; `_defeat_blot_heading_titlecase` from `scripts/cardinals_daily_report.py`.
 * Same Baseball Savant gamefeed primary source; same Baseball Reference cross-reference layer via `app/services/bbref_boxscore.py`.
 * Same play annotation helpers from `app/services/play_annotations.py` (`rbi`, `season_total`).
-* Same Opus 4.7 fact-checker pattern with surgical-edit retry loop and `MAX_FACTCHECK_ATTEMPTS = 6` cap.
+* Same Opus 4.8 fact-checker pattern with surgical-edit retry loop and `MAX_FACTCHECK_ATTEMPTS = 6` cap.
 * Same `--skip-factcheck` emergency bypass.
 * Same accent-insensitive player linking, now Baseball Savant–first with a FanGraphs fallback when `mlbam_id` is missing (`Iván Herrera` matches DB form `Ivan Herrera`). Every occurrence is linked, not just the first.
 
@@ -82,8 +82,8 @@ The python script `scripts/mlb_daily_roundup.py` runs this sequence:
 2. **Fetch per-game payloads** for yesterday via `app/services/mlb_roundup.py`. For each regular-season final on the date: get Savant gamefeed JSON, extract line score / key swings / scoring plays / top performers / hardest hit / top pitches / game context, fetch the bbref box score, annotate plays with `rbi` and `season_total`.
 3. **Augment with team records.** Walk each game and attach `team_records.away` and `team_records.home` from the standings map so Claude can cite streaks and L10 records inline.
 4. **Build the writer prompt.** Standings JSON for cross-team claims plus the per-game JSON array. Typical size: ~300k chars / ~75k input tokens (the bbref PBP per game is the bulk).
-5. **Invoke Opus 4.7** via `_invoke_claude_cli`. The writer returns strict JSON: `{"post_summary": "...", "summaries": {"<game_pk>": "<3-4 sentence prose>", ...}}`.
-6. **Fact-check all summaries** in one batched call (`factcheck_summaries` in `scripts/factcheck_mlb_roundup.py`, Opus 4.7). Each summary is checked against its own game's JSON plus the full standings, with bbref PBP as the secondary source.
+5. **Invoke Opus 4.8** via `_invoke_claude_cli`. The writer returns strict JSON: `{"post_summary": "...", "summaries": {"<game_pk>": "<3-4 sentence prose>", ...}}`.
+6. **Fact-check all summaries** in one batched call (`factcheck_summaries` in `scripts/factcheck_mlb_roundup.py`, Opus 4.8). Each summary is checked against its own game's JSON plus the full standings, with bbref PBP as the secondary source.
 7. **If fail:** apply a **surgical-edit retry**. The runner sends Claude (a) only the summaries that had flagged issues, (b) the specific phrase-level problems, and (c) instructions to return ONLY those summaries fixed (untouched games are preserved verbatim from the prior pass). Merge the retry's summaries on top of the previous ones and re-fact-check.
 8. **Loop steps 6-7** up to `MAX_FACTCHECK_ATTEMPTS` (currently 6).
 9. **If loop converges (pass):** Python renders the full post body (standings + game blocks). Write the local MD with frontmatter, then publish to Blot.
@@ -116,7 +116,7 @@ Full regeneration wastes tokens rewriting summaries that already passed, and the
 | File | Location | Purpose |
 |---|---|---|
 | `mlb_daily_roundup.py` | `scripts/` | Main runner. Fetches standings + per-game payloads, builds prompt, invokes Opus, loops fact-check + surgical edits, writes local MD, publishes to Blot |
-| `factcheck_mlb_roundup.py` | `scripts/` | Opus 4.7 fact-checker for per-game summaries. Cross-references Savant + bbref + full standings. Standalone CLI available |
+| `factcheck_mlb_roundup.py` | `scripts/` | Opus 4.8 fact-checker for per-game summaries. Cross-references Savant + bbref + full standings. Standalone CLI available |
 | `mlb_roundup.py` | `app/services/` | Per-game data builder. Walks the day's schedule, fetches Savant gamefeed + bbref for each game, annotates plays with `rbi` and `season_total` |
 | `bbref_boxscore.py` | `app/services/` | Shared bbref scraper (also used by Cardinals digest) |
 | `play_annotations.py` | `app/services/` | Shared play annotation helpers (also used by Cardinals digest) |

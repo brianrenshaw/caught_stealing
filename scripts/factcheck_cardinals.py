@@ -29,7 +29,7 @@ from scripts.daily_analysis import _invoke_claude_cli
 
 log = logging.getLogger(__name__)
 
-FACTCHECK_MODEL = "claude-opus-4-7"
+FACTCHECK_MODEL = "claude-opus-4-8"
 
 FACTCHECK_SYSTEM_PROMPT = """You are a strict fact-checker for a baseball beat-writer's game story. The story was written by another model from a JSON payload combining TWO independent ground-truth sources:
 - Primary: Baseball Savant gamefeed (`scoring_plays`, `wpa.key_swings`, `top_performers`, `statcast_highlights`, `boxscore`, `line_score`, `game_context`)
