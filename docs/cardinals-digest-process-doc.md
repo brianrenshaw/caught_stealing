@@ -378,7 +378,7 @@ A copy of each plist also lives at `/Users/brianrenshaw/Projects/` for editing c
 fantasy_baseball_br/
 ├── scripts/
 │   ├── cardinals_daily_report.py        # Main runner
-│   ├── factcheck_cardinals.py           # Sonnet fact-checker (also standalone CLI)
+│   ├── factcheck_cardinals.py           # Opus 4.8 fact-checker (also standalone CLI)
 │   ├── republish_to_blot.sh             # Recovery: re-push existing MD to Blot
 │   ├── daily_content_ingest.sh          # Shared 3 AM wrapper (Step 4.4 = Cardinals)
 │   ├── verify_daily_ingest.sh           # Shared 4 AM verifier
@@ -447,7 +447,7 @@ uv run python -m scripts.factcheck_cardinals \
   data/content/analysis/2026-05-11_cardinals-daily.md
 ```
 
-Re-fetches the postgame payload (the date is parsed from frontmatter. If missing, from the filename prefix) and asks Sonnet to verify the Score and Data section against it. Prints verdict plus issue list. Useful after hand-editing a quarantined draft.
+Re-fetches the postgame payload (the date is parsed from frontmatter. If missing, from the filename prefix) and asks Opus 4.8 to verify the Score and Data section against it. Prints verdict plus issue list. Useful after hand-editing a quarantined draft.
 
 `--json` flag emits the strict JSON output instead of human-readable text.
 
@@ -535,7 +535,7 @@ Edit `docs/cardinals-blot.css`. Then paste the file content into the Blot templa
 
 The system prompt in `scripts/factcheck_cardinals.py` (line 34) is where the strictness lives. The "MUST BE VERIFIED" and "MUST BE FLAGGED" lists drive what gets caught. The "DO NOT NEED VERIFICATION" list defines acceptable beat-writer color. Adding to this list reduces false positives at the cost of letting more drift through.
 
-To switch the model: change `FACTCHECK_MODEL` at the top of the file (currently `claude-sonnet-4-6`). Opus is slower but catches subtler contradictions. Sonnet is faster and catches everything we've seen in practice. The user is on Max 20x. Quota is sunk cost, so model choice is purely a runtime decision.
+To switch the model: change `FACTCHECK_MODEL` at the top of the file (currently `claude-opus-4-8`). Opus is slower but catches subtler contradictions. Sonnet is faster and catches most of what we've seen in practice. The user is on Max 20x. Quota is sunk cost, so model choice is purely a runtime decision.
 
 ### Disable the fact-check gate
 
@@ -679,3 +679,4 @@ Order matters. Skipping a step here will silently fail later in unhelpful ways.
 | 2026-05-12 | MLB Roundup standings tables now link each team name in the team column to its Baseball Savant team page (`https://baseballsavant.mlb.com/team/{team_id}`). Rendered inline in `render_standings()` from the MLBAM `team_id` already on each row. |
 | 2026-05-28 | Postponed-game handling added. `_is_postponed(postgame)` matches "postpone", "cancelled", or "suspended" in `postgame.status`. Title routes to `"{connector} {opp_short} (PPD) — {date}"`, summary reads "Cardinals vs {opp} postponed at {venue}.", and the OG banner renders a "POSTPONED" card with the matchup as subtitle instead of a misleading 0-0 score + TIE chip. Detection lives in both `app/services/og_banner.py` and `scripts/cardinals_daily_report.py`. |
 | 2026-05-28 | Game Analysis prompt rewritten to dial back metric stuffing. Removed the "every claim ties to a specific number" mandate and the "reference at least 4 by name and metric" floor; added an explicit METRIC RESTRAINT rule (at most one stat per sentence, none on bunts / sub-95 mph contact / routine xBA outs / per-swing WP narration / scene-setting stacks). Worked examples in `SECTION_INSTRUCTIONS` rewritten to model the leaner cadence; the Win Probability Swings table below the prose carries the per-pitch metrics. |
+| 2026-05-30 | Daily report pipelines bumped from Opus 4.7 to Opus 4.8. `MODEL` in `scripts/cardinals_daily_report.py` and `FACTCHECK_MODEL` in `scripts/factcheck_cardinals.py` (and the MLB roundup fact-checker) now read `claude-opus-4-8`. Commit `b55dd32`. |
