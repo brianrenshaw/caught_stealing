@@ -1,7 +1,7 @@
 """Shared player-link helpers.
 
 Builds a player-name → profile URL map from the `players` table and rewrites
-the first occurrence of each name in arbitrary markdown into a link. Used by
+every occurrence of each name in arbitrary markdown into a link. Used by
 every daily Blot publisher (fantasy Daily Intel, Cardinals report, MLB
 Roundup) so a single source of truth controls how player names are linked.
 
@@ -107,7 +107,11 @@ def load_player_links(db_path: Path) -> dict[str, str]:
     return links
 
 
-_MD_LINK_RE = re.compile(r"\[([^\[\]]*)\]\(([^)]+)\)")
+# A markdown link's `(url)`, tolerating one level of nested parens (e.g. a
+# `(disambiguation)` slug or a `?a=(b)` query param) so a `)` inside the URL
+# doesn't truncate the match.
+_URL_RE = r"\((?:[^()]|\([^()]*\))*\)"
+_MD_LINK_RE = re.compile(r"\[([^\[\]]*)\]" + _URL_RE)
 
 
 def linkify_players(text: str, player_links: dict[str, str]) -> str:
@@ -131,12 +135,19 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
         return text
     sorted_names = sorted(player_links.keys(), key=len, reverse=True)
 
+    # Spans of existing `[label](url)` link labels, recomputed only when a
+    # substitution actually changes the text. Most dictionary names never
+    # appear, so this avoids re-scanning the whole document on every one of the
+    # ~thousands of entries.
+    label_spans: list[tuple[int, int]] | None = None
+
     for name in sorted_names:
         url = player_links[name]
         variant = _accent_insensitive_pattern(name)
         pattern = rf"(?<!\[)({variant})(?!\]\()"
 
-        label_spans = [(m.start(1), m.end(1)) for m in _MD_LINK_RE.finditer(text)]
+        if label_spans is None:
+            label_spans = [(m.start(1), m.end(1)) for m in _MD_LINK_RE.finditer(text)]
 
         def _in_label(pos: int, spans: list[tuple[int, int]] = label_spans) -> bool:
             return any(start <= pos < end for start, end in spans)
@@ -146,20 +157,53 @@ def linkify_players(text: str, player_links: dict[str, str]) -> str:
                 return m.group(0)
             return f"[{m.group(1)}]({u})"
 
-        text = re.sub(pattern, _replace, text)
+        new_text = re.sub(pattern, _replace, text)
+        if new_text != text:
+            text = new_text
+            label_spans = None  # a new link was added; cached spans are stale
 
     return text
 
 
 def unnest_broken_player_links(text: str) -> str:
     """Repair `[outer [inner](inner_url) outer](outer_url)` constructs created
-    by the pre-fix linkify_players. Returns text with each nested wrap collapsed
-    back to `[outer inner outer](outer_url)`. Applied iteratively so labels
-    containing two or more nested links are fully un-nested.
+    by the pre-fix linkify_players, collapsing each inner link down to its bare
+    label text while leaving the enclosing outer link intact.
+
+    Works by merging the leftmost link that sits inside another link's label
+    into that label, then iterating until no nested links remain. Because each
+    pass strips one inner link, an outer label holding any number of inner links
+    (e.g. a headline naming two players) is fully flattened, and separate
+    sibling links that are not nested are left untouched.
     """
-    pattern = re.compile(r"\[([^\[\]]*?)\[([^\]]+)\]\([^)]+\)([^\[\]]*?)\]\(([^)]+)\)")
+    # `(\[[^\[\]]*)` is an open bracket plus non-bracket label text with no
+    # close yet (an unclosed outer label); the following `\[...\](url)` is an
+    # inner link nested inside it. Collapsing keeps the outer prefix and the
+    # inner label, dropping the inner `](url)`.
+    nested = re.compile(r"(\[[^\[\]]*)\[([^\[\]]*)\]" + _URL_RE)
     prev = None
     while prev != text:
         prev = text
-        text = pattern.sub(r"[\1\2\3](\4)", text)
+        text = nested.sub(r"\1\2", text)
     return text
+
+
+if __name__ == "__main__":  # one-time repair CLI for already-published markdown
+    import sys
+
+    # usage: uv run python -m app.services.player_linking <file.md> [<file.md> ...]
+    targets = [Path(arg) for arg in sys.argv[1:]]
+    if not targets:
+        print(
+            "usage: python -m app.services.player_linking <file.md> ...",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    for target in targets:
+        original = target.read_text(encoding="utf-8")
+        repaired = unnest_broken_player_links(original)
+        if repaired != original:
+            target.write_text(repaired, encoding="utf-8")
+            print(f"repaired {target}")
+        else:
+            print(f"clean    {target}")
